@@ -19,8 +19,9 @@
 }
 
 html, body {
-    /*font-family:    Segoe UI, Roboto, sans-serif;*/
-				font-family: "helvetica-lt", helveticaneue, "Helvetica Neue", helvetica, arial, sans-serif
+    font-family:    Segoe UI, Roboto, sans-serif;
+				/*font-family: "helvetica-lt", helveticaneue, "Helvetica Neue", helvetica, arial, sans-serif*/
+				/*font-family:    Circular, Roboto, sans-serif;*/
     font-size:      14px;
     font-weight:    400;
     color:          rgba(68, 68, 68, 1.0);

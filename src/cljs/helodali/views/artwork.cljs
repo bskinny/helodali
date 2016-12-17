@@ -294,47 +294,47 @@
                                   :children (into [] (map (partial display-secondary-image id false) (range 1 (count @images)) (rest @images) (cycle [true false])))])]]
             edit [[v-box :gap "4px" :align :baseline :justify :start
                      :children [[h-box :gap "4px" :align :center
-                                   :children [[:span.all-small-caps "title"]
+                                   :children [[:span.uppercase.light-grey "title"]
                                               [input-text :model (str @title) :placeholder "Title of piece" :width "330px" :style {:border "none"}
                                                  :on-change #(dispatch [:set-item-val [:artwork id :title] %])]]]
-                                [:span.all-small-caps "description"]
+                                [:span.uppercase.light-grey "description"]
                                 [input-textarea :model (str @description) :width "360px"
                                     :rows 7 :on-change #(dispatch [:set-item-val [:artwork id :description] %])]]]
                   [v-box :gap "4px" :align :start :justify :around
                     :children [[h-box :gap "10px" :align :center :justify :start
                                  :children [[h-box :gap "4px" :align :center
-                                              :children [[:span.all-small-caps "year"]
+                                              :children [[:span.uppercase.light-grey "year"]
                                                          [input-text :width "60px" :model (str @year) :placeholder "2016" :style {:border "none"}
                                                              :attr {:max-length 4} :on-change #(dispatch [:set-item-val [:artwork id :year] (js/Number %)])]]]
                                             [single-dropdown :choices status-options :width "118px" :model @status
                                                     :on-change #(dispatch [:set-item-val [:artwork id :status] %])]]]
                                [h-box :gap "4px" :align :center
-                                 :children [[:span.all-small-caps "type"]
+                                 :children [[:span.uppercase.light-grey "type"]
                                             [single-dropdown :choices media-options :width "160px" :model @type
                                                     :on-change #(dispatch [:set-item-val [:artwork id :type] %])]]]
                                [h-box :gap "4px" :align :center
-                                 :children [[:span.all-small-caps "medium"]
+                                 :children [[:span.uppercase.light-grey "medium"]
                                             [input-text :width "160px" :model (str @medium) :placeholder "E.g. oil on canvas" :style {:border "none"}
                                                  :on-change #(dispatch [:set-item-val [:artwork id :medium] %])]]]
                                [h-box :gap "4px" :align :center
-                                 :children [[:span.all-small-caps "dimensions"]
+                                 :children [[:span.uppercase.light-grey "dimensions"]
                                             [input-text :width "180px" :model (str @dimensions) :placeholder "E.g. H x W x D in" :style {:border "none"}
                                                  :on-change #(dispatch [:set-item-val [:artwork id :dimensions] %])]]]
                                [h-box :gap "4px" :align :center
-                                 :children [[:span.all-small-caps "condition"]
+                                 :children [[:span.uppercase.light-grey "condition"]
                                             [input-text :width "148px" :model (str @condition) :style {:border "none"}
                                                  :on-change #(dispatch [:set-item-val [:artwork id :condition] %])]]]
                                [h-box :gap "10px" :align :center :justify :start
                                  :children [[h-box :gap "4px" :align :center
-                                              :children [[:span.all-small-caps "list price"]
+                                              :children [[:span.uppercase.light-grey "list price"]
                                                          [input-text :width "80px" :model (str @list-price) :style {:border "none"}
                                                              :attr {:max-length 12} :on-change #(dispatch [:set-item-val [:artwork id :list-price] (js/Number %)])]]]
                                             [h-box :gap "4px" :align :center
-                                              :children [[:span.all-small-caps "expenses"]
+                                              :children [[:span.uppercase.light-grey "expenses"]
                                                          [input-text :width "70px" :model (str @expenses) :style {:border "none"}
                                                              :attr {:max-length 12} :on-change #(dispatch [:set-item-val [:artwork id :expenses] (js/Number %)])]]]]]]]
-                  [h-box :gap "4px" :align :center
-                     :children [[:span.all-small-caps "style"]
+                  [h-box :gap "6px" :align :center
+                     :children [[:span.uppercase.light-grey "style"]
                                 [selection-list :choices style-options :model (if (empty? @style) #{} (set @style)) :height "210px"
                                        :on-change #(dispatch [:set-item-val [:artwork id :style] %])]]]]
             edit-extended
