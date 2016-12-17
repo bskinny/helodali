@@ -1,0 +1,9 @@
+/*.log
+/target
+/*-init.clj
+/resources/public/js/compiled
+out
+figwheel_server.log
+ProcFile
+.DS_Store
+.lein-repl-history

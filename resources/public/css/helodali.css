@@ -1,0 +1,52 @@
+
+body {
+  background-color: #fafafa;
+  /*heigth: "100%"*/
+}
+
+.header {
+  background-color: #fff;
+}
+
+.red {
+ color: rgb(256,0,0);
+}
+
+.light-grey {
+  color: rgb(120,120,120);
+}
+
+.input-label {
+ font-weight: 400;
+ /*font-variant: small-caps;*/
+}
+
+.flex-container {
+    height: 100%;
+    padding: 0;
+    margin: 0;
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: -webkit-flex;
+    display: flex;
+}
+
+.cover {
+  object-fit: cover;
+}
+
+.contain {
+  object-fit: contain;
+}
+
+.none {
+  object-fit: none;
+}
+
+.image-controls-overlay {
+  z-index: 10;
+  position: absolute;
+  /*left: 0; top: 0;*/
+  right: 100; bottom: 100;
+}
