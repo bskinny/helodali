@@ -24,15 +24,16 @@
         page-numbers (subscribe [:item-key :press id :page-numbers])
         include-in-cv? (subscribe [:item-key :press id :include-in-cv])
         notes (subscribe [:item-key :press id :notes])
-        editing (subscribe [:item-key :press id :editing])]
+        editing (subscribe [:item-key :press id :editing])
+        display-type (subscribe [:app-key :display-type])]
     [(fn []
-      (let [controls [h-box :gap "2px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
-                        :children [[row-button :md-icon-name "zmdi zmdi-edit"
-                                     :mouse-over-row? true :tooltip "Toggle Editing" :tooltip-position :right-center
-                                     :on-click #(dispatch [:set-local-item-val [:press id :editing] (not @editing)])]
-                                   [row-button :md-icon-name "zmdi zmdi-delete"
-                                     :mouse-over-row? true :tooltip "Delete this item" :tooltip-position :right-center
-                                     :on-click #(dispatch [:delete-item :press id])]]]
+      (let [view-control [h-box :gap "12px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
+                           :children [[row-button :md-icon-name "zmdi zmdi-edit"
+                                        :mouse-over-row? true :tooltip "Edit this item" :tooltip-position :right-center
+                                        :on-click #(dispatch [:edit-item [:press id]])]
+                                      [row-button :md-icon-name "zmdi zmdi-delete"
+                                        :mouse-over-row? true :tooltip "Delete this item" :tooltip-position :right-center
+                                        :on-click #(dispatch [:delete-item :press id])]]]
             view [[:span.bold @title]
                   (when (not (empty? @publication))
                     [h-box :gap "8px" :align :center :justify :start
@@ -65,43 +66,55 @@
                     [v-box :gap "4px" :align :start :justify :start :max-width "480px"
                             :children [[:span.uppercase.light-grey "notes"]
                                        [:span @notes]]])]
+            create-control [h-box :gap "30px" :align :center
+                              :children [[button :label "Create" :class "btn-default"
+                                           :on-click #(dispatch [:create-from-placeholder :press])]
+                                         [button :label "Cancel" :class "btn-default"
+                                           :on-click #(dispatch [:delete-item :press id])]]]
+            save-control [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
+                             :children [[button :label "Save" :class "btn-default"
+                                          :on-click #(dispatch [:save-changes [:press id]])]
+                                        [button :label "Cancel" :class "btn-default"
+                                          :on-click #(dispatch [:cancel-edit-item [:press id]])]]]
             edit [[h-box :gap "8px" :align :center :justify :between
                     :children [[:span.uppercase.bold "Title"]
                                [input-text :model (str @title) :placeholder "Of article or piece" :width "320px" :style {:border "none"}
-                                  :on-change #(dispatch [:set-item-val [:press id :title] %])]]]
+                                  :on-change #(dispatch [:set-local-item-val [:press id :title] %])]]]
                   [h-box :gap "6px" :align :center
                     :children [[:span.uppercase.light-grey "publication"]
                                [input-text :width "280px" :model (str @publication) :style {:border "none"}
-                                    :on-change #(dispatch [:set-item-val [:press id :publication] %])]]]
+                                    :on-change #(dispatch [:set-local-item-val [:press id :publication] %])]]]
                   [h-box :gap "6px" :align :center
                     :children [[:span.uppercase.light-grey "Author's Name"]
                                [input-text :width "140px" :model (str @author-first-name) :placeholder "First name" :style {:border "none"}
-                                    :on-change #(dispatch [:set-item-val [:press id :author-first-name] %])]
+                                    :on-change #(dispatch [:set-local-item-val [:press id :author-first-name] %])]
                                [input-text :width "140px" :model (str @author-last-name) :placeholder "Last name" :style {:border "none"}
-                                    :on-change #(dispatch [:set-item-val [:press id :author-last-name] %])]]]
+                                    :on-change #(dispatch [:set-local-item-val [:press id :author-last-name] %])]]]
                   [h-box :gap "6px" :align :center
                     :children [[:span.uppercase.light-grey "url"]
                                [input-text :width "280px" :model (str @url) :style {:border "none"}
-                                    :on-change #(dispatch [:set-item-val [:press id :url] %])]]]
+                                    :on-change #(dispatch [:set-local-item-val [:press id :url] %])]]]
                   [h-box :gap "6px" :align :center
                     :children [[:span.uppercase.light-grey "volume"]
                                [input-text :width "140px" :model (str @volume) :style {:border "none"}
-                                    :on-change #(dispatch [:set-item-val [:press id :volume] %])]]]
+                                    :on-change #(dispatch [:set-local-item-val [:press id :volume] %])]]]
                   [h-box :gap "6px" :align :center
                     :children [[:span.uppercase.light-grey "Published on"]
                                [datepicker-dropdown :model (goog.date.UtcDateTime. @publication-date)
-                                     :on-change #(dispatch [:set-item-val [:press id :publication-date] %])]]]
+                                     :on-change #(dispatch [:set-local-item-val [:press id :publication-date] %])]]]
                   [h-box :gap "6px" :align :center
                     :children [[:span.uppercase.light-grey "page numbers"]
                                [input-text :width "140px" :model (str @page-numbers) :style {:border "none"}
-                                    :on-change #(dispatch [:set-item-val [:press id :page-numbers] %])]]]
-                  [checkbox :model @include-in-cv? :label "Include in your CV?"
-                     :on-change #(dispatch [:set-item-val [:press id :include-in-cv] (not @include-in-cv?)])]
+                                    :on-change #(dispatch [:set-local-item-val [:press id :page-numbers] %])]]]
+                  [checkbox :model include-in-cv? :label "Include in your CV?"
+                     :on-change #(dispatch [:set-local-item-val [:press id :include-in-cv] (not @include-in-cv?)])]
                   [:span.uppercase.light-grey "Notes"]
                   [input-textarea :model (str @notes) :width "360px"
-                      :rows 4 :on-change #(dispatch [:set-item-val [:press id :notes] %])]]]
+                      :rows 4 :on-change #(dispatch [:set-local-item-val [:press id :notes] %])]]]
         [v-box :gap "10px" :align :start :justify :start ;:style {:border "dashed 1px red"}
-               :children (into (if @editing edit view) [controls])]))]))
+               :children (into (if @editing edit view) (if (= @display-type :new-item)
+                                                          [create-control]
+                                                          (if @editing [save-control] [view-control])))]))]))
 
 (defn item-list-view
   "Display item properties in single line - no image display. The 'widths' map contains the string
@@ -194,7 +207,7 @@
         id (last @item-path)]
     (fn []
       (when (not (empty? @item-path))
-        [v-box :gap "10px" :margin "40px" ;:style {:flex-flow "row wrap"}
+        [v-box :gap "10px" :margin "40px"
            :children [(item-view id)]]))))
 
 (defn new-item-view
@@ -204,12 +217,7 @@
     (fn []
       (when (not (empty? @item-path))
         [v-box :gap "10px" :margin "40px" :align :center :justify :start
-           :children [(item-view id)
-                      [h-box :gap "30px" :align :center
-                         :children [[button :label "Create" :class "btn-default"
-                                       :on-click #(dispatch [:create-from-placeholder :press])]
-                                    [button :label "Cancel" :class "btn-default"
-                                       :on-click #(dispatch [:delete-item :press id])]]]]]))))
+           :children [(item-view id)]]))))
 
 (defn press-view
   "Display press articles"

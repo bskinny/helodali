@@ -26,8 +26,8 @@
   (let [bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
         year-path (conj profile-path-to idx :year)
         val-path (conj profile-path-to idx :val)
-        year (subscribe [:by-path (concat [:profile] year-path)])
-        val (subscribe [:by-path (concat [:profile] val-path)])]
+        year (subscribe [:by-path year-path])
+        val (subscribe [:by-path val-path])]
     [(fn []
       [v-box :gap "10px" :justify :start :align :start :padding "10px"
          :style {:background bg-color :border "1px solid lightgray" :border-radius "4px"} :width "100%"
@@ -35,13 +35,13 @@
                        :children [[h-box :gap "6px" :align :center
                                      :children [[:span.uppercase.light-grey "Year"]
                                                 [input-text :width "60px" :model (str @year) :style {:border "none"}
-                                                      :on-change #(dispatch [:set-profile-val year-path (int %)])]]]
+                                                      :on-change #(dispatch [:set-local-item-val year-path (int %)])]]]
                                   [button :label "Delete" :class "btn-default"
-                                          :on-click #(dispatch [:delete-profile-vector-element profile-path-to idx])]]]
+                                          :on-click #(dispatch [:delete-local-vector-element profile-path-to idx])]]]
                     [h-box :gap "8px" :align :center :justify :between
                         :children [[:span.uppercase.light-grey label-string]
                                    [input-text :model (str @val) :placeholder "" :width "420px" :style {:border "none"}
-                                      :on-change #(dispatch [:set-profile-val val-path %])]]]]])]))
+                                      :on-change #(dispatch [:set-local-item-val val-path %])]]]]])]))
 
 (defn item-view
   "Display the profile"
@@ -63,10 +63,15 @@
         editing (subscribe [:by-path [:profile :editing]])]
     (fn []
       (let [header [title :level :level2 :label "Artist Information"]
-            controls [h-box :gap "2px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
-                        :children [[row-button :md-icon-name "zmdi zmdi-edit"
-                                     :mouse-over-row? true :tooltip "Toggle Editing" :tooltip-position :right-center
-                                     :on-click #(dispatch [:set-local-item-val [:profile :editing] (not @editing)])]]]
+            view-control [h-box :gap "2px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
+                             :children [[row-button :md-icon-name "zmdi zmdi-edit"
+                                          :mouse-over-row? true :tooltip "Edit your profile" :tooltip-position :right-center
+                                          :on-click #(dispatch [:edit-item [:profile]])]]]
+            save-control [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
+                             :children [[button :label "Save" :class "btn-default"
+                                          :on-click #(dispatch [:save-changes [:profile]])]
+                                        [button :label "Cancel" :class "btn-default"
+                                          :on-click #(dispatch [:cancel-edit-item [:profile]])]]]
             view [[h-box :gap "8px" :align :center :justify :start
                      :children [[:span.bold @cn]
                                 (when (not (nil? @birth-year))
@@ -115,65 +120,65 @@
             edit [[h-box :gap "8px" :align :center :justify :between
                     :children [[:span.uppercase.bold "Name"]
                                [input-text :model (str @cn) :placeholder "" :width "320px" :style {:border "none"}
-                                  :on-change #(dispatch [:set-profile-val [:name] %])]]]
+                                  :on-change #(dispatch [:set-local-item-val [:profile :name] %])]]]
                   [h-box :gap "6px" :align :center
                     :children [[:span.uppercase.light-grey "Birth Year"]
                                [input-text :width "60px" :model (str @birth-year) :style {:border "none"}
-                                    :on-change #(dispatch [:set-profile-val [:birth-year] %])]]]
+                                    :on-change #(dispatch [:set-local-item-val [:profile :birth-year] %])]]]
                   [h-box :gap "8px" :align :center :justify :between
                           :children [[:span.uppercase.light-grey "Birth Place"]
                                      [input-text :model (str @birth-place) :placeholder "" :width "320px" :style {:border "none"}
-                                        :on-change #(dispatch [:set-profile-val [:birth-place] %])]]]
+                                        :on-change #(dispatch [:set-local-item-val [:profile :birth-place] %])]]]
                   [h-box :gap "8px" :align :center :justify :between
                           :children [[:span.uppercase.light-grey "Currently Resides"]
                                      [input-text :model (str @currently-resides) :placeholder "" :width "320px" :style {:border "none"}
-                                        :on-change #(dispatch [:set-profile-val [:currently-resides] %])]]]
+                                        :on-change #(dispatch [:set-local-item-val [:profile :currently-resides] %])]]]
                   [h-box :gap "8px" :align :center :justify :between
                           :children [[:span.uppercase.light-grey "Email"]
                                      [input-text :model (str @email) :placeholder "" :width "320px" :style {:border "none"}
-                                        :on-change #(dispatch [:set-profile-val [:email] %])]]]
+                                        :on-change #(dispatch [:set-local-item-val [:profile :email] %])]]]
                   [h-box :gap "6px" :align :center
                     :children [[:span.uppercase.light-grey "Phone"]
                                [input-text :width "280px" :model (str @phone) :style {:border "none"}
-                                    :on-change #(dispatch [:set-profile-val [:phone] %])]]]
+                                    :on-change #(dispatch [:set-local-item-val [:profile :phone] %])]]]
                   [h-box :gap "6px" :align :center
                     :children [[:span.uppercase.light-grey "url"]
                                [input-text :width "280px" :model (str @url) :style {:border "none"}
-                                    :on-change #(dispatch [:set-profile-val [:url] %])]]]
+                                    :on-change #(dispatch [:set-local-item-val [:profile :url] %])]]]
                   [v-box :gap "6px" :align :start :justify :start :align-self :stretch
                       :children [[h-box :gap "6px" :align :center :justify :start
                                    :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Add a Degree"
-                                                 :on-click #(dispatch [:create-profile-vector-element [:degrees] (helodali.db/default-year-val-map)])]
+                                                 :on-click #(dispatch [:create-local-vector-element [:profile :degrees] (helodali.db/default-year-val-map)])]
                                               [:span "Degrees"]]]
                                  (when (not (empty? @degrees))
                                    [v-box :gap "16px" :align :start :justify :start :align-self :stretch
-                                      :children (into [] (map (partial display-year-and-label-edit "Degree" [:degrees]) (range (count @degrees)) (cycle [true false])))])]]
+                                      :children (into [] (map (partial display-year-and-label-edit "Degree" [:profile :degrees]) (range (count @degrees)) (cycle [true false])))])]]
                   [v-box :gap "6px" :align :start :justify :start :align-self :stretch
                       :children [[h-box :gap "6px" :align :center :justify :start
                                    :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Add Award or Grant"
-                                                 :on-click #(dispatch [:create-profile-vector-element [:awards-and-grants] (helodali.db/default-year-val-map)])]
+                                                 :on-click #(dispatch [:create-local-vector-element [:profile :awards-and-grants] (helodali.db/default-year-val-map)])]
                                               [:span "Awards & Grants"]]]
                                  (when (not (empty? @awards-and-grants))
                                    [v-box :gap "16px" :align :start :justify :start :align-self :stretch
-                                      :children (into [] (map (partial display-year-and-label-edit "Award or Grant" [:awards-and-grants]) (range (count @awards-and-grants)) (cycle [true false])))])]]
+                                      :children (into [] (map (partial display-year-and-label-edit "Award or Grant" [:profile :awards-and-grants]) (range (count @awards-and-grants)) (cycle [true false])))])]]
                   [v-box :gap "6px" :align :start :justify :start :align-self :stretch
                       :children [[h-box :gap "6px" :align :center :justify :start
                                    :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Recidencies"
-                                                 :on-click #(dispatch [:create-profile-vector-element [:residencies] (helodali.db/default-year-val-map)])]
+                                                 :on-click #(dispatch [:create-local-vector-element [:profile :residencies] (helodali.db/default-year-val-map)])]
                                               [:span "Recidencies"]]]
                                  (when (not (empty? @residencies))
                                    [v-box :gap "16px" :align :start :justify :start :align-self :stretch
-                                      :children (into [] (map (partial display-year-and-label-edit "Recidency" [:residencies]) (range (count @residencies)) (cycle [true false])))])]]
+                                      :children (into [] (map (partial display-year-and-label-edit "Recidency" [:profile :residencies]) (range (count @residencies)) (cycle [true false])))])]]
                   [v-box :gap "6px" :align :start :justify :start :align-self :stretch
                       :children [[h-box :gap "6px" :align :center :justify :start
                                    :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Lectures & Talks"
-                                                 :on-click #(dispatch [:create-profile-vector-element [:lectures-and-talks] (helodali.db/default-year-val-map)])]
+                                                 :on-click #(dispatch [:create-local-vector-element [:profile :lectures-and-talks] (helodali.db/default-year-val-map)])]
                                               [:span "Lectures & Talks"]]]
                                  (when (not (empty? @lectures-and-talks))
                                    [v-box :gap "16px" :align :start :justify :start :align-self :stretch
-                                      :children (into [] (map (partial display-year-and-label-edit "Lecture or Talk" [:lectures-and-talks]) (range (count @lectures-and-talks)) (cycle [true false])))])]]]]
+                                      :children (into [] (map (partial display-year-and-label-edit "Lecture or Talk" [:profile :lectures-and-talks]) (range (count @lectures-and-talks)) (cycle [true false])))])]]]]
         [v-box :gap "10px" :align :start :justify :start ;:style {:border "dashed 1px red"}
-               :children (concat [header] (if @editing edit view) [controls])]))))
+               :children (concat [header] (if @editing edit view) [(if @editing save-control view-control)])]))))
 
 (defn profile-view
   "Display the user's profile"

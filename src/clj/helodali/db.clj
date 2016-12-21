@@ -154,34 +154,16 @@
       (map? in) (clojure.walk/walk (fn [[k v]] [k (filter-out-empty v)]) identity (filter-out-empty in))
       :else in))
 
-(defn update-profile
-  "Update artist profile. The table is assumed to be :profiles. If the val is nil or an empty
-   set, then perform a REMOVE of the attribute as opposed to a SET of a nil value."
-  ;; TODO: Put in condition to assert existence of item. Otherwise a new, inchoate, item will be create
-  [uuid path val]
-  (let [[attr-expression expression-map] (convert-path-to-expression-attribute path)
-        val (walk-cleaner val)
-        changes (if (or (nil? val) (and (coll? val) (empty? val)))
-                  {:update-expr     (str "REMOVE " attr-expression)
-                   :expr-attr-names expression-map
-                   :return          :all-new}
-                  {:update-expr     (str "SET " attr-expression " = :val")
-                   :expr-attr-names expression-map
-                   :expr-attr-vals  {":val" val}
-                   :return          :all-new})]
-    (pprint (str "Performing changes: " changes))
-    (far/update-item co :profiles {:uuid uuid} changes)))
-
-(defn update-item
+(defn apply-attribute-change
   "Update artwork, press, exhibitions, documents, or contacts table. The 'path'
    argument is a keyword or vector path into the item in given 'table'. E.g. :notes or
    [:purchases 1 :date]
   If the val is nil or an empty set, then perform a REMOVE of the attribute as opposed to a SET of a nil value."
   ;; TODO: Put in condition to assert existence of item. Otherwise a new, inchoate, item will be create
-  [table uref uuid path val]
+  [table primary-key path val]
   (let [[attr-expression expression-map] (convert-path-to-expression-attribute path)
         val (walk-cleaner val)
-        changes (if (or (nil? val) (and (set? val) (empty? val)))
+        change (if (or (nil? val) (and (set? val) (empty? val)))
                   {:update-expr     (str "REMOVE " attr-expression)
                    :expr-attr-names expression-map
                    :return          :all-new}
@@ -189,8 +171,62 @@
                    :expr-attr-names expression-map
                    :expr-attr-vals  {":val" val}
                    :return          :all-new})]
-    (pprint (str "Performing changes: " changes))
-    (far/update-item co table {:uref uref :uuid uuid} changes)))
+    (pprint (str "Performing change: " change))
+    (far/update-item co table primary-key change)))
+
+(defn- build-db-changes
+  "A reducer on a map representing updates to an item."
+  [m idx [path val]]
+  (let [[attr-expression expression-map] (convert-path-to-expression-attribute path)
+        val (walk-cleaner val)
+        merged-expr-attr-names (merge (:expr-attr-names m) expression-map)]
+    (if (or (nil? val) (and (set? val) (empty? val)))
+      (merge m {:remove-update-expr (conj (:remove-update-expr m) (str attr-expression))
+                :expr-attr-names merged-expr-attr-names})
+      (merge m {:set-update-expr (conj (:set-update-expr m) (str attr-expression " = :val" idx))
+                :expr-attr-names merged-expr-attr-names
+                :expr-attr-vals  (merge (:expr-attr-vals m) {(str ":val" idx) val})}))))
+
+(defn apply-attribute-changes
+  "Update artwork, press, exhibitions, documents, or contacts table. The 'changes'
+   argument is a map of changes to apply with keys representing paths, or attribute names, see DynamoDB
+   UpdateExpressions (http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.Modifying.html).
+   Any nil values will result in REMOVE UpdateExpression."
+  ;; TODO: Put in condition to assert existence of item. Otherwise a new, inchoate, item will be create
+  [table primary-key changes]
+  (let [indexed-changes (zipmap (range (count changes)) changes) ;; Yields {0 [[:purchases 0 :date] "2001-03-14"], 1 [[:name] "Bo"]}
+        db-changes (-> (reduce-kv build-db-changes {} indexed-changes))
+        update-expression (str
+                            (when (:set-update-expr db-changes)
+                              (str "SET " (clojure.string/join ", " (:set-update-expr db-changes)) " "))
+                            (when (:remove-update-expr db-changes)
+                              (str "REMOVE " (clojure.string/join ", " (:remove-update-expr db-changes)))))
+        db-changes (-> (assoc db-changes :return :all-new)
+                      (assoc :update-expr update-expression)
+                      (dissoc :set-update-expr)
+                      (dissoc :remove-update-expr))]
+    (pprint (str "Performing changes: " db-changes))
+    (if (nil? update-expression)
+      (pprint (str "No changes to apply for " changes))
+      (far/update-item co table primary-key db-changes))))
+
+(defn update-item
+  "Update items in artwork, press, exhibitions, documents, or contacts tables. The method of building
+   the DynamoDB changeset depends on whether we are called with a single attribute change (path == [path to attribute])
+   or multiple attribute changes within an item (path == nil and val is keyed with attribute paths)"
+  [table uref uuid path val]
+  (if (nil? path)
+    (apply-attribute-changes table {:uref uref :uuid uuid} val)
+    (apply-attribute-change table {:uref uref :uuid uuid} path val)))
+
+(defn update-user-table
+  "Update a user table, such as profiles. The method of building
+   the DynamoDB changeset depends on whether we are called with a single attribute change (path == [path to attribute])
+   or multiple attribute changes within an item (path == nil and val is keyed with attribute paths)"
+  [table uuid path val]
+  (if (nil? path)
+    (apply-attribute-changes table {:uuid uuid} val)
+    (apply-attribute-change table {:uuid uuid} path val)))
 
 (defn refresh-item-path
   "Fetch item from artwork, press, exhibitions, documents, or contacts table. The 'path'
@@ -215,7 +251,6 @@
   [table uref uuid]
   (far/delete-item co table {:uref uref :uuid uuid}))
 
-; (pprint (initialize-db "1073c8b0-ab47-11e6-8f9d-c83ff47bbdcb"))
 (defn create-table
   [name]
   (far/create-table co name

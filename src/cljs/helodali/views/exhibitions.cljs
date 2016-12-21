@@ -43,15 +43,16 @@
         press (subscribe [:items-vals-with-uuid :press :title])
         kind (subscribe [:item-key :exhibitions id :kind])
         notes (subscribe [:item-key :exhibitions id :notes])
-        editing (subscribe [:item-key :exhibitions id :editing])]
+        editing (subscribe [:item-key :exhibitions id :editing])
+        display-type (subscribe [:app-key :display-type])]
     [(fn []
-      (let [controls [h-box :gap "2px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
-                        :children [[row-button :md-icon-name "zmdi zmdi-edit"
-                                     :mouse-over-row? true :tooltip "Toggle Editing" :tooltip-position :right-center
-                                     :on-click #(dispatch [:set-local-item-val [:exhibitions id :editing] (not @editing)])]
-                                   [row-button :md-icon-name "zmdi zmdi-delete"
-                                     :mouse-over-row? true :tooltip "Delete this item" :tooltip-position :right-center
-                                     :on-click #(dispatch [:delete-item :exhibitions id])]]]
+      (let [view-control [h-box :gap "12px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
+                           :children [[row-button :md-icon-name "zmdi zmdi-edit"
+                                        :mouse-over-row? true :tooltip "Edit this item" :tooltip-position :right-center
+                                        :on-click #(dispatch [:edit-item [:exhibitions id]])]
+                                      [row-button :md-icon-name "zmdi zmdi-delete"
+                                        :mouse-over-row? true :tooltip "Delete this item" :tooltip-position :right-center
+                                        :on-click #(dispatch [:delete-item :exhibitions id])]]]
             view [[h-box :gap "18px" :align :center :justify :between
                     :children [[:span.bold @cn]
                                [:span.all-small-caps (clojure.string/replace (name @kind) #"-" " ")]]]
@@ -78,36 +79,48 @@
                     [v-box :gap "4px" :align :start :justify :start :max-width "480px"
                             :children [[:span.uppercase.light-grey "notes"]
                                        [:span @notes]]])]
+            create-control [h-box :gap "30px" :align :center
+                              :children [[button :label "Create" :class "btn-default"
+                                           :on-click #(dispatch [:create-from-placeholder :exhibitions])]
+                                         [button :label "Cancel" :class "btn-default"
+                                           :on-click #(dispatch [:delete-item :exhibitions id])]]]
+            save-control [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
+                             :children [[button :label "Save" :class "btn-default"
+                                          :on-click #(dispatch [:save-changes [:exhibitions id]])]
+                                        [button :label "Cancel" :class "btn-default"
+                                          :on-click #(dispatch [:cancel-edit-item [:exhibitions id]])]]]
             edit [[h-box :gap "8px" :align :center :justify :between
                     :children [[:span.uppercase.bold "Name"]
                                [input-text :model (str @cn) :placeholder "Of exhibition" :width "240px" :style {:border "none"}
-                                  :on-change #(dispatch [:set-item-val [:exhibitions id :name] %])]
+                                  :on-change #(dispatch [:set-local-item-val [:exhibitions id :name] %])]
                                [single-dropdown :choices kind-options :width "118px" :model @kind
-                                       :on-change #(dispatch [:set-item-val [:exhibitions id :kind] %])]]]
+                                       :on-change #(dispatch [:set-local-item-val [:exhibitions id :kind] %])]]]
                   [h-box :gap "4px" :align :center
                     :children [[:span.uppercase.light-grey "location"]
                                [input-text :width "280px" :model (str @location) :style {:border "none"}
-                                    :on-change #(dispatch [:set-item-val [:exhibitions id :location] %])]]]
+                                    :on-change #(dispatch [:set-local-item-val [:exhibitions id :location] %])]]]
                   [h-box :gap "4px" :align :center
                     :children [[:span.input-label (str "From ")]
                                [datepicker-dropdown :model (goog.date.UtcDateTime. @begin-date)
-                                     :on-change #(dispatch [:set-item-val [:exhibitions id :begin-date] %])]
+                                     :on-change #(dispatch [:set-local-item-val [:exhibitions id :begin-date] %])]
                                [:span.input-label (str " to ")]
                                [datepicker-dropdown :model (goog.date.UtcDateTime. @end-date)
-                                     :on-change #(dispatch [:set-item-val [:exhibitions id :end-date] %])]]]
+                                     :on-change #(dispatch [:set-local-item-val [:exhibitions id :end-date] %])]]]
                   [h-box :gap "4px" :align :center
                     :children [[:span.uppercase.light-grey "url"]
                                [input-text :width "280px" :model (str @url) :style {:border "none"}
-                                    :on-change #(dispatch [:set-item-val [:exhibitions id :url] %])]]]
+                                    :on-change #(dispatch [:set-local-item-val [:exhibitions id :url] %])]]]
                   [h-box :gap "6px" :align :center
                      :children [[:span.input-label "Press"]
                                 [selection-list :choices (uuid-label-list-to-options @press false) :model (if (empty? @associated-press) #{} (set @associated-press)) ;:height "140px"
-                                       :on-change #(dispatch [:set-item-val [:exhibitions id :associated-press] %])]]]
+                                       :on-change #(dispatch [:set-local-item-val [:exhibitions id :associated-press] %])]]]
                   [:span.uppercase.light-grey "Notes"]
                   [input-textarea :model (str @notes) :width "360px"
-                      :rows 4 :on-change #(dispatch [:set-item-val [:exhibitions id :notes] %])]]]
+                      :rows 4 :on-change #(dispatch [:set-local-item-val [:exhibitions id :notes] %])]]]
         [v-box :gap "10px" :align :start :justify :start ;:style {:border "dashed 1px red"}
-               :children (into (if @editing edit view) [controls])]))]))
+               :children (into (if @editing edit view) (if (= @display-type :new-item)
+                                                          [create-control]
+                                                          (if @editing [save-control] [view-control])))]))]))
 
 (defn item-list-view
   "Display item properties in single line - no image display. The 'widths' map contains the string
@@ -216,12 +229,7 @@
     (fn []
       (when (not (empty? @item-path))
         [v-box :gap "10px" :margin "40px" :align :center :justify :start
-           :children [(item-view id)
-                      [h-box :gap "30px" :align :center
-                         :children [[button :label "Create" :class "btn-default"
-                                       :on-click #(dispatch [:create-from-placeholder :exhibitions])]
-                                    [button :label "Cancel" :class "btn-default"
-                                       :on-click #(dispatch [:delete-item :exhibitions id])]]]]]))))
+           :children [(item-view id)]]))))
 
 (defn exhibitions-view
   "Display exhibitions"

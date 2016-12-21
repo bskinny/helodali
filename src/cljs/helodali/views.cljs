@@ -108,7 +108,7 @@
        ;;
        (when (and (not @authenticated?) (not (empty? @csrf-token)) (not (empty? @access-token)))
          ;; We have an access token in local storage, validate it and possibly avoid login prompt
-         (dispatch [:validate-token @access-token]))
+         (dispatch [:validate-access-token]))
 
        (when (and @authenticated? (not (empty? @csrf-token)) (empty? @profile))
          ;; Everything is ready for the login request which results in the population of the app-db

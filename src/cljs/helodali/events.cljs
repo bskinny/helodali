@@ -7,6 +7,7 @@
                            remove-vector-element into-sorted-map]]
     [cljs-time.core :as ct]
     [cljs.pprint :refer [pprint]]
+    [reagent.core :as r]
     [re-frame.core :refer [reg-event-db reg-event-fx inject-cofx path trim-v reg-cofx
                            after debug dispatch]]
     [day8.re-frame.http-fx]
@@ -77,6 +78,7 @@
   (fn [db [_ result]]
     ;; Some values in the items need coercion back to DateTime and keyword syntaxes.
     ; (pprint (str "Raw: " result))
+    (pprint (str "initialize-db-from-result, access-token: " (:access-token db)))
     (let [fixer (partial fix-date :parse)
           artwork (->> (:artwork result)
                       (fixer :created)
@@ -149,7 +151,7 @@
   (let [spec-it (check-and-throw :helodali.spec/db db)
         type (first path)
         id (second path)
-        item-path (rest (rest path))  ;; hop over type and 'id' which only exists on the client app-db
+        inside-item-path (rest (rest path))  ;; hop over type and 'id' which only exists on the client app-db
         val (walk-cleaner val)
         fx {:db db}]
     ;; Submit change to server for all updates except those to the placeholder item in the client, which
@@ -160,13 +162,32 @@
                               :uri             "/update-item"
                               :params          {:uref (get-in db [type id :uref]) ;; TODO: server must confirm this uref matches user's login profile
                                                 :uuid (get-in db [type id :uuid])
-                                                :table type :path item-path :val val}
+                                                :table type :path inside-item-path :val val}
                               :headers         {:x-csrf-token (:csrf-token db)}
                               :timeout         5000
                               :format          (ajax/transit-request-format {})
                               :response-format (ajax/transit-response-format {:keywords? true})
                               :on-success      [:noop]
                               :on-failure      [:bad-result {}]}}))))
+
+;; Similar to above but restricted to the app-db's :profile, which results to writes against
+;; the :profiles table on the server. 'path' should be [:profile] or start as such.
+(defn- update-profile-fx
+  [db path val]
+  (let [ _ (check-and-throw :helodali.spec/db db)
+        inside-profile-path (rest path)
+        val (walk-cleaner val)]
+    {:db db
+     :http-xhrio {:method          :post
+                  :uri             "/update-profile"
+                  :params          {:uuid (get-in db [:profile :uuid])
+                                    :path inside-profile-path :val val}
+                  :headers         {:x-csrf-token (:csrf-token db)}
+                  :timeout         5000
+                  :format          (ajax/transit-request-format {})
+                  :response-format (ajax/transit-response-format {:keywords? true})
+                  :on-success      [:noop]
+                  :on-failure      [:bad-result {}]}}))
 
 (defn- create-fx
   [db table item]
@@ -200,48 +221,91 @@
                   :on-success      [:noop]
                   :on-failure      [:bad-result {}]}}))
 
+(def ^:private app-db-undo (r/atom nil))
+
+;; Switch to edit mode for given item. Stash the current app-db to undo changes
+;; that are canceled. 'item-path' is a path to item such as [:press 2]
+;; This can also be called with [:profile] as the item-path.
+(reg-event-db
+  :edit-item
+  manual-check-spec
+  (fn [db [item-path]]
+    (reset! app-db-undo db)
+    (-> db
+      (assoc-in (conj item-path :editing) true))))
+
+;; Switch from edit to view mode for given item. Reset the current app-db to the
+;; state save in app-db-undo. 'item-path' is a path to item such as [:press 2]
+;; This can also be called with [:profile] as the item-path.
+(reg-event-db
+  :cancel-edit-item
+  manual-check-spec
+  (fn [db [item-path]]
+    (let [db @app-db-undo]
+      (reset! app-db-undo nil)
+      (assoc-in db (conj item-path :editing) false))))
+
+;; Compute the diff between the item in the current app-db and that stored in app-db-undo
+;; and apply changes. The item-path is a vector pointing to the item, E.g. [:press 3]
+;; The :profile can be used as the item-path.
+(reg-event-fx
+  :save-changes
+  manual-check-spec
+  (fn [{:keys [db]} [item-path]]     ;; TODO: reset app-db-undo, to be safe
+    (let [type (first item-path)
+          item (get-in db item-path)
+          new-db (assoc-in db (conj item-path :editing) false)
+          diff (clojure.data/diff (get-in db item-path) (get-in @app-db-undo item-path))
+          diffA (first diff)  ;; Only in current db
+          diffB (second diff) ;; Only in snapshot (app-db-undo)
+          ;; Use diffA as a basis for the changes made to the item. Since we assign nil values as opposed to removing
+          ;; map keys/vals, diffA should contain all changes except for those made within collection-valued keys
+          ;; (e.g. vector-valued :purchases of artwork or :degrees of profile). In this case, we look for any occurrence
+          ;; of the key (e.g. :purchases in artwork) in either diffA or diffB and overwite the entire value instead of
+          ;; trying to pinpoint the exact change within the collection. TODO: We should reconsider vector-valued keys because of this?
+          changes (cond-> diffA
+                     (:editing diffA) (dissoc :editing)
+                     (and (= type :profile) (or (:degrees diffA) (:degrees diffB))) (assoc :degrees (:degrees item))
+                     (and (= type :profile) (or (:collections diffA) (:collections diffB))) (assoc :collections (:collections item))
+                     (and (= type :profile) (or (:lectures-and-talks diffA) (:lectures-and-talks diffB))) (assoc :lectures-and-talks (:lectures-and-talks item))
+                     (and (= type :profile) (or (:residencies diffA) (:residencies diffB))) (assoc :residencies (:residencies item))
+                     (and (= type :profile) (or (:awards-and-grants diffA) (:awards-and-grants diffB))) (assoc :awards-and-grants (:awards-and-grants item))
+                     (and (= type :artwork) (or (:purchases diffA) (:purchases diffB))) (assoc :purchases (:purchases item))
+                     (and (= type :artwork) (or (:exhibition-history diffA) (:exhibition-history diffB))) (assoc :exhibition-history (:exhibition-history item)))]
+      (pprint (str "CHANGES: " changes))
+      (condp = type
+        :profile (update-profile-fx new-db item-path changes)
+        (update-fx new-db item-path changes)))))
+
+;; Update the app-db locally (i.e. do not propogate change to server)
+;; path is a vector pointing into :profile or items, e.g. :artwork, :contacts, etc. E.g.
+;; [:artwork 16 :purchases 0 :price] or [:exhibitions 3 :location]
+(reg-event-db
+  :set-local-item-val
+  manual-check-spec
+  (fn [db [path val]]
+    (assoc-in db path val)))
+
 ;; path is a vector pointing into items, e.g. :artwork, :contacts, etc. E.g.
 ;; [:artwork 16 :purchases 0 :price] or [:exhibitions 3 :location]
 ;; The update is applied in memory and the new database is checked against spec before
 ;; submitting the update to the server.
 (reg-event-fx
   :set-item-val
-  interceptors
+  manual-check-spec
   (fn [_world [path val]]
     (let [db (:db _world)
           new-db (assoc-in db path val)]
       (update-fx new-db path val))))
 
-;; Similar to above but restricted to the app-db's :profile, which results to writes against
-;; the :profiles table on the server. The 'path' argument starts inside :profile.
-(reg-event-fx
-  :set-profile-val
-  manual-check-spec
-  (fn [_world [path val]]
-    (let [db (:db _world)
-          new-db (assoc-in db (into [:profile] path) val)
-          _ (check-and-throw :helodali.spec/db db)
-          val (walk-cleaner val)]
-      {:db new-db
-       :http-xhrio {:method          :post
-                    :uri             "/update-profile"
-                    :params          {:uuid (get-in db [:profile :uuid])
-                                      :path path :val val}
-                    :headers         {:x-csrf-token (:csrf-token db)}
-                    :timeout         5000
-                    :format          (ajax/transit-request-format {})
-                    :response-format (ajax/transit-response-format {:keywords? true})
-                    :on-success      [:noop]
-                    :on-failure      [:bad-result {}]}})))
-
 ;; POST /validate-token request and set authenticated?=true if successful, also
 ;; storing the retrieved id-token
 (reg-event-fx
-  :validate-token
-  (fn [{:keys [db]} [_ access-token]]
+  :validate-access-token
+  (fn [{:keys [db]} _]
     {:http-xhrio {:method          :post
                   :uri             "/validate-token"
-                  :params          {:access-token access-token}
+                  :params          {:access-token (:access-token db)}
                   :headers         {:x-csrf-token (:csrf-token db)}
                   :timeout         5000
                   :format          (ajax/transit-request-format {})
@@ -371,6 +435,7 @@
                     (assoc :display-type :single-item)
                     (assoc-in [type id] (get-in db [type 0]))
                     (assoc-in [type id :uref] (get-in db [:profile :uuid]))
+                    (assoc-in [type id :editing] false)
                     (update-in [type] dissoc 0))]
       (create-fx new-db type (get-in new-db [type id])))))
 
@@ -419,6 +484,14 @@
           new-db (assoc-in db path val)]
       (update-fx new-db path val))))
 
+;; Apply this change only to our app-db: Push new 'defaults' element in the front of vector given by 'path'
+(reg-event-db
+  :create-local-vector-element
+  interceptors
+  (fn [db [path defaults]] ;; defaults is a map, e.g. the output of helodali.db/default-purchase, inserted at head of vector
+    (let [val (into [defaults] (get-in db path))]
+      (assoc-in db path val))))
+
 (reg-event-fx
   :create-profile-vector-element
   manual-check-spec
@@ -446,6 +519,13 @@
     (let [val (remove-vector-element (get-in db path) idx)
           new-db (assoc-in db path val)]
       (update-fx new-db path val))))
+
+(reg-event-db
+  :delete-local-vector-element
+  interceptors
+  (fn [db [path idx]]
+    (let [val (remove-vector-element (get-in db path) idx)]
+      (assoc-in db path val))))
 
 ;; Like above, but the vector element being deleted is a map with a :key key pointing to
 ;; a s3 object which needs removing. We need to update the DB as well as issue one or
@@ -487,7 +567,7 @@
 (reg-event-db
   :display-single-item
   interceptors
-  (fn [db [type uuid]]
+  (fn [db [type uuid editing?]]
     (-> db
       (assoc :display-type :single-item)
       (assoc :view type)

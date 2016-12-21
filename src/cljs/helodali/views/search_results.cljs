@@ -33,15 +33,17 @@
   [pattern widths match odd-row?]
   (let [bg-color (if odd-row? "#F4F4F4" "#FCFCFC")]
     [(fn []
-      [h-box :align :center :justify :start :style {:background bg-color} :padding "8px" :width "100%"
-        :children [[label :width "8ch" :label (name (:type match))]
-                   [hyperlink :class "semibold" :style {:width (str (max 18 (:title widths)) "ch")}
-                              :label (trunc (:title match) (:title widths))
-                              :on-click #(if (= :profile (:type match))
-                                           (route-profile)
-                                           (route-single-item (:type match) (:uuid match)))]
-                   [v-box :gap "6px" :align :start :justify :start
-                       :children (into [] (map (partial display-match pattern (:match widths)) (:match match)))]]])]))
+      ; (pprint (str "viewing: " match))
+      (let [title (or (:title match) "none")] ;; Guard against nil-valued hyperlink labels
+        [h-box :align :center :justify :start :style {:background bg-color} :padding "8px" :width "100%"
+          :children [[label :width "8ch" :label (name (:type match))]
+                     [hyperlink :class "semibold" :style {:width (str (max 18 (:title widths)) "ch")}
+                                :label (trunc title (:title widths))
+                                :on-click #(if (= :profile (:type match))
+                                             (route-profile)
+                                             (route-single-item (:type match) (:uuid match)))]
+                     [v-box :gap "6px" :align :start :justify :start
+                         :children (into [] (map (partial display-match pattern (:match widths)) (:match match)))]]]))]))
 
 (defn list-view
   "Display list of matches, one row at a time."

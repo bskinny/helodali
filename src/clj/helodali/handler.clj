@@ -3,7 +3,7 @@
             [compojure.route :refer [resources]]
             [clojure.pprint :refer [pprint]]
             [helodali.db :refer [initialize-db update-item create-item delete-item
-                                 update-profile valid-user? refresh-item-path]]
+                                 update-user-table valid-user? refresh-item-path]]
             [helodali.auth0 :as auth0]
             [ring.util.response :refer [content-type response resource-response file-response redirect]]
             [ring.middleware.reload :refer [wrap-reload]]
@@ -30,7 +30,7 @@
 
   (POST "/update-profile" [uuid path val :as req]  ;; TODO: validate uref with login ID
     (pprint (str "update-profile uuid/path/val: " uuid "/" path "/" val))
-    (response (update-profile uuid path val)))
+    (response (update-user-table :profiles uuid path val)))
 
   (POST "/update-item" [uref uuid table path val :as req]  ;; TODO: validate uref with login ID
     (pprint (str "update-item uref/uuid/path/val: " uref "/" uuid "/" path "/" val))
@@ -59,6 +59,7 @@
   (POST "/login" [access-token :as req]
     (let [userinfo (auth0/get-userinfo access-token)]
       (pprint (str "Handle /login with userinfo: " userinfo))
+      (pprint (str "  And req: " req))
       (when (nil? (:sub userinfo))
         (pprint "No :sub claim found in userinfo: " userinfo))
       (response (initialize-db userinfo))))

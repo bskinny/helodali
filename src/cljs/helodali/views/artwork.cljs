@@ -2,7 +2,8 @@
     (:require [helodali.db :as db]
               [helodali.routes :refer [route-single-item route-new-item]]
               [helodali.misc :refer [trunc compute-bg-color convert-map-to-options max-string-length expired?
-                                     sort-by-datetime sort-by-key-then-created uuid-label-list-to-options]]
+                                     sort-by-datetime sort-by-key-then-created uuid-label-list-to-options
+                                     remove-vector-element]]
               [cljs.pprint :refer [pprint]]
               [cljs-time.format :refer [unparse formatters]]
               [reagent.core  :as r]
@@ -72,14 +73,14 @@
                                   [h-box :gap "6px" :align :center
                                      :children [[single-dropdown :choices (uuid-label-list-to-options @exhibitions) :model (if (nil? @exhibition-uuid) :none exhibition-uuid) :width "200px"
                                                        :on-change #(if (and (not= @exhibition-uuid %) (not (and (= @exhibition-uuid nil) (= % :none))))
-                                                                     (dispatch [:set-item-val [:artwork id :exhibition-history idx :ref] (if (= :none %) nil %)]))]]]]]
+                                                                     (dispatch [:set-local-item-val [:artwork id :exhibition-history idx :ref] (if (= :none %) nil %)]))]]]]]
                     [h-box :gap "6px" :align :center :justify :between :align-self :stretch
                        :children [[h-box :gap "6px" :align :center
                                      :children [[:span.input-label "Notes "]
                                                 [input-textarea :model (str @notes) :width "520px"
-                                                    :rows 4 :on-change #(dispatch [:set-item-val [:artwork id :exhibition-history idx :notes] %])]]]
+                                                    :rows 4 :on-change #(dispatch [:set-local-item-val [:artwork id :exhibition-history idx :notes] %])]]]
                                   [button :label "Delete" :class "btn-default"
-                                          :on-click #(dispatch [:delete-vector-element [:artwork id :exhibition-history] idx])]]]]])]))
+                                          :on-click #(dispatch [:delete-local-vector-element [:artwork id :exhibition-history] idx])]]]]])]))
 
 (defn display-purchase-view
   [purchase odd-row?]
@@ -154,49 +155,49 @@
          :children [[h-box :gap "6px" :align :center
                        :children [[:span.input-label (str "Purchased ")]
                                   [datepicker-dropdown :model (goog.date.UtcDateTime. @purchase-date)
-                                        :on-change #(dispatch [:set-item-val [:artwork id :purchases idx :date] %])]
+                                        :on-change #(dispatch [:set-local-item-val [:artwork id :purchases idx :date] %])]
                                   [h-box :gap "6px" :align :center
                                      :children [[:span "by "]
                                                 [single-dropdown :choices (uuid-label-list-to-options @contacts) :model (if (nil? @buyer-uuid) :none buyer-uuid) :width "200px"
                                                        :on-change #(if (and (not= @buyer-uuid %) (not (and (= @buyer-uuid nil) (= % :none))))
-                                                                     (dispatch [:set-item-val [:artwork id :purchases idx :buyer] %]))]]]
+                                                                     (dispatch [:set-local-item-val [:artwork id :purchases idx :buyer] %]))]]]
                                   [checkbox :model @on-public-display :label "On Public Display?"
-                                     :on-change #(dispatch [:set-item-val [:artwork id :purchases idx :on-public-display] (not @on-public-display)])]
+                                     :on-change #(dispatch [:set-local-item-val [:artwork id :purchases idx :on-public-display] (not @on-public-display)])]
                                   [checkbox :model @collection :label "Part of Collection?"
-                                     :on-change #(dispatch [:set-item-val [:artwork id :purchases idx :collection] (not @collection)])]]]
+                                     :on-change #(dispatch [:set-local-item-val [:artwork id :purchases idx :collection] (not @collection)])]]]
                     [h-box :gap "6px" :align :center
                       :children [[:span.input-label "Location"]
                                  [input-text :width "384px" :model (str @location) :style {:border "none"}
-                                      :on-change #(dispatch [:set-item-val [:artwork id :purchases idx :location] %])]
+                                      :on-change #(dispatch [:set-local-item-val [:artwork id :purchases idx :location] %])]
                                  [checkbox :model @donated :label "Donated?"
-                                    :on-change #(dispatch [:set-item-val [:artwork id :purchases idx :donated] (not @donated)])]
+                                    :on-change #(dispatch [:set-local-item-val [:artwork id :purchases idx :donated] (not @donated)])]
                                  [checkbox :model @commissioned :label "Commissioned?"
-                                    :on-change #(dispatch [:set-item-val [:artwork id :purchases idx :commissioned] (not @commissioned)])]]]
+                                    :on-change #(dispatch [:set-local-item-val [:artwork id :purchases idx :commissioned] (not @commissioned)])]]]
                     [h-box :gap "8px" :align :center
                        :children [[h-box :gap "4px" :align :center
                                     :children [[:span.input-label "Price "]
                                                [input-text :width "80px" :model (str @price) :style {:border-radius "4px"}
-                                                   :attr {:max-length 12} :on-change #(dispatch [:set-item-val [:artwork id :purchases idx :price] (js/Number %)])]]]
+                                                   :attr {:max-length 12} :on-change #(dispatch [:set-local-item-val [:artwork id :purchases idx :price] (js/Number %)])]]]
                                   [h-box :gap "4px" :align :center
                                     :children [[:span.input-label "Total commission percentage given to agents and dealers "]
                                                [input-text :width "70px" :model (str @total-commission-percent) :style {:border-radius "4px"}
-                                                   :attr {:max-length 12} :on-change #(dispatch [:set-item-val [:artwork id :purchases idx :total-commission-percent] (js/Number %)])]]]]]
+                                                   :attr {:max-length 12} :on-change #(dispatch [:set-local-item-val [:artwork id :purchases idx :total-commission-percent] (js/Number %)])]]]]]
                     [h-box :gap "6px" :align :center
                        :children [[:span.input-label "Agent "]
                                   [single-dropdown :choices (uuid-label-list-to-options @contacts) :model (if (nil? @agent-uuid) :none agent-uuid) :width "200px"
                                        :on-change #(if (and (not= @agent-uuid %) (not (and (= @agent-uuid nil) (= % :none))))
-                                                     (dispatch [:set-item-val [:artwork id :purchases idx :agent] (if (= :none %) nil %)]))]
+                                                     (dispatch [:set-local-item-val [:artwork id :purchases idx :agent] (if (= :none %) nil %)]))]
                                   [:span.input-label "Dealer "]
                                   [single-dropdown :choices (uuid-label-list-to-options @contacts) :model (if (nil? @dealer-uuid) :none dealer-uuid) :width "200px"
                                        :on-change #(if (and (not= @dealer-uuid %) (not (and (= @dealer-uuid nil) (= % :none))))
-                                                     (dispatch [:set-item-val [:artwork id :purchases idx :dealer] (if (= :none %) nil %)]))]]]
+                                                     (dispatch [:set-local-item-val [:artwork id :purchases idx :dealer] (if (= :none %) nil %)]))]]]
                     [h-box :gap "6px" :align :center :justify :between :align-self :stretch
                        :children [[h-box :gap "6px" :align :center
                                      :children [[:span.input-label "Notes "]
-                                                [input-textarea :model (str @notes) :width "520px"
-                                                    :rows 4 :on-change #(dispatch [:set-item-val [:artwork id :purchases idx :notes] %])]]]
+                                                [input-textarea :model (str @notes) :width "520px" :rows 4
+                                                    :on-change #(dispatch [:set-local-item-val [:artwork id :purchases idx :notes] %])]]]
                                   [button :label "Delete" :class "btn-default"
-                                               :on-click #(dispatch [:delete-vector-element [:artwork id :purchases] idx])]]]]])]))
+                                          :on-click #(dispatch [:delete-local-vector-element [:artwork id :purchases] idx])]]]]])]))
 
 (defn show-spinner
   []
@@ -292,56 +293,66 @@
                              (when (> (count @images) 1)
                                [h-box :gap "16px" :align :start :justify :start :padding "20px" :style {:flex-flow "row wrap"}
                                   :children (into [] (map (partial display-secondary-image id false) (range 1 (count @images)) (rest @images) (cycle [true false])))])]]
+            create-control [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
+                              :children [[button :label "Create" :class "btn-default"
+                                           :on-click #(dispatch [:create-from-placeholder :artwork])]
+                                         [button :label "Cancel" :class "btn-default"
+                                           :on-click #(dispatch [:delete-item :artwork id])]]]
+            save-control [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
+                             :children [[button :label "Save" :class "btn-default"
+                                          :on-click #(dispatch [:save-changes [:artwork id]])]
+                                        [button :label "Cancel" :class "btn-default"
+                                          :on-click #(dispatch [:cancel-edit-item [:artwork id]])]]]
             edit [[v-box :gap "4px" :align :baseline :justify :start
                      :children [[h-box :gap "4px" :align :center
                                    :children [[:span.uppercase.light-grey "title"]
                                               [input-text :model (str @title) :placeholder "Title of piece" :width "330px" :style {:border "none"}
-                                                 :on-change #(dispatch [:set-item-val [:artwork id :title] %])]]]
+                                                 :on-change #(dispatch [:set-local-item-val [:artwork id :title] %])]]]
                                 [:span.uppercase.light-grey "description"]
                                 [input-textarea :model (str @description) :width "360px"
-                                    :rows 7 :on-change #(dispatch [:set-item-val [:artwork id :description] %])]]]
+                                    :rows 7 :on-change #(dispatch [:set-local-item-val [:artwork id :description] %])]]]
                   [v-box :gap "4px" :align :start :justify :around
                     :children [[h-box :gap "10px" :align :center :justify :start
                                  :children [[h-box :gap "4px" :align :center
                                               :children [[:span.uppercase.light-grey "year"]
                                                          [input-text :width "60px" :model (str @year) :placeholder "2016" :style {:border "none"}
-                                                             :attr {:max-length 4} :on-change #(dispatch [:set-item-val [:artwork id :year] (js/Number %)])]]]
+                                                             :attr {:max-length 4} :on-change #(dispatch [:set-local-item-val [:artwork id :year] (js/Number %)])]]]
                                             [single-dropdown :choices status-options :width "118px" :model @status
-                                                    :on-change #(dispatch [:set-item-val [:artwork id :status] %])]]]
+                                                    :on-change #(dispatch [:set-local-item-val [:artwork id :status] %])]]]
                                [h-box :gap "4px" :align :center
                                  :children [[:span.uppercase.light-grey "type"]
                                             [single-dropdown :choices media-options :width "160px" :model @type
-                                                    :on-change #(dispatch [:set-item-val [:artwork id :type] %])]]]
+                                                    :on-change #(dispatch [:set-local-item-val [:artwork id :type] %])]]]
                                [h-box :gap "4px" :align :center
                                  :children [[:span.uppercase.light-grey "medium"]
                                             [input-text :width "160px" :model (str @medium) :placeholder "E.g. oil on canvas" :style {:border "none"}
-                                                 :on-change #(dispatch [:set-item-val [:artwork id :medium] %])]]]
+                                                 :on-change #(dispatch [:set-local-item-val [:artwork id :medium] %])]]]
                                [h-box :gap "4px" :align :center
                                  :children [[:span.uppercase.light-grey "dimensions"]
                                             [input-text :width "180px" :model (str @dimensions) :placeholder "E.g. H x W x D in" :style {:border "none"}
-                                                 :on-change #(dispatch [:set-item-val [:artwork id :dimensions] %])]]]
+                                                 :on-change #(dispatch [:set-local-item-val [:artwork id :dimensions] %])]]]
                                [h-box :gap "4px" :align :center
                                  :children [[:span.uppercase.light-grey "condition"]
                                             [input-text :width "148px" :model (str @condition) :style {:border "none"}
-                                                 :on-change #(dispatch [:set-item-val [:artwork id :condition] %])]]]
+                                                 :on-change #(dispatch [:set-local-item-val [:artwork id :condition] %])]]]
                                [h-box :gap "10px" :align :center :justify :start
                                  :children [[h-box :gap "4px" :align :center
                                               :children [[:span.uppercase.light-grey "list price"]
                                                          [input-text :width "80px" :model (str @list-price) :style {:border "none"}
-                                                             :attr {:max-length 12} :on-change #(dispatch [:set-item-val [:artwork id :list-price] (js/Number %)])]]]
+                                                             :attr {:max-length 12} :on-change #(dispatch [:set-local-item-val [:artwork id :list-price] (js/Number %)])]]]
                                             [h-box :gap "4px" :align :center
                                               :children [[:span.uppercase.light-grey "expenses"]
                                                          [input-text :width "70px" :model (str @expenses) :style {:border "none"}
-                                                             :attr {:max-length 12} :on-change #(dispatch [:set-item-val [:artwork id :expenses] (js/Number %)])]]]]]]]
+                                                             :attr {:max-length 12} :on-change #(dispatch [:set-local-item-val [:artwork id :expenses] (js/Number %)])]]]]]]]
                   [h-box :gap "6px" :align :center
                      :children [[:span.uppercase.light-grey "style"]
                                 [selection-list :choices style-options :model (if (empty? @style) #{} (set @style)) :height "210px"
-                                       :on-change #(dispatch [:set-item-val [:artwork id :style] %])]]]]
+                                       :on-change #(dispatch [:set-local-item-val [:artwork id :style] %])]]]]
             edit-extended
               [v-box :gap "6px" :align :start :justify :start :align-self :stretch
                   :children [[h-box :gap "6px" :align :center :justify :start
                                :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Add a Purchase record"
-                                             :on-click #(dispatch [:create-vector-element [:artwork id :purchases] (db/default-purchase)])]
+                                             :on-click #(dispatch [:create-local-vector-element [:artwork id :purchases] (db/default-purchase)])]
                                           [:span "Purchases"]]]
                              (when (not (empty? @purchases))
                                [v-box :gap "16px" :align :start :justify :start :align-self :stretch
@@ -349,16 +360,20 @@
                              [re-com/gap :size "4px"]
                              [h-box :gap "6px" :align :center :justify :start
                                 :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Add an Exhibition record"
-                                              :on-click #(dispatch [:create-vector-element [:artwork id :exhibition-history] (db/default-exhibition-history)])]
+                                              :on-click #(dispatch [:create-local-vector-element [:artwork id :exhibition-history] (db/default-exhibition-history)])]
                                            [:span "Exhibitions"]]]
                              (when (not (empty? @exhibition-history))
                                [v-box :gap "16px" :align :start :justify :start :align-self :stretch
                                   :children (into [] (map (partial display-exhibition-history-edit id) (range (count @exhibition-history)) (cycle [true false])))])]]]
         [v-box :gap "8px" :align :start :justify :start :margin "20px" ;:style {:border "dashed 1px #ddd"}
            :children [[h-box :gap "10px"  :align :start :justify :start
-                         :children (if @editing edit view)]
+                         :children (if (and @editing single-item) edit view)]
                       (when single-item
-                        (if @editing edit-extended view-extended))]]))))
+                        (if @editing edit-extended view-extended))
+                      (when (and single-item @editing)
+                        (if (= @display-type :new-item)
+                          create-control
+                          save-control))]]))))
 
 (defn item-view
   "Display an item"
@@ -378,17 +393,18 @@
         image-size (if (or (= @display-type :contact-sheet) @editing) "240px" "480px")]  ;; Set image size based on contact-sheet vs. other views
     [(fn []
       (let [controls [h-box :gap "2px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
-                        :children [(when (not (= @display-type :contact-sheet))
-                                     [row-button :disabled? (not @editing) :md-icon-name "zmdi zmdi-plus-circle-o"
-                                       :mouse-over-row? true :tooltip "Add image" :tooltip-position :right-center
-                                       :on-click #(dispatch [:set-local-item-val [:artwork id :show-add-image-input] true])])
+                        :children [;(when (not (= @display-type :contact-sheet))
+                                   ;  [row-button :disabled? (not @editing) :md-icon-name "zmdi zmdi-plus-circle-o"
+                                   ;    :mouse-over-row? true :tooltip "Add image" :tooltip-position :right-center
+                                   ;    :on-click #(dispatch [:set-local-item-val [:artwork id :show-add-image-input] true])
                                    (when (not single-item)
                                      [row-button :md-icon-name "zmdi zmdi-copy"
                                        :mouse-over-row? true :tooltip "Copy this item" :tooltip-position :right-center
                                        :on-click #(dispatch [:copy-item :artwork id :title])])
-                                   [row-button :md-icon-name "zmdi zmdi-edit"
-                                     :mouse-over-row? true :tooltip "Toggle Editing" :tooltip-position :right-center
-                                     :on-click #(dispatch [:set-local-item-val [:artwork id :editing] (not @editing)])]
+                                   (when single-item
+                                     [row-button :md-icon-name "zmdi zmdi-edit"
+                                       :mouse-over-row? true :tooltip "Edit this item" :tooltip-position :right-center
+                                       :on-click #(dispatch [:edit-item [:artwork id]])])
                                    [row-button :md-icon-name "zmdi zmdi-delete"
                                      :mouse-over-row? true :tooltip "Delete this item" :tooltip-position :right-center
                                      :on-click #(dispatch [:delete-artwork-item :artwork id])]
@@ -472,7 +488,7 @@
                                                                                       :on-mouse-out  (handler-fn (reset! showing-download-tooltip? false))
                                                                                       :href (:signed-raw-url image)
                                                                                       :download ""}]])]])]]
-                                    (when @expanded controls)
+                                    (when (and @expanded (or (not @editing) (not single-item))) controls)
                                     (when (not @expanded) [:span (title-string @title)])]]
                        (when @expanded [item-properties-panel id])]])))]))
 
@@ -673,12 +689,7 @@
     (fn []
       (when (not (empty? @item-path))
         [v-box :gap "10px" :margin "40px" :align :center :justify :start
-           :children [(item-view id)
-                      [h-box :gap "30px" :align :center
-                         :children [[button :label "Create" :class "btn-default"
-                                       :on-click #(dispatch [:create-from-placeholder :artwork])]
-                                    [button :label "Cancel" :class "btn-default"
-                                       :on-click #(dispatch [:delete-item :artwork id])]]]]]))))
+           :children [(item-view id)]]))))
 
 (defn artwork-contact-sheet
   "Display contact sheet of items"

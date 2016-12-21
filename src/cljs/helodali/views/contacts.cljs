@@ -3,7 +3,7 @@
               [helodali.routes :refer [route-single-item route-new-item]]
               [helodali.misc :refer [trunc compute-bg-color max-string-length url-to-href sort-by-key-then-created]]
               [cljs.pprint :refer [pprint]]
-              [reagent.core  :as r]
+              [reagent.core :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
               [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button hyperlink
                                               input-text input-textarea single-dropdown selection-list
@@ -29,15 +29,16 @@
         instagram (subscribe [:item-key :contacts id :instagram])
         facebook (subscribe [:item-key :contacts id :facebook])
         notes (subscribe [:item-key :contacts id :notes])
-        editing (subscribe [:item-key :contacts id :editing])]
+        editing (subscribe [:item-key :contacts id :editing])
+        display-type (subscribe [:app-key :display-type])]
     [(fn []
-      (let [controls [h-box :gap "2px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
-                        :children [[row-button :md-icon-name "zmdi zmdi-edit"
-                                     :mouse-over-row? true :tooltip "Toggle Editing" :tooltip-position :right-center
-                                     :on-click #(dispatch [:set-local-item-val [:contacts id :editing] (not @editing)])]
-                                   [row-button :md-icon-name "zmdi zmdi-delete"
-                                     :mouse-over-row? true :tooltip "Delete this item" :tooltip-position :right-center
-                                     :on-click #(dispatch [:delete-item :contacts id])]]]
+      (let [view-control [h-box :gap "12px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
+                           :children [[row-button :md-icon-name "zmdi zmdi-edit"
+                                        :mouse-over-row? true :tooltip "Edit this item" :tooltip-position :right-center
+                                        :on-click #(dispatch [:edit-item [:contacts id]])]
+                                      [row-button :md-icon-name "zmdi zmdi-delete"
+                                        :mouse-over-row? true :tooltip "Delete this item" :tooltip-position :right-center
+                                        :on-click #(dispatch [:delete-item :contacts id])]]]
             view [[h-box :gap "18px" :align :center :justify :between
                     :children [[:span.bold @cn]
                                [:span.all-small-caps (clojure.string/replace (name @role) #"-" " ")]]]
@@ -69,40 +70,52 @@
                     [v-box :gap "4px" :align :start :justify :start :max-width "480px"
                             :children [[:span.uppercase.light-grey "notes"]
                                        [:span @notes]]])]
+            create-control [h-box :gap "30px" :align :center
+                              :children [[button :label "Create" :class "btn-default"
+                                           :on-click #(dispatch [:create-from-placeholder :contacts])]
+                                         [button :label "Cancel" :class "btn-default"
+                                           :on-click #(dispatch [:delete-item :contacts id])]]]
+            save-control [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
+                             :children [[button :label "Save" :class "btn-default"
+                                          :on-click #(dispatch [:save-changes [:contacts id]])]
+                                        [button :label "Cancel" :class "btn-default"
+                                          :on-click #(dispatch [:cancel-edit-item [:contacts id]])]]]
             edit [[h-box :gap "8px" :align :center :justify :between
                     :children [[:span.uppercase.bold "Name"]
                                [input-text :model (str @cn) :placeholder "Of person, gallery or institution" :width "240px" :style {:border "none"}
-                                  :on-change #(dispatch [:set-item-val [:contacts id :name] %])]
+                                  :on-change #(dispatch [:set-local-item-val [:contacts id :name] %])]
                                [single-dropdown :choices role-options :width "118px" :model @role
-                                       :on-change #(dispatch [:set-item-val [:contacts id :role] %])]]]
+                                       :on-change #(dispatch [:set-local-item-val [:contacts id :role] %])]]]
                   [h-box :gap "4px" :align :center
                     :children [[:span.uppercase.light-grey "email"]
                                [input-text :width "280px" :model (str @email) :style {:border "none"}
-                                    :on-change #(dispatch [:set-item-val [:contacts id :email] %])]]]
+                                    :on-change #(dispatch [:set-local-item-val [:contacts id :email] %])]]]
                   [h-box :gap "4px" :align :center
                     :children [[:span.uppercase.light-grey "phone"]
                                [input-text :width "280px" :model (str @phone) :style {:border "none"}
-                                    :on-change #(dispatch [:set-item-val [:contacts id :phone] %])]]]
+                                    :on-change #(dispatch [:set-local-item-val [:contacts id :phone] %])]]]
                   [h-box :gap "4px" :align :center
                     :children [[:span.uppercase.light-grey "url"]
                                [input-text :width "280px" :model (str @url) :style {:border "none"}
-                                    :on-change #(dispatch [:set-item-val [:contacts id :url] %])]]]
+                                    :on-change #(dispatch [:set-local-item-val [:contacts id :url] %])]]]
                   [h-box :gap "4px" :align :center
                     :children [[:span.uppercase.light-grey "instagram"]
                                [input-text :width "140px" :model (str @instagram) :style {:border "none"}
-                                    :on-change #(dispatch [:set-item-val [:contacts id :instagram] %])]]]
+                                    :on-change #(dispatch [:set-local-item-val [:contacts id :instagram] %])]]]
                   [h-box :gap "4px" :align :center
                     :children [[:span.uppercase.light-grey "facebook"]
                                [input-text :width "140px" :model (str @facebook) :style {:border "none"}
-                                    :on-change #(dispatch [:set-item-val [:contacts id :facebook] %])]]]
+                                    :on-change #(dispatch [:set-local-item-val [:contacts id :facebook] %])]]]
                   [:span.uppercase.light-grey "Address"]
                   [input-textarea :model (str @address) :width "360px"
-                      :rows 4 :on-change #(dispatch [:set-item-val [:contacts id :address] %])]
+                      :rows 4 :on-change #(dispatch [:set-local-item-val [:contacts id :address] %])]
                   [:span.uppercase.light-grey "Notes"]
                   [input-textarea :model (str @notes) :width "360px"
-                      :rows 4 :on-change #(dispatch [:set-item-val [:contacts id :notes] %])]]]
+                      :rows 4 :on-change #(dispatch [:set-local-item-val [:contacts id :notes] %])]]]
         [v-box :gap "10px" :align :start :justify :start ;:style {:border "dashed 1px red"}
-               :children (into (if @editing edit view) [controls])]))]))
+               :children (into (if @editing edit view) (if (= @display-type :new-item)
+                                                           [create-control]
+                                                           (if @editing [save-control] [view-control])))]))]))
 
 (defn item-list-view
   "Display item properties in single line - no image display. The 'widths' map contains the string
@@ -218,12 +231,7 @@
     (fn []
       (when (not (empty? @item-path))
         [v-box :gap "10px" :margin "40px" :align :center :justify :start
-           :children [(item-view id)
-                      [h-box :gap "30px" :align :center
-                         :children [[button :label "Create" :class "btn-default"
-                                       :on-click #(dispatch [:create-from-placeholder :contacts])]
-                                    [button :label "Cancel" :class "btn-default"
-                                       :on-click #(dispatch [:delete-item :contacts id])]]]]]))))
+           :children [(item-view id)]]))))
 
 (defn contacts-view
   "Display contacts"

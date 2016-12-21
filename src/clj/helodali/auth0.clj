@@ -35,7 +35,7 @@
   (let [userinfo (try+
                    (http/get (str base-url "userinfo/?access_token=" access-token) options)
                    (catch [:status 401] {:keys [request-time headers body]}
-                     (pprint (str "access-token invalid: " access-token request-time))
+                     (pprint (str "access-token invalid: " access-token " at " request-time))
                      nil)
                    (catch Object _
                      (pprint (str (:throwable &throw-context) "unexpected error"))
