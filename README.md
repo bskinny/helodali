@@ -1,6 +1,8 @@
 # helodali
 
-A [re-frame](https://github.com/Day8/re-frame) application designed to ... well, that part is up to you.
+An artist inventory system with social media integration
+
+Helodali is a SPA style webapp using [re-frame](https://github.com/Day8/re-frame) backed by a small clojure webserver and AWS DynamoDB + S3. The application is served via jetty in src/clj/server.clj and does not depend on state or anything defined locally on the serer. An access token, provided by [Auth0](https://github.com/auth0/lock), is presented by the client in every request and compared with a cached copy stored in the user's profile on DynamoDB. Amazon S3 is used to process and store images and documents for long term archival.
 
 ## Development Mode
 
@@ -8,14 +10,14 @@ A [re-frame](https://github.com/Day8/re-frame) application designed to ... well,
 
 ```
 lein clean
-lein figwheel dev
+lein figwheel
 ```
 
 Figwheel will automatically push cljs changes to the browser.
 
 Wait a bit, then browse to [http://localhost:3449](http://localhost:3449).
 
-### Run tests:
+### Run tests (Er... not yet):
 
 ```
 lein clean
@@ -36,7 +38,7 @@ That should compile the clojurescript code first, and then create the standalone
 When you run the jar you can set the port the ring server will use by setting the environment variable PORT.
 If it's not set, it will run on port 3000 by default.
 
-To deploy to heroku, first create your app:
+To deploy to ..., first create your app:
 
 ```
 heroku create
