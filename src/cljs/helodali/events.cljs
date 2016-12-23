@@ -165,7 +165,7 @@
       fx
       (merge fx {:http-xhrio {:method          :post
                               :uri             "/update-item"
-                              :params          {:uref (get-in db [type id :uref]) ;; TODO: server must confirm this uref matches user's login profile
+                              :params          {:uref (get-in db [type id :uref])
                                                 :uuid (get-in db [type id :uuid])
                                                 :table type :path inside-item-path :val val
                                                 :access-token (:access-token db)}
@@ -600,11 +600,12 @@
 (reg-event-db
   :bad-result
   (fn [db [_ merge-this result]]
+    (pprint (str "bad-result: " result))
     (let [db (merge db merge-this)]
       (if (string? result)
         (assoc db :message result)
         (if (map? result)
-          (assoc db :message (str (:status-text result)))
+          (assoc db :message (str (:reason (:response result))))
           (assoc db :message "An error occurred when processing the request"))))))
 
 (reg-event-db

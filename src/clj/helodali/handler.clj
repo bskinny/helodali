@@ -19,8 +19,7 @@
   (if (valid-session? uref access-token)
     (response (process-fx))
     {:status 400   ;; else return error
-     :headers {}
-     :body (str "Invalid session for " uref " and given access token")}))
+     :body {:reason (str "Invalid session for " uref " and given access token")}}))
 
 (defroutes routes
   (GET "/" []
@@ -31,28 +30,28 @@
 
   (POST "/update-profile" [uuid path val access-token :as req]
     (pprint (str "update-profile uuid/path/val: " uuid "/" path "/" val))
-    (process-request uuid access-token (partial (update-user-table :profiles uuid path val))))
+    (process-request uuid access-token #(update-user-table :profiles uuid path val)))
 
   (POST "/update-item" [uref uuid table path val access-token :as req]
     (pprint (str "update-item uref/uuid/path/val: " uref "/" uuid "/" path "/" val))
-    (process-request uref access-token (partial (update-item table uref uuid path val))))
+    (process-request uref access-token #(update-item table uref uuid path val)))
 
   (POST "/create-item" [table item access-token :as req]
     (pprint (str "create-item item: " item))
-    (process-request (:uref item) access-token (partial (create-item table item))))
+    (process-request (:uref item) access-token #(create-item table item)))
 
   (POST "/delete-item" [table uref uuid access-token :as req]
     (pprint (str "delete-item table/uref/uuid: " table "/" uref "/" uuid))
-    (process-request uref access-token (partial (delete-item table uref uuid))))
+    (process-request uref access-token #(delete-item table uref uuid)))
 
   (POST "/refresh-item-path" [uref access-token table item-uuid path :as req]
     (pprint (str "refresh-item-path table/item-uuid/path: " table "/" item-uuid "/" path))
-    (process-request uref access-token (partial (refresh-item-path table uref item-uuid path))))
+    (process-request uref access-token #(refresh-item-path table uref item-uuid path)))
 
   ;; Refresh image by uuid of image
   (POST "/refresh-image-data" [uref access-token item-uuid image-uuid :as req]
     (pprint (str "refresh-image-data item-uuid/image-uuid: " item-uuid "/" image-uuid))
-    (process-request uref access-token (partial (refresh-image-data uref item-uuid image-uuid))))
+    (process-request uref access-token #(refresh-image-data uref item-uuid image-uuid)))
 
   (POST "/validate-token" [access-token :as req]
     (let [userinfo (auth0/get-userinfo access-token)]
