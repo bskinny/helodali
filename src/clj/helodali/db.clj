@@ -1,7 +1,7 @@
 (ns helodali.db
   (:require [taoensso.faraday :as far]
             [clj-uuid :as uuid]
-            [clj-time.core :refer [date-time days ago]]
+            [clj-time.core :refer [now days ago]]
             [clj-time.format :refer [parse unparse formatters]]
             [helodali.demodata :as demo]
             [helodali.common :refer [coerce-int fix-date keywordize-vals]]
@@ -86,6 +86,29 @@
           uref (:uuid profile)]
       (pprint (str "valid-user?: " profile))
       (if (and (not (empty? openid-item)) (not (empty? profile)))
+        true
+        false))))
+
+(defn cache-access-token
+  [access-token userinfo]
+  (pprint (str "cache-access-token: " access-token " and sub: " (:sub userinfo)))
+  (let [openid-item (far/get-item co :openid {:sub (:sub userinfo)})
+        _ (pprint (str "openid-item: " openid-item))
+        uref (:uref openid-item)
+        session (far/get-item co :sessions {:uref uref :token access-token})]
+    (if session
+      (pprint (str "Session exists: " session))
+      (let [time-stamp (unparse (formatters :date-time) (now))]
+        (far/put-item co :sessions {:uref uref :token access-token :ts time-stamp})))))
+
+(defn valid-session?
+  "Check if the given uuid and access-token are in agreement in the :sessions table,
+   i.e. there is an item that matches the pair of values."
+  [uref access-token]
+  (if (or (empty? uref) (empty? access-token))
+    false
+    (let [session (far/get-item co :sessions {:uref uref :token access-token})]
+      (if session
         true
         false))))
 
@@ -215,9 +238,11 @@
    the DynamoDB changeset depends on whether we are called with a single attribute change (path == [path to attribute])
    or multiple attribute changes within an item (path == nil and val is keyed with attribute paths)"
   [table uref uuid path val]
-  (if (nil? path)
-    (apply-attribute-changes table {:uref uref :uuid uuid} val)
-    (apply-attribute-change table {:uref uref :uuid uuid} path val)))
+  (if (nil? val)
+    {} ;; nothing to do)
+    (if (nil? path)
+      (apply-attribute-changes table {:uref uref :uuid uuid} val)
+      (apply-attribute-change table {:uref uref :uuid uuid} path val))))
 
 (defn update-user-table
   "Update a user table, such as profiles. The method of building
@@ -238,6 +263,16 @@
         val (get-in (coerce-item table item) path)]
     (pprint (str "Refresh returning: " val))
     val))
+
+(defn refresh-image-data
+  "Fetch image map from artwork table the image given by item-uuid and image-uuid"
+  ;; TODO: think about optimzing the get-item call with projections
+  [uref item-uuid image-uuid]
+  (pprint (str "refresh-image-data uref/item-uuid/image-uuid: " uref "/" item-uuid "/" image-uuid))
+  (let [item (coerce-item :artwork (far/get-item co :artwork {:uref uref :uuid item-uuid}))
+        image (filter #(= image-uuid (:uuid %)) (:images item))]
+    (pprint (str "Refresh image data returning: " (first image)))
+    (first image)))
 
 (defn create-item
   "Create a new item in given table. Drop any nil or #{} valued attributes, this
@@ -295,6 +330,11 @@
       [:uuid :s]  ; Hash key of uuid-valued user reference, (:s => string type)
       {:throughput {:read 2 :write 2} ; Read & write capacity (units/sec)
        :block? true})
+    (far/create-table co :sessions
+      [:uref :s]  ; Hash key of uuid-valued user reference, (:s => string type)
+      {:range-key [:token :s] ; access-token has second component to primary key
+       :throughput {:read 2 :write 2} ; Read & write capacity (units/sec)
+       :block? true})
     (far/create-table co :openid
       [:sub :s]  ; Hash key is the OpenID 'sub' claim (subject identifier, e.g. "google-oauth2|105303869357768353564")
       {:throughput {:read 2 :write 2} ; Read & write capacity (units/sec)
@@ -313,6 +353,15 @@
     (doall (put-items :artwork artwork))
     (doall (put-items :press press))))
 
+; (far/delete-table co :sessions)
+; (pprint (far/create-table co :sessions
+;             [:uref :s]
+;             {:range-keydef [:token :s]
+;              :throughput {:read 2 :write 2}
+;              :block? true}))
+
+; (far/scan co :sessions)
+; (cache-access-token "swizBbwU7cC7x123" {:sub "facebook|10208314583117362"})
 ; (pprint (far/query co :openid {:email [:eq "brian.williams@mayalane.com"]} {:index "email-index"}))
 ; (pprint (far/get-item co :openid {:sub "facebook|10208314583117362"}))
 ; (pprint (far/update-item co :openid {:sub "facebook|10208314583117362"}
