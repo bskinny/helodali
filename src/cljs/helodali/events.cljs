@@ -14,6 +14,8 @@
     [cljsjs.aws-sdk-js]
     [cljs.spec :as s]))
 
+(def ^:private app-db-undo (r/atom nil))
+
 (defn next-id
   "Assumes map is a sorted-map"
   [m]
@@ -138,10 +140,12 @@
 (defn- walk-cleaner
   "Walk the input and:
     - convert Date objects to strings
-    - convert empty strings to nil"
+    - convert empty strings to nil
+    - remove map keys that we do not want visiting the server, such as :images from :artwork"
   [in]
   (cond
-    (map? in) (clojure.walk/walk (fn [[k v]] [k (walk-cleaner v)]) identity in)
+    (map? in) (let [in (dissoc in :editing :expanded :images)]
+                (clojure.walk/walk (fn [[k v]] [k (walk-cleaner v)]) identity in))
     (vector? in) (apply vector (map walk-cleaner in))
     (set? in) (set (map walk-cleaner in))
     :else (cleaner in)))
@@ -155,14 +159,16 @@
         val (walk-cleaner val)
         fx {:db db}]
     ;; Submit change to server for all updates except those to the placeholder item in the client, which
-    ;; does not yet exist on the server.
-    (if (= id 0)
+    ;; does not yet exist on the server. Also skip the update if the update is on an item, as a whole, and
+    ;; the set of changes, val, is empty
+    (if (or (= id 0) (and (empty? inside-item-path) (empty? val)))
       fx
       (merge fx {:http-xhrio {:method          :post
                               :uri             "/update-item"
-                              :params          {:uref (get-in db [type id :uref]) ;; TODO: server must confirm this uref matches user's login profile
+                              :params          {:uref (get-in db [type id :uref])
                                                 :uuid (get-in db [type id :uuid])
-                                                :table type :path inside-item-path :val val}
+                                                :table type :path inside-item-path :val val
+                                                :access-token (:access-token db)}
                               :headers         {:x-csrf-token (:csrf-token db)}
                               :timeout         5000
                               :format          (ajax/transit-request-format {})
@@ -181,7 +187,8 @@
      :http-xhrio {:method          :post
                   :uri             "/update-profile"
                   :params          {:uuid (get-in db [:profile :uuid])
-                                    :path inside-profile-path :val val}
+                                    :path inside-profile-path :val val
+                                    :access-token (:access-token db)}
                   :headers         {:x-csrf-token (:csrf-token db)}
                   :timeout         5000
                   :format          (ajax/transit-request-format {})
@@ -199,7 +206,7 @@
     {:db db
      :http-xhrio {:method          :post
                   :uri             "/create-item"
-                  :params          {:table table :item item}
+                  :params          {:table table :item item :access-token (:access-token db)}
                   :headers         {:x-csrf-token (:csrf-token db)}
                   :timeout         5000
                   :format          (ajax/transit-request-format {})
@@ -213,15 +220,13 @@
     {:db db
      :http-xhrio {:method          :post
                   :uri             "/delete-item"
-                  :params          {:table table :uref (:uref item) :uuid (:uuid item)}
+                  :params          {:table table :uref (:uref item) :uuid (:uuid item) :access-token (:access-token db)}
                   :headers         {:x-csrf-token (:csrf-token db)}
                   :timeout         5000
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
                   :on-success      [:noop]
                   :on-failure      [:bad-result {}]}}))
-
-(def ^:private app-db-undo (r/atom nil))
 
 ;; Switch to edit mode for given item. Stash the current app-db to undo changes
 ;; that are canceled. 'item-path' is a path to item such as [:press 2]
@@ -251,7 +256,7 @@
 (reg-event-fx
   :save-changes
   manual-check-spec
-  (fn [{:keys [db]} [item-path]]     ;; TODO: reset app-db-undo, to be safe
+  (fn [{:keys [db]} [item-path]]
     (let [type (first item-path)
           item (get-in db item-path)
           new-db (assoc-in db (conj item-path :editing) false)
@@ -270,12 +275,16 @@
                      (and (= type :profile) (or (:lectures-and-talks diffA) (:lectures-and-talks diffB))) (assoc :lectures-and-talks (:lectures-and-talks item))
                      (and (= type :profile) (or (:residencies diffA) (:residencies diffB))) (assoc :residencies (:residencies item))
                      (and (= type :profile) (or (:awards-and-grants diffA) (:awards-and-grants diffB))) (assoc :awards-and-grants (:awards-and-grants item))
+                     (and (= type :artwork) (or (:images diffA) (:images diffB))) (assoc :images (:images item))
                      (and (= type :artwork) (or (:purchases diffA) (:purchases diffB))) (assoc :purchases (:purchases item))
                      (and (= type :artwork) (or (:exhibition-history diffA) (:exhibition-history diffB))) (assoc :exhibition-history (:exhibition-history item)))]
       (pprint (str "CHANGES: " changes))
-      (condp = type
-        :profile (update-profile-fx new-db item-path changes)
-        (update-fx new-db item-path changes)))))
+      (reset! app-db-undo nil)
+      (if (empty? changes)
+        {:db new-db} ;; No changes to apply to server
+        (condp = type
+          :profile (update-profile-fx new-db item-path changes)
+          (update-fx new-db item-path changes))))))
 
 ;; Update the app-db locally (i.e. do not propogate change to server)
 ;; path is a vector pointing into :profile or items, e.g. :artwork, :contacts, etc. E.g.
@@ -437,6 +446,7 @@
                     (assoc-in [type id :uref] (get-in db [:profile :uuid]))
                     (assoc-in [type id :editing] false)
                     (update-in [type] dissoc 0))]
+      (reset! app-db-undo nil)
       (create-fx new-db type (get-in new-db [type id])))))
 
 ;; Dispatch this event to delete an item of type contacts, exhibitions, press
@@ -504,7 +514,8 @@
        :http-xhrio {:method          :post
                     :uri             "/update-profile"
                     :params          {:uuid (get-in db [:profile :uuid])
-                                      :path path :val val}
+                                      :path path :val val
+                                      :access-token (:access-token db)}
                     :headers         {:x-csrf-token (:csrf-token db)}
                     :timeout         5000
                     :format          (ajax/transit-request-format {})
@@ -556,7 +567,8 @@
        :http-xhrio {:method          :post
                     :uri             "/update-profile"
                     :params          {:uuid (get-in db [:profile :uuid])
-                                      :path path :val val}
+                                      :path path :val val
+                                      :access-token (:access-token db)}
                     :headers         {:x-csrf-token (:csrf-token db)}
                     :timeout         5000
                     :format          (ajax/transit-request-format {})
@@ -588,11 +600,12 @@
 (reg-event-db
   :bad-result
   (fn [db [_ merge-this result]]
+    (pprint (str "bad-result: " result))
     (let [db (merge db merge-this)]
       (if (string? result)
         (assoc db :message result)
         (if (map? result)
-          (assoc db :message (str (:status-text result)))
+          (assoc db :message (str (:reason (:response result))))
           (assoc db :message "An error occurred when processing the request"))))))
 
 (reg-event-db
@@ -602,20 +615,18 @@
 
 ;; This event should be dispatched when an artwork has images being processed and hence
 ;; a fetch is required from DynamoDB. We dispatch continually, with a
-;; 400ms delay, until all "processing" .
+;; 400ms delay, until a result is returned.
 (reg-event-fx
   :refresh-image
   (fn [{:keys [db]} [_ path-to-image]]
     (let [type (first path-to-image)
-          id (second path-to-image)
-          item-path (rest (rest path-to-image))]  ;; hop over type and 'id' which only exists on the client app-db])
+          id (second path-to-image)]
       {:http-xhrio {:method          :post
-                    :uri             "/refresh-item-path"
+                    :uri             "/refresh-image-data"
                     :params          {:uref (get-in db [:profile :uuid])
                                       :access-token (:access-token db)
-                                      :table type
                                       :item-uuid (get-in db [type id :uuid])
-                                      :path item-path}
+                                      :image-uuid (get-in db (conj path-to-image :uuid))}
                     :headers         {:x-csrf-token (:csrf-token db)}
                     :timeout         5000
                     :format          (ajax/transit-request-format {})
@@ -767,9 +778,9 @@
                 _ (js->clj (.deleteObjects s3 params callback))]
             {:db db}))))))
 
-;; If uploading to our ring handler
+;; If uploading to our ring handler, which is not planned.
 ; (reg-event-fx
-;   :add-image
+;   :upload-image
 ;   (fn [_world [_ js-file]]
 ;     (let [filename (.-name js-file)
 ;           form-data (doto
