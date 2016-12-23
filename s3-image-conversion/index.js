@@ -51,19 +51,75 @@ exports.handler = function(event, context, callback) {
 
   // If we are triggered on object removal
   if (eventName.match(/^ObjectRemoved:/i)) {
-    // Remove the associated object in the bucket helodali-images
-    s3.deleteObject({Bucket: dstBucket, Key: dstKey},
-                    function (err, result) {
-                      if (err) {
-                          console.error('Unable to remove ' + dstKey + ' from ' + dstBucket +
-                                        ' due to an error: ' + err);
-                          callback(err)
-                      } else {
-                          console.log('Successfully removed ' + dstKey +
-                                      ' from ' + dstBucket + ': '  + result);
-                          callback(null);
-                      }
-                    }
+    async.waterfall([
+        function removeFile(next) {
+            // Remove the associated object in the bucket helodali-images
+            s3.deleteObject({Bucket: dstBucket, Key: dstKey}, next)
+          },
+        function getUref(result, next) {
+            // Find the user's uuid to later reference in the artwork table
+            // console.log(nameComponents[0]);
+            dynamoDB.get({Key: {'sub': nameComponents[0]},
+                          TableName: 'openid',
+                          AttributesToGet: ['uref']},
+                          function (err, data) {
+                               if (err) {
+                                 next(err);
+                               } else {
+                                 next(null, data);
+                               }
+                        });
+          },
+        function fetchImages(data, next) {
+            // console.log(data)
+
+            if (isEmptyObject(data)) {
+              next('No openid item for user ' + nameComponents[0])
+            }
+            dynamoDB.get({Key: {'uref': data.Item.uref,
+                                'uuid': nameComponents[1]},
+                          TableName: 'artwork',
+                          AttributesToGet: ['images', 'uref']},
+                          function (err, data) {
+                               if (err) {
+                                 next(err);
+                               } else {
+                                 next(null, data);
+                               }
+                        });
+            },
+        function update(data, next) {
+            if (isEmptyObject(data)) {
+              next('No images for artwork ' + nameComponents[1])
+            }
+            var images = data.Item.images;
+            var idx = images.findIndex(function (img) {
+                                         return img.key == srcKey;
+                                       });
+            if (idx == -1) {
+              next("The image was not found in the db, for key: " + srcKey)
+            } else {
+              var updateExpression = 'REMOVE #images[' + idx + ']';
+              var params = {TableName: 'artwork',
+                            Key: {'uref': data.Item.uref,
+                                  'uuid': nameComponents[1]},
+                            UpdateExpression: updateExpression,
+                            ExpressionAttributeNames: {'#images': 'images'}};
+              console.log("UpdateExpression: " updateExpression)
+              dynamoDB.update(params, next);
+            }
+          }
+        ], function (err, result) {
+               if (err) {
+                   console.error('Unable to remove ' + dstKey + ' from ' + dstBucket +
+                                 ' due to an error: ' + err);
+                   callback(err)
+               } else {
+                   console.log('Successfully removed ' + dstKey +
+                               ' from ' + dstBucket + ': '  + result);
+                   callback(null);
+               }
+         }
     );
   }
 
