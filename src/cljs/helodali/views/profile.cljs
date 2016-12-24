@@ -108,7 +108,7 @@
                                           :children (into [] (map display-year-and-label-view @awards-and-grants (cycle [true false])))]]])
                   (when (or (not (empty? @residencies)))
                     [h-box :gap "12px" :align :start :justify :start :padding "8px 0px"
-                            :children [[label :width "20ch" :class "uppercase light-grey" :label "Recidencies"]
+                            :children [[label :width "20ch" :class "uppercase light-grey" :label "Residencies"]
                                        [v-box :gap "8px" :align :start :justify :start
                                           :children (into [] (map display-year-and-label-view @residencies (cycle [true false])))]]])
                   (when (or (not (empty? @lectures-and-talks)))
@@ -163,12 +163,12 @@
                                       :children (into [] (map (partial display-year-and-label-edit "Award or Grant" [:profile :awards-and-grants]) (range (count @awards-and-grants)) (cycle [true false])))])]]
                   [v-box :gap "6px" :align :start :justify :start :align-self :stretch
                       :children [[h-box :gap "6px" :align :center :justify :start
-                                   :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Recidencies"
+                                   :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Residencies"
                                                  :on-click #(dispatch [:create-local-vector-element [:profile :residencies] (helodali.db/default-year-val-map)])]
-                                              [:span "Recidencies"]]]
+                                              [:span "Residencies"]]]
                                  (when (not (empty? @residencies))
                                    [v-box :gap "16px" :align :start :justify :start :align-self :stretch
-                                      :children (into [] (map (partial display-year-and-label-edit "Recidency" [:profile :residencies]) (range (count @residencies)) (cycle [true false])))])]]
+                                      :children (into [] (map (partial display-year-and-label-edit "Residency" [:profile :residencies]) (range (count @residencies)) (cycle [true false])))])]]
                   [v-box :gap "6px" :align :start :justify :start :align-self :stretch
                       :children [[h-box :gap "6px" :align :center :justify :start
                                    :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Lectures & Talks"
