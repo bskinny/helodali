@@ -98,25 +98,30 @@
           purchases (apply concat expanded)]
       (sort #(sort-by-key-then-created kw reverse? (:purchase %1) (:purchase %2)) (filter predicate purchases)))))
 
+(def various-keys-to-filter-out-of-search-results
+  #{:key :signed-thumb-url :signed-thumb-url-expiration-time :signed-raw-url :signed-raw-url-expiration-time
+    :uuid :uref})
+
 (defn- tagged-match
   "Given a pattern and tag (k), return a concatenated string 'k': 'in' if the pattern
   is matched in the string and nil otherwise. Skip the tagging if k is nil."
   [pattern k in]
-  ;; Because re-matches wants to match the entire input and matching across lines is problematic,
-  ;; we will break the input into a list of lines and match on each.
-  (let [lines (clojure.string/split-lines in)
-        matches (filter #(not (empty? %)) (map (partial re-matches pattern) lines))]
-    (if (empty? matches)
-      nil
-      (if (nil? k)
-        in
-        (str (name k) ": " in)))))
+  ;; First check if the given keyword (k) is something we do not want to search on
+  (if (contains? various-keys-to-filter-out-of-search-results k)
+    nil
+    ;; Because re-matches wants to match the entire input and matching across lines is problematic,
+    ;; we will break the input into a list of lines and match on each.
+    (let [lines (clojure.string/split-lines in)
+          matches (filter #(not (empty? %)) (map (partial re-matches pattern) lines))]
+      (if (empty? matches)
+        nil
+        (if (nil? k)
+          in
+          (str (name k) ": " in))))))
 
 (defn- walk-searcher
   "Walk the input search for pattern, tagging matches with the closest keyword (kw) in the map."
   [pattern kw in]
-  ; (when (and (= kw :notes) (string? in))
-  ; (pprint (str "walk-searcher: " in))
   (cond
     (map? in) (->> (clojure.walk/walk (fn [[k v]] [k ((partial walk-searcher pattern k) v)]) identity in)
                  (filter #(not (empty? (second %))))
@@ -166,13 +171,10 @@
             pattern (re-pattern (str "(?im).*" (:search-pattern db) ".*"))
             artwork (filter #(not (empty? (:match %))) (map #(search-acc :artwork pattern % :title) (vals (get db :artwork))))
             contacts (filter #(not (empty? (:match %))) (map #(search-acc :contacts pattern % :name) (vals (get db :contacts))))
-            exhibitions (filter #(not (empty? (:match %))) (map #(search-acc :exhibitions pattern % :title) (vals (get db :exhibitions))))
+            exhibitions (filter #(not (empty? (:match %))) (map #(search-acc :exhibitions pattern % :name) (vals (get db :exhibitions))))
             press (filter #(not (empty? (:match %))) (map #(search-acc :press pattern % :title) (vals (get db :press))))
             profile (filter #(not (empty? (:match %))) (list (search-acc :profile pattern (get db :profile) :name)))
             matches (concat artwork contacts exhibitions press profile)]
-            ; expanded (map #(assoc-uuid-purchases db (:uuid %) (:title % ) (:purchases %)) artwork)
-            ; purchases (apply concat expanded)]
-        ; (sort #(sort-by-key-then-created kw reverse? (:purchase %1) (:purchase %2)) (filter predicate purchases))
         (pprint (str "All matches: " matches))
         matches))))
 

@@ -12,13 +12,14 @@
   "Display the match with the matched portion of the string highlighted"
   [pattern width match]
   [(fn []
-     (let [[tag s] (clojure.string/split match #":" 2)]
+     (let [[tag s] (clojure.string/split match #":" 2)
+           tag (if (= tag "val") "" tag)] ;; Avoid displaying the meaningless tag "VAL"
            ; highlighted (clojure.string/replace s pattern #(str " [:b " % "] "))
            ; truncated (trunc highlighted (- width 16))
            ; width-string (str (max 18 (- width 16) "ch"))]
        (pprint (str "tag/s: " tag "/" s))
        [h-box :gap "4px" :align :center :justify :start
-          :children [[label :width "16ch" :class "semibold uppercase" :label tag]
+          :children [[label :width "16ch" :class "input-label uppercase" :label tag]
                      ; (cljs.reader/read-string (str "[:p " truncated "]"))  ;; Failed attempt to highlight matches
                      [label :width (str (max 18 (- width 16) "ch")) :label (trunc s (- width 16))]]]))])
 
@@ -36,7 +37,7 @@
       ; (pprint (str "viewing: " match))
       (let [title (or (:title match) "none")] ;; Guard against nil-valued hyperlink labels
         [h-box :align :center :justify :start :style {:background bg-color} :padding "8px" :width "100%"
-          :children [[label :width "8ch" :label (name (:type match))]
+          :children [[label :width "10ch" :label (clojure.string/capitalize (name (:type match)))]
                      [hyperlink :class "semibold" :style {:width (str (max 18 (:title widths)) "ch")}
                                 :label (trunc title (:title widths))
                                 :on-click #(if (= :profile (:type match))
@@ -57,7 +58,7 @@
         (let [widths {:match 80 :title 30}
               pattern (re-pattern @search-pattern)
               header [h-box :align :center :justify :start :padding "8px" :width "100%"
-                        :children [[hyperlink :class "bold uppercase" :style {:width "8ch"}
+                        :children [[hyperlink :class "bold uppercase" :style {:width "10ch"}
                                       :label "Type" :tooltip "Sort by Type"
                                       :on-click #(if (= (first @sort-key) :item-type)
                                                    (dispatch [:set-local-item-val [:sort-keys :search-results 1] (not (second @sort-key))])
