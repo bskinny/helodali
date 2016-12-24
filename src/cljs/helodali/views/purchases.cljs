@@ -19,8 +19,8 @@
         artwork (subscribe [:item-by-uuid :artwork uuid])
         purchase (:purchase item)
         bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
-        buyer-contact (if (empty? (:buyer purchase))  ;; TODO: These three contact subscriptions could possibly be removed since the contact's name
-                        (r/atom nil)                  ;; is in the provided map: buyer-name, agent-name and dealer-name.
+        buyer-contact (if (empty? (:buyer purchase))
+                        (r/atom nil)
                         (subscribe [:item-by-uuid :contacts (:buyer purchase)]))
         agent-contact (if (empty? (:agent purchase))
                         (r/atom nil)

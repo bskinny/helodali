@@ -139,7 +139,7 @@
             :children [[header]
                        [re-com/line :size "1px" :color "#ccc"]
                        (if (not (empty? @msg))
-                         [label :label @msg]) ;; TODO: style this message
+                         [re-com/alert-box :alert-type :warning :closeable? true :body @msg])
                        [re-com/gap :size "18px"]
                        (condp = @view
                          :artwork [artwork-view]

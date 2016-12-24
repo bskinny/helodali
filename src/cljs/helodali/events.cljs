@@ -117,11 +117,11 @@
   (fn [db [path val]]
     (assoc-in db path val)))
 
-;; path is a vector pointing into :profile or items, e.g. :artwork, :contacts, etc. E.g.
+;; path is a vector pointing into :profile or item, e.g. :artwork, :contacts, etc. E.g.
 ;; [:artwork 16 :purchases 0 :price] or [:exhibitions 3 :location]
 (reg-event-db
   :set-local-item-val
-  interceptors        ;; TODO: consider not checking spec for this event
+  interceptors
   (fn [db [path val]]
     (assoc-in db path val)))
 
@@ -311,6 +311,7 @@
 ;; storing the retrieved id-token
 (reg-event-fx
   :validate-access-token
+  manual-check-spec
   (fn [{:keys [db]} _]
     {:http-xhrio {:method          :post
                   :uri             "/validate-token"
@@ -347,6 +348,7 @@
 
 (reg-event-db
   :fetch-aws-delegation-token
+  manual-check-spec
   (fn [db _]
    (let [auth0 (js/Auth0. (clj->js {:domain "helodali.auth0.com"
                                     :clientID "UNQ9LKBRomyn7hLPKKJmdK2mI7RNphGs"
@@ -376,7 +378,8 @@
 
 (reg-event-db
   :authenticated
-  (fn [db [_ authenticated? access-token id-token]]
+  manual-check-spec
+  (fn [db [authenticated? access-token id-token]]
     (pprint (str "Event :authenticated with params: authenticated?=" authenticated? ", access-token=" access-token ", id-token=" id-token))
     (-> db
       (assoc :authenticated? authenticated?)
@@ -618,7 +621,8 @@
 ;; 400ms delay, until a result is returned.
 (reg-event-fx
   :refresh-image
-  (fn [{:keys [db]} [_ path-to-image]]
+  manual-check-spec
+  (fn [{:keys [db]} [path-to-image]]
     (let [type (first path-to-image)
           id (second path-to-image)]
       {:http-xhrio {:method          :post
@@ -636,7 +640,8 @@
 
 (reg-event-fx
   :apply-image-refresh
-  (fn [{:keys [db]} [_ path-to-image result]]
+  manual-check-spec
+  (fn [{:keys [db]} [path-to-image result]]
     ;; If the 'result' map is empty, then we are still waiting on image processing and will
     ;; try again after a delay.
     (pprint (str "apply-image-refresh result: " result))
@@ -656,7 +661,8 @@
 ;; another attempt at this event in 400 ms.
 (reg-event-fx
   :get-signed-url
-  (fn [{:keys [db]} [_ path-to-object-map bucket object-key url-key expiration-key]]
+  manual-check-spec
+  (fn [{:keys [db]} [path-to-object-map bucket object-key url-key expiration-key]]
     (if (nil? (:delegation-token db))
       ;; Wait for the delegation-token to be fetched
       {:dispatch-later [{:ms 400 :dispatch [:get-signed-url path-to-object-map bucket object-key url-key expiration-key]}]}
@@ -681,7 +687,8 @@
 ;;       filename is the basename of the file selected by the user
 (reg-event-fx
   :add-image
-  (fn [{:keys [db]} [_ item-path js-file]]
+  manual-check-spec
+  (fn [{:keys [db]} [item-path js-file]]
     (if (expired? (:delegation-token-expiration db))
       ;; Refresh the expired delegation-token
       {:dispatch-n (list [:fetch-aws-delegation-token] [:add-image item-path js-file])}
@@ -705,7 +712,8 @@
 ;; Similar to add-image but replace the existing image
 (reg-event-fx
   :replace-image
-  (fn [{:keys [db]} [_ item-path image-uuid js-file]]
+  manual-check-spec
+  (fn [{:keys [db]} [item-path image-uuid js-file]]
     (if (expired? (:delegation-token-expiration db))
       ;; Refresh the expired delegation-token
       {:dispatch-n (list [:fetch-aws-delegation-token] [:replace-image item-path image-uuid js-file])}
@@ -733,7 +741,8 @@
 ;; the target image map with just :uuid and :processing=true and is appended to images vector.
 (reg-event-fx
   :copy-s3-within-bucket
-  (fn [{:keys [db]} [_ bucket source-object-map target-item-path]]
+  manual-check-spec
+  (fn [{:keys [db]} [bucket source-object-map target-item-path]]
     (if (expired? (:delegation-token-expiration db))
       ;; Refresh the expired delegation-token
       {:dispatch-n (list [:fetch-aws-delegation-token] [:copy-s3-within-bucket bucket source-object-map target-item-path])}
@@ -758,7 +767,8 @@
 ;; with a mandatory :key key with objectKey value.
 (reg-event-fx
   :delete-s3-objects
-  (fn [{:keys [db]} [_ bucket objects]]
+  manual-check-spec
+  (fn [{:keys [db]} [bucket objects]]
     (if (empty? objects)
       ;; nothing to do
       {:db db}

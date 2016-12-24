@@ -128,7 +128,7 @@
    ; :facebook {:posted "<date>" :description nil :comments [{:user "@username" :comment nil}] :likes 0}
 
    ;; Square
-   ; :square {:category :artwork} ; TODO: need to determine these properties
+   ; :square {:category :artwork}
 
    ;; The following are housekeeping attributes for the web client
    :expanded false
