@@ -646,7 +646,7 @@
       (let [image (-> (get-in db path-to-image)
                      (merge result)
                      (walk-cleaner)
-                     (coerce-int [:density :width :height])
+                     (coerce-int [:density :size :width :height])
                      (dissoc :processing))]
         {:db (-> db
                 (assoc-in path-to-image image))}))))

@@ -39,6 +39,7 @@ exports.handler = function(event, context, callback) {
   var srcBucket = event.Records[0].s3.bucket.name;
   // Object key may have spaces or unicode non-ASCII characters.
   var srcKey = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, " "));
+  var fileSize = event.Records[0].s3.object.size;
   var dstBucket = "helodali-images";
   var dstKey = srcKey;
   var nameComponents = srcKey.split('/');
@@ -71,8 +72,6 @@ exports.handler = function(event, context, callback) {
                         });
           },
         function fetchImages(data, next) {
-            // console.log(data)
-
             if (isEmptyObject(data)) {
               next('No openid item for user ' + nameComponents[0])
             }
@@ -105,7 +104,7 @@ exports.handler = function(event, context, callback) {
                                   'uuid': nameComponents[1]},
                             UpdateExpression: updateExpression,
                             ExpressionAttributeNames: {'#images': 'images'}};
-              console.log("UpdateExpression: " updateExpression)
+              console.log("UpdateExpression: " + updateExpression)
               dynamoDB.update(params, next);
             }
           }
@@ -154,19 +153,6 @@ exports.handler = function(event, context, callback) {
                    });
               });
             },
-            // sharp(response.Body)
-            //   .resize(MAX_WIDTH, MAX_HEIGHT)
-            //   .max()
-            //   .withoutEnlargement()
-            //   .jpeg({"quality": 100})
-            //   .toBuffer(function (err, data, info) {
-            //     if (err) {
-            //       next(err);
-            //     } else {
-            //       next(null, "image/" + info.format, data);
-            //     }
-            //   });
-            // },
         function upload(contentType, data, metadata, next) {
             // Stream the transformed image to a different S3 bucket.
             s3.putObject({
@@ -209,6 +195,7 @@ exports.handler = function(event, context, callback) {
                                     'width': metadata.width,
                                     'height': metadata.height,
                                     'space': metadata.space,
+                                    'size': fileSize,
                                     'density': metadata.density}
             var params = {TableName: 'artwork',
                           Key: {'uref': data.Item.uref,

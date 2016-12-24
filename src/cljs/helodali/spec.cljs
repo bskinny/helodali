@@ -27,13 +27,14 @@
 (s/def ::signed-thumb-url string?)
 (s/def ::signed-thumb-url-expiration-time #(instance? goog.date.Date %))
 (s/def ::signed-raw-url string?)
+(s/def ::size (s/nilable int?))
 (s/def ::space (s/nilable string?))
 (s/def ::width (s/nilable int?))
 (s/def ::height (s/nilable int?))
 (s/def ::density (s/nilable int?))
 (s/def ::format (s/nilable string?))
 (s/def ::signed-raw-url-expiration-time #(instance? goog.date.Date %))
-(s/def ::metadata (s/keys :opt-un [::space ::height ::width ::density ::format]))
+(s/def ::metadata (s/keys :opt-un [::size ::space ::height ::width ::density ::format]))
 (s/def ::image (s/keys :req-un [::uuid]
                        :opt-un [::key ::filename ::processing ::signed-thumb-url ::signed-thumb-url-expiration-time
                                 ::signed-raw-url ::signed-raw-url-expiration-time ::metadata]))

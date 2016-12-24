@@ -460,6 +460,7 @@
                                                                          :popover [popover-content-wrapper :width "250px" :close-button? true :title "Original Image"
                                                                                      :body [v-box :gap "4px" :align :start
                                                                                               :children [[:span (:filename image)]
+                                                                                                         [:span (str (quot (:size md) 1024) " KB")]
                                                                                                          [:span (str (:width md) " x " (:height md))]
                                                                                                          [:span (str "Format: " (:format md))]
                                                                                                          [:span (str "Color space: " (:space md))]]]]]))
