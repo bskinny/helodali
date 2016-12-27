@@ -44,10 +44,24 @@
                            [label :label "Press" :on-click #(select-fn :press)]
                            [label :label "Purchases" :on-click #(select-fn :purchases)]]]])))
 
+(defn account-popover-body
+  []
+  (fn [showing-account? & {:keys [showing-injected? position-injected]}]
+    (let [select-fn (fn [view]
+                       (route helodali.routes/view {:type (name view)})
+                       (reset! showing-account? false))]
+      [re-com/popover-content-wrapper :showing-injected? showing-account? :position-injected position-injected
+        :width "160px" :backdrop-opacity 0.3 :on-cancel #(reset! showing-account? false) :style {:cursor "pointer"}
+        :body [v-box
+                :children [[label :label "Artist Profile" :on-click #(select-fn :profile)]
+                           [label :label "Account" :on-click #(select-fn :contacts)]
+                           [label :label "Logout" :on-click #(select-fn :documents)]]]])))
+
 (defn header
   "Display main page header"
   []
   (let [showing-more? (r/atom false)
+        showing-account? (r/atom false)
         search-pattern (r/atom "")]
     (fn []
       [h-box :size "0 0 auto" :height "100px" :gap "10px" :align :center :justify :around :class "header"
@@ -58,8 +72,12 @@
                     [h-box :gap "8px" :justify :around
                       :children [[md-icon-button :md-icon-name "zmdi zmdi-collection-image-o" :size :larger
                                                  :on-click #(route helodali.routes/view {:type (name :artwork)})]
-                                 [md-icon-button :md-icon-name "zmdi zmdi-account-o" :size :larger
-                                                 :on-click #(route-profile)]
+                                 ; [md-icon-button :md-icon-name "zmdi zmdi-account-o" :size :larger
+                                 ;                 :on-click #(route-profile)]
+                                 [re-com/popover-anchor-wrapper :showing? showing-account? :position :right-below
+                                   :anchor   [md-icon-button :md-icon-name "zmdi zmdi-account-o" :size :larger
+                                                    :on-click #(reset! showing-account? true)]
+                                   :popover  [account-popover-body showing-account?]]
                                  [re-com/popover-anchor-wrapper :showing? showing-more? :position :right-below
                                    :anchor   [md-icon-button :md-icon-name "zmdi zmdi-more" :size :larger
                                               ; label :label "more" :style {:cursor "pointer"}

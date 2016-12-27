@@ -313,6 +313,7 @@
   :validate-access-token
   manual-check-spec
   (fn [{:keys [db]} _]
+    (pprint (str "Within validate-access-token: authenticated?=" (:authenticated? db) ", access-token=" (:access-token db) ", initialized?=" (:initialized? db)))
     {:http-xhrio {:method          :post
                   :uri             "/validate-token"
                   :params          {:access-token (:access-token db)}
