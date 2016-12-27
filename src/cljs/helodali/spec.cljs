@@ -127,6 +127,10 @@
                             :opt-un [::kind ::location ::url ::begin-date ::end-date ::notes
                                      ::images ::associated-documents ::associated-press]))
 
+;; Document
+(s/def ::document (s/keys :req-un [::uuid ::name ::created]
+                          :opt-un [::notes]))
+
 ;; User's artist profile
 (s/def ::photo (s/nilable string?))
 (s/def ::birth-year int?)
@@ -163,11 +167,15 @@
 (s/def ::exhibitions (s/and
                         (s/map-of ::id ::exhibition)
                         #(instance? PersistentTreeMap %)))
+(s/def ::documents (s/and
+                        (s/map-of ::id ::document)
+                        #(instance? PersistentTreeMap %)))
 (s/def ::press (s/and
                   (s/map-of ::id ::press-ref)
                   #(instance? PersistentTreeMap %)))
 (s/def ::message (s/nilable string?))
 (s/def ::db (s/keys :req-un [::view ::display-type ::single-item-uuid ::artwork ::contacts ::exhibitions
                              ::press ::profile ::authenticated? ::initialized? ::access-token ::id-token
-                             ::delegation-token ::delegation-token-expiration ::userinfo ::search-pattern]
+                             ::delegation-token ::delegation-token-expiration ::userinfo ::search-pattern
+                             ::documents]
                     :opt-un [::message]))

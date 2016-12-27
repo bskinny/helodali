@@ -199,12 +199,6 @@
                                   [button :label "Delete" :class "btn-default"
                                           :on-click #(dispatch [:delete-local-vector-element [:artwork id :purchases] idx])]]]]])]))
 
-(defn show-spinner
-  []
-  [v-box :gap "0px" :width "100%" :height "100%" :margin "0"
-         :align :center :justify :center ;:style {:border "dashed 1px red"}
-     :children [[re-com/throbber]]])
-
 (defn display-secondary-image
   [id editing? idx image odd-row?]
   (let [bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
@@ -385,6 +379,7 @@
         container-style (if @expanded {:background-color "#fff"} {})
         editing (subscribe [:item-key :artwork id :editing])
         mouse-over-image (r/atom false)
+        signed-thumb-url (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url]])
         image-input-id (str "image-upload-" id "-0")
         showing-download-tooltip? (r/atom false)
         showing-primary-image-info? (r/atom false)
@@ -416,7 +411,7 @@
             expiration (:signed-thumb-url-expiration-time image)
             url (cond
                   (:processing image) "/image-assets/ajax-loader.gif"
-                  (and (not (nil? expiration)) (not (expired? expiration))) (:signed-thumb-url image)
+                  (and (not (nil? expiration)) (not (expired? expiration))) @signed-thumb-url
                   :else "/image-assets/thumb-stub.png")
             object-fit (cond
                           (:processing image) "none"

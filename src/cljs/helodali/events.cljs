@@ -671,8 +671,8 @@
         {:dispatch-n (list [:fetch-aws-delegation-token] [:get-signed-url path-to-object-map bucket object-key url-key expiration-key])}
         ;; Get the signed url
         (let [s3 (:aws-s3 db)
-              expiration-time (ct/plus (ct/now) (ct/days 7))
-              params (clj->js {:Bucket bucket :Key object-key :Expires (* 3600 24 7)})
+              expiration-time (ct/plus (ct/now) (ct/minutes 2))
+              params (clj->js {:Bucket bucket :Key object-key :Expires 120})
               url (js->clj (.getSignedUrl s3 "getObject" params))]
           (pprint (str "Retrieved signedUrl: " url))
           {:db (-> db
