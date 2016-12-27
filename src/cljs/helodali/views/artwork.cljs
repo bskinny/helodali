@@ -380,6 +380,7 @@
         editing (subscribe [:item-key :artwork id :editing])
         mouse-over-image (r/atom false)
         signed-thumb-url (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url]])
+        delegation-token (subscribe [:app-key :delegation-token])
         image-input-id (str "image-upload-" id "-0")
         showing-download-tooltip? (r/atom false)
         showing-primary-image-info? (r/atom false)
@@ -407,6 +408,7 @@
                                      [md-icon-button :md-icon-name "zmdi zmdi-more mdc-text-blue"  :tooltip "Show more..."
                                         :on-click #(route-single-item :artwork @uuid)])]]
             image (first @images) ;; Note that images may be empty, hence image is nil
+            have-delegation-token? (not (empty? @delegation-token))
             raw-image-url (:signed-raw-url image)
             expiration (:signed-thumb-url-expiration-time image)
             url (cond
@@ -420,9 +422,9 @@
         ;; Perform some dispatching if the artwork is not in sync with S3 and database
         (if (:processing image)
           (dispatch [:refresh-image [:artwork id :images 0]])
-          (when (and (not (nil? image)) (or (nil? url) (expired? expiration)))
+          (when (and have-delegation-token? (not (nil? image)) (or (nil? url) (expired? expiration)))
             (dispatch [:get-signed-url [:artwork id :images 0] "helodali-images" (:key image) :signed-thumb-url :signed-thumb-url-expiration-time])))
-        (when (and (:key image) (expired? (:signed-raw-url-expiration-time image)))
+        (when (and (:key image) have-delegation-token? (expired? (:signed-raw-url-expiration-time image)))
           (dispatch [:get-signed-url [:artwork id :images 0] "helodali-raw-images" (:key image) :signed-raw-url :signed-raw-url-expiration-time]))
 
         ;; Base UI on new-item versus single-item versus inline display within contact-sheet
