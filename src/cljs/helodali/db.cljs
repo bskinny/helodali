@@ -160,11 +160,13 @@
    :single-item-uuid nil ;; Used to defined which entity is being viewed in detail
    :message nil
    :search-pattern nil
+   :sit-and-spin false ;; A directive to show the spinner on the main page
    :initialized? false
    :authenticated? false
    :access-token nil
    :id-token nil
    :delegation-token nil
+   :delegation-token-retrieval-underway false
    :delegation-token-expiration nil
    :aws-s3 nil; ;; Accesses multiple S3 buckets
    :csrf-token nil

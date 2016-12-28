@@ -8,7 +8,7 @@
     [cljs-time.core :as ct]
     [cljs.pprint :refer [pprint]]
     [reagent.core :as r]
-    [re-frame.core :refer [reg-event-db reg-event-fx inject-cofx path trim-v reg-cofx
+    [re-frame.core :refer [reg-event-db reg-event-fx reg-fx inject-cofx path trim-v reg-cofx
                            after debug dispatch]]
     [day8.re-frame.http-fx]
     [cljsjs.aws-sdk-js]
@@ -74,6 +74,19 @@
         (assoc cofx :local-store-items
                {:access-token (.getItem js/localStorage "helodali.access-token")
                 :id-token (.getItem js/localStorage "helodali.id-token")})))))
+
+(defn- apply-local-storage-change
+  [{:keys [k v]}]
+  ;; If value (v) is nil, remove the item, otherwise set the value
+  (if (empty? v)
+    (.removeItem js/localStorage k)
+    (.setItem js/localStorage k v)))
+
+(reg-fx
+  :sync-to-local-storage
+  (fn [requests]
+    ;; requests is a vector of {:k key-name :v value} maps
+    (doall (map #(apply-local-storage-change %) requests))))
 
 (reg-event-db
   :initialize-db-from-result
@@ -376,6 +389,35 @@
          (assoc :delegation-token credentials)
          (assoc :delegation-token-expiration (parse-date :date-time (get credentials "Expiration")))
          (assoc :aws-s3 s3)))))
+
+(reg-event-fx
+  :logout
+  interceptors
+  (fn [{:keys [db]} _]
+    {:db (-> db
+            (assoc :authenticated? false)
+            (assoc :id-token nil)
+            (assoc :access-token nil)
+            (assoc :sit-and-spin true))
+     :http-xhrio {:method          :post
+                   :uri             "/logout"
+                   :params          {:access-token (:access-token db)
+                                     :uref (get-in db [:profile :uuid])}
+                   :headers         {:x-csrf-token (:csrf-token db)}
+                   :timeout         5000
+                   :format          (ajax/transit-request-format {})
+                   :response-format (ajax/transit-response-format {:keywords? true})
+                   :on-success      [:complete-logout]
+                   :on-failure      [:bad-result {}]}
+     :sync-to-local-storage [{:k "helodali.access-token" :v nil}
+                             {:k "helodali.id-token" :v nil}]}))
+
+;; A successful logout: reset the db to the unauthenticated default
+(reg-event-db
+  :complete-logout
+  (fn [db [_ result]]
+    (-> helodali.db/default-db
+       (assoc :sit-and-spin false))))
 
 (reg-event-db
   :authenticated

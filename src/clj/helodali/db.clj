@@ -101,6 +101,15 @@
       (let [time-stamp (unparse (formatters :date-time) (now))]
         (far/put-item co :sessions {:uref uref :token access-token :ts time-stamp})))))
 
+(defn delete-access-token
+  [access-token uref]
+  (pprint (str "delete-access-token: " access-token " and uuid: " uref))
+  (let [session (far/get-item co :sessions {:uref uref :token access-token})]
+    (if session
+      (do
+        (pprint (str "Deleting session: " session))
+        (far/delete-item co :sessions {:uref uref :token access-token})))))
+
 (defn valid-session?
   "Check if the given uuid and access-token are in agreement in the :sessions table,
    i.e. there is an item that matches the pair of values."
