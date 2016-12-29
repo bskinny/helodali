@@ -166,7 +166,6 @@
    :access-token nil
    :id-token nil
    :delegation-token nil
-   :delegation-token-retrieval-underway false
    :delegation-token-expiration nil
    :aws-s3 nil; ;; Accesses multiple S3 buckets
    :csrf-token nil

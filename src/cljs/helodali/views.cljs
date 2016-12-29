@@ -1,7 +1,7 @@
 (ns helodali.views
     (:require [helodali.db :as db]
               [helodali.misc :refer [expired?]]
-              [helodali.routes :refer [route route-profile route-search route-logout]]
+              [helodali.routes :refer [route route-profile route-search]]
               [helodali.views.artwork :refer [artwork-view]]
               [helodali.views.contacts :refer [contacts-view]]
               [helodali.views.press :refer [press-view]]
@@ -147,7 +147,7 @@
        (pprint (str "Main Panel: authenticated?=" @authenticated? ", access-token=" @access-token ", initialized?=" @initialized?))
        (cond ;; Note: the clauses below are formatted oddly because of parinfer and the desire not to let the code run as wide as this comment.
          @sit-and-spin (show-spinner)
-         
+
          (and (not @authenticated?) (empty? @access-token))
          ;; Display login widget
          [v-box :gap "0px" :width "100%" :height "100%" :margin "0"

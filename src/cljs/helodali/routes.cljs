@@ -9,7 +9,7 @@
 (accountant/configure-navigation! {:nav-handler (fn [path] (secretary/dispatch! path)) :path-exists? (fn [path] true)})
 
 ;; /
-(defroute home-path "/" []
+(defroute home "/" []
   (dispatch [:change-view :artwork :default]))
 
 ;; Display default view for type, e.g. /view/artwork or /view/contacts
