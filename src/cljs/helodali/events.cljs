@@ -361,17 +361,20 @@
   :fetch-aws-delegation-token
   manual-check-spec
   (fn [db _]
-   (let [auth0 (js/Auth0. (clj->js {:domain "helodali.auth0.com"
-                                    :clientID "UNQ9LKBRomyn7hLPKKJmdK2mI7RNphGs"
-                                    :callbackURL "dummy"}))
-         options {:id_token (:id-token db) :api "aws"
-                  :principal "arn:aws:iam::128225160927:saml-provider/auth0-provider"
-                  :role "arn:aws:iam::128225160927:role/access-to-s3-per-user"}]
-     (.getDelegationToken auth0 (clj->js options) handle-delegation-token-retrieval)
-     (-> db
-        (assoc :delegation-token nil)
-        (assoc :delegation-token-expiration nil)
-        (assoc :aws-s3 nil)))))
+    (if (:delegation-token-retrieval-underway db)
+      db
+      (let [auth0 (js/Auth0. (clj->js {:domain "helodali.auth0.com"
+                                       :clientID "UNQ9LKBRomyn7hLPKKJmdK2mI7RNphGs"
+                                       :callbackURL "dummy"}))
+            options {:id_token (:id-token db) :api "aws"
+                     :principal "arn:aws:iam::128225160927:saml-provider/auth0-provider"
+                     :role "arn:aws:iam::128225160927:role/access-to-s3-per-user"}]
+        (.getDelegationToken auth0 (clj->js options) handle-delegation-token-retrieval)
+        (-> db
+           (assoc :delegation-token nil)
+           (assoc :delegation-token-expiration nil)
+           (assoc :delegation-token-retrieval-underway true)
+           (assoc :aws-s3 nil))))))
 
 (reg-event-db
   :setup-aws-delegation
@@ -385,6 +388,7 @@
       (-> db
          (assoc :delegation-token credentials)
          (assoc :delegation-token-expiration (parse-date :date-time (get credentials "Expiration")))
+         (assoc :delegation-token-retrieval-underway false)
          (assoc :aws-s3 s3)))))
 
 (reg-event-fx
@@ -418,15 +422,17 @@
             (assoc :sit-and-spin false))
      :route-client {:route-name helodali.routes/home :args {}}}))
 
-(reg-event-db
+(reg-event-fx
   :authenticated
   manual-check-spec
   (fn [db [authenticated? access-token id-token]]
     (pprint (str "Event :authenticated with params: authenticated?=" authenticated? ", access-token=" access-token ", id-token=" id-token))
-    (-> db
-      (assoc :authenticated? authenticated?)
-      (assoc :id-token id-token)
-      (assoc :access-token access-token))))
+    {:db (-> db
+           (assoc :authenticated? authenticated?)
+           (assoc :id-token id-token)
+           (assoc :access-token access-token))
+     :sync-to-local-storage [{:k "helodali.access-token" :v access-token}
+                             {:k "helodali.id-token" :v id-token}]}))
 
 (reg-event-fx
   :copy-item
@@ -654,8 +660,9 @@
         {:dispatch-n (list [:fetch-aws-delegation-token] [:get-signed-url path-to-object-map bucket object-key url-key expiration-key])}
         ;; Get the signed url
         (let [s3 (:aws-s3 db)
-              expiration-time (ct/plus (ct/now) (ct/minutes 2))
-              params (clj->js {:Bucket bucket :Key object-key :Expires 120})
+              expiration-seconds (* 60 20) ;; 20 minutes
+              expiration-time (ct/plus (ct/now) (ct/seconds expiration-seconds))
+              params (clj->js {:Bucket bucket :Key object-key :Expires expiration-seconds})
               url (js->clj (.getSignedUrl s3 "getObject" params))]
           (pprint (str "Retrieved signedUrl: " url))
           {:db (-> db

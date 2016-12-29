@@ -104,8 +104,6 @@
   [auth-result]
   (pprint (str "auth-result: " (js->clj auth-result)))
   (let [result (js->clj auth-result)]
-    (.setItem js/localStorage "helodali.access-token" (get result "accessToken"));
-    (.setItem js/localStorage "helodali.id-token" (get result "idToken"));
     (dispatch [:authenticated true (get result "accessToken") (get result "idToken")])))
 
 (defn main-panel []
