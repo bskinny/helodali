@@ -378,7 +378,6 @@
         expanded (subscribe [:item-key :artwork id :expanded])
         container-style (if @expanded {:background-color "#fff"} {})
         editing (subscribe [:item-key :artwork id :editing])
-        mouse-over-image (r/atom false)
         signed-thumb-url (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url]])
         delegation-token (subscribe [:app-key :delegation-token])
         image-input-id (str "image-upload-" id "-0")
@@ -440,11 +439,6 @@
                                                                   :on-click #(if (not (= @display-type :new-item)) ;; Don't toggle 'expanded' when in :new-item mode
                                                                                (dispatch [:set-local-item-val [:artwork id :expanded] (not @expanded)])
                                                                                nil)}]]
-                                                                  ; :style {:z-index 1}
-                                                                  ; :onMouseOver #(when (= @display-type :single-item)
-                                                                  ;                  (reset! mouse-over-image true))
-                                                                  ; :onMouseOut #(when (= @display-type :single-item)
-                                                                  ;                 (reset! mouse-over-image false))}]]
                                                   (when (and @editing (= @display-type :single-item) (not (:processing image)))
                                                     [h-box :gap "8px" :align :center :justify :center :style {:background-color "#428bca"}
                                                        :children [(when-not (empty? (:metadata image))

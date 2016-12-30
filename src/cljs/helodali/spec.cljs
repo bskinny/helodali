@@ -14,6 +14,7 @@
 (s/def ::date #(instance? goog.date.Date %)) ;; a DateTime, down to the day
 (s/def ::time #(instance? goog.date.Date %))  ;; A DateTime
 (s/def ::created #(instance? goog.date.Date %))  ;; A DateTime
+(s/def ::last-modified #(instance? goog.date.Date %))  ;; A DateTime
 (s/def ::include-in-cv boolean?)
 (s/def ::ref (s/nilable ::uuid)) ;; Used to reference an item, certain situations require allowing nil
 (s/def ::associated-documents (s/nilable (s/* ::uuid)))
@@ -128,8 +129,9 @@
                                      ::images ::associated-documents ::associated-press]))
 
 ;; Document
-(s/def ::document (s/keys :req-un [::uuid ::name ::created]
-                          :opt-un [::notes]))
+(s/def ::document (s/keys :req-un [::uuid ::name ::created ::last-modified]
+                          :opt-un [::notes ::size ::processing
+                                   ::signed-raw-url ::signed-raw-url-expiration-time]))
 
 ;; User's artist profile
 (s/def ::photo (s/nilable string?))

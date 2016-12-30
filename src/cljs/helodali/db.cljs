@@ -42,11 +42,21 @@
    :editing false
    :expanded false})
 
+(defn default-document
+  []
+  {:uuid (generate-uuid)
+   :created (now)
+   :last-modified nil ;; implies same as :created
+   :name nil
+   :size nil
+   :notes nil
+   :editing false})
+
 (defn default-press
   []
   {:uuid (generate-uuid)
    :created (now)
-   :title nil ;;
+   :title nil
    :author-first-name nil
    :author-last-name nil
    :publication nil
@@ -167,13 +177,14 @@
    :id-token nil
    :delegation-token nil
    :delegation-token-expiration nil
-   :delegation-token-retrieval-underway true
+   :delegation-token-retrieval-underway false
    :aws-s3 nil; ;; Accesses multiple S3 buckets
    :csrf-token nil
    :userinfo nil ;; The userinfo map returned by Auth0
    :sort-keys {:artwork [:year false]  ;; true/false for forward/reverse sorting
                :contacts [:name true]
                :exhibitions [:name true]
+               :documents [:name true]
                :purchases [:date false]
                :press [:publication-date false]
                :search-results [:item-type false]}})
@@ -182,6 +193,7 @@
   [type]
   (let [defaults (condp = type
                     :artwork (default-artwork)
+                    :document-name (default-document)
                     :exhibitions (default-exhibition)
                     :contacts (default-contact)
                     :press (default-press)
@@ -192,9 +204,6 @@
   [type]
   (condp = type
      :artwork :contact-sheet
-     :exhibitions :list
-     :contacts :list
-     :press :list
      :list))
 
 ;; styles taken from wpadc.org
