@@ -136,7 +136,8 @@
   (fn [db [path val]]
     (assoc-in db path val)))
 
-;; path is a vector pointing into :profile or item, e.g. :artwork, :contacts, etc. E.g.
+;; Update the app-db locally (i.e. do not propogate change to server)
+;; path is a vector pointing into :profile or items, e.g. :artwork, :contacts, etc. E.g.
 ;; [:artwork 16 :purchases 0 :price] or [:exhibitions 3 :location]
 (reg-event-db
   :set-local-item-val
@@ -308,15 +309,6 @@
           :profile (update-profile-fx new-db item-path changes)
           (update-fx new-db item-path changes))))))
 
-;; Update the app-db locally (i.e. do not propogate change to server)
-;; path is a vector pointing into :profile or items, e.g. :artwork, :contacts, etc. E.g.
-;; [:artwork 16 :purchases 0 :price] or [:exhibitions 3 :location]
-(reg-event-db
-  :set-local-item-val
-  interceptors
-  (fn [db [path val]]
-    (assoc-in db path val)))
-
 ;; POST /validate-token request and set authenticated?=true if successful, also
 ;; storing the retrieved id-token
 (reg-event-fx
@@ -413,19 +405,20 @@
      :sync-to-local-storage [{:k "helodali.access-token" :v nil}
                              {:k "helodali.id-token" :v nil}]}))
 
-;; A successful logout: reset the db to the unauthenticated default
+;; A successful logout: reset the db to the unauthenticated default but keep the csrf-token
 (reg-event-fx
   :complete-logout
   manual-check-spec
   (fn [{:keys [db]} [_ result]]
     {:db (-> helodali.db/default-db
-            (assoc :sit-and-spin false))
+            (assoc :sit-and-spin false)
+            (assoc :csrf-token (:csrf-token db)))
      :route-client {:route-name helodali.routes/home :args {}}}))
 
 (reg-event-fx
   :authenticated
   manual-check-spec
-  (fn [db [authenticated? access-token id-token]]
+  (fn [{:keys [db]} [authenticated? access-token id-token]]
     (pprint (str "Event :authenticated with params: authenticated?=" authenticated? ", access-token=" access-token ", id-token=" id-token))
     {:db (-> db
            (assoc :authenticated? authenticated?)
