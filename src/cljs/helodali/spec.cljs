@@ -155,6 +155,7 @@
 (s/def ::id-token (s/nilable string?))
 (s/def ::delegation-token (s/nilable (s/keys :opt-un []))) ;; From Auth0, no need to spec the contents of this map
 (s/def ::delegation-token-expiration ::time)
+(s/def ::delegation-token-retrieval-underway boolean?)
 (s/def ::userinfo (s/nilable (s/keys :opt-un []))) ;; From Auth0, no need to spec the contents of this map
 (s/def ::csrf-token (s/nilable string?))
 (s/def ::single-item-uuid (s/nilable string?))
@@ -176,6 +177,6 @@
 (s/def ::message (s/nilable string?))
 (s/def ::db (s/keys :req-un [::view ::display-type ::single-item-uuid ::artwork ::contacts ::exhibitions
                              ::press ::profile ::authenticated? ::initialized? ::access-token ::id-token
-                             ::delegation-token ::delegation-token-expiration ::userinfo ::search-pattern
-                             ::documents]
+                             ::delegation-token ::delegation-token-expiration ::delegation-token-retrieval-underway
+                             ::userinfo ::search-pattern ::documents]
                     :opt-un [::message]))

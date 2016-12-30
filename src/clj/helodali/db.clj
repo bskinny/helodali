@@ -101,6 +101,15 @@
       (let [time-stamp (unparse (formatters :date-time) (now))]
         (far/put-item co :sessions {:uref uref :token access-token :ts time-stamp})))))
 
+(defn delete-access-token
+  [access-token uref]
+  (pprint (str "delete-access-token: " access-token " and uuid: " uref))
+  (let [session (far/get-item co :sessions {:uref uref :token access-token})]
+    (if session
+      (do
+        (pprint (str "Deleting session: " session))
+        (far/delete-item co :sessions {:uref uref :token access-token})))))
+
 (defn valid-session?
   "Check if the given uuid and access-token are in agreement in the :sessions table,
    i.e. there is an item that matches the pair of values."
@@ -299,7 +308,8 @@
   (for [item items]
     (far/put-item co table item)))
 
-(defn create-demo
+(defn table-and-demo-creation
+  "This recreates the database and will delete all existing data."
   []
   (let [brianw "1073c8b0-ab47-11e6-8f9d-c83ff47bbdcb"
         tables (far/list-tables co)
@@ -353,13 +363,6 @@
     (doall (put-items :artwork artwork))
     (doall (put-items :press press))))
 
-; (far/delete-table co :sessions)
-; (pprint (far/create-table co :sessions
-;             [:uref :s]
-;             {:range-keydef [:token :s]
-;              :throughput {:read 2 :write 2}
-;              :block? true}))
-
 ; (far/scan co :sessions)
 ; (cache-access-token "swizBbwU7cC7x123" {:sub "facebook|10208314583117362"})
 ; (pprint (far/query co :openid {:email [:eq "brian.williams@mayalane.com"]} {:index "email-index"}))
@@ -375,10 +378,8 @@
 ; (pprint (update-profile brianw [:degrees] nil))
 ; (delete-item :artwork brianw "a5ef27a1-7814-4e37-addc-25c5e54b6d29")
 ; (pprint (update-item :artwork brianw "b8d80fe3-aeb5-11e6-a116-c83ff47bbdcb" [:status] :not-for-sale))
-; (create-demo)
 
 (comment
-  (create-demo)
   (far/get-item co :press {:uref brianw :uuid "123123-222-123123-0001"})
-  ; (def all (far/scan co :artwork))
+  (def all (far/scan co :artwork))
   (far/query co :artwork {:uref [:eq brianw]}))

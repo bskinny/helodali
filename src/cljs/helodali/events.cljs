@@ -5,10 +5,11 @@
     [helodali.spec :as hs] ;; Keep this here even though we refer to the namespace directly below
     [helodali.misc :refer [expired? generate-uuid find-element-by-key-value find-item-by-key-value
                            remove-vector-element into-sorted-map]]
+    [helodali.routes :refer [route]]
     [cljs-time.core :as ct]
     [cljs.pprint :refer [pprint]]
     [reagent.core :as r]
-    [re-frame.core :refer [reg-event-db reg-event-fx inject-cofx path trim-v reg-cofx
+    [re-frame.core :refer [reg-event-db reg-event-fx reg-fx inject-cofx path trim-v reg-cofx
                            after debug dispatch]]
     [day8.re-frame.http-fx]
     [cljsjs.aws-sdk-js]
@@ -74,6 +75,24 @@
         (assoc cofx :local-store-items
                {:access-token (.getItem js/localStorage "helodali.access-token")
                 :id-token (.getItem js/localStorage "helodali.id-token")})))))
+
+(defn- apply-local-storage-change
+  [{:keys [k v]}]
+  ;; If value (v) is nil, remove the item, otherwise set the value
+  (if (empty? v)
+    (.removeItem js/localStorage k)
+    (.setItem js/localStorage k v)))
+
+(reg-fx
+  :sync-to-local-storage
+  (fn [requests]
+    ;; requests is a vector of {:k key-name :v value} maps
+    (doall (map #(apply-local-storage-change %) requests))))
+
+(reg-fx
+  :route-client
+  (fn [{:keys [route-name args]}]
+    (route route-name args)))
 
 (reg-event-db
   :initialize-db-from-result
@@ -275,6 +294,9 @@
                      (and (= type :profile) (or (:lectures-and-talks diffA) (:lectures-and-talks diffB))) (assoc :lectures-and-talks (:lectures-and-talks item))
                      (and (= type :profile) (or (:residencies diffA) (:residencies diffB))) (assoc :residencies (:residencies item))
                      (and (= type :profile) (or (:awards-and-grants diffA) (:awards-and-grants diffB))) (assoc :awards-and-grants (:awards-and-grants item))
+                     (or (:associated-documents diffA) (:associated-documents diffB)) (assoc :associated-documents (:associated-documents item))
+                     (or (:associated-press diffA) (:associated-press diffB)) (assoc :associated-press (:associated-press item))
+                     (and (= type :artwork) (or (:style diffA) (:style diffB))) (assoc :style (:style item))
                      (and (= type :artwork) (or (:images diffA) (:images diffB))) (assoc :images (:images item))
                      (and (= type :artwork) (or (:purchases diffA) (:purchases diffB))) (assoc :purchases (:purchases item))
                      (and (= type :artwork) (or (:exhibition-history diffA) (:exhibition-history diffB))) (assoc :exhibition-history (:exhibition-history item)))]
@@ -291,21 +313,9 @@
 ;; [:artwork 16 :purchases 0 :price] or [:exhibitions 3 :location]
 (reg-event-db
   :set-local-item-val
-  manual-check-spec
+  interceptors
   (fn [db [path val]]
     (assoc-in db path val)))
-
-;; path is a vector pointing into items, e.g. :artwork, :contacts, etc. E.g.
-;; [:artwork 16 :purchases 0 :price] or [:exhibitions 3 :location]
-;; The update is applied in memory and the new database is checked against spec before
-;; submitting the update to the server.
-(reg-event-fx
-  :set-item-val
-  manual-check-spec
-  (fn [_world [path val]]
-    (let [db (:db _world)
-          new-db (assoc-in db path val)]
-      (update-fx new-db path val))))
 
 ;; POST /validate-token request and set authenticated?=true if successful, also
 ;; storing the retrieved id-token
@@ -313,6 +323,7 @@
   :validate-access-token
   manual-check-spec
   (fn [{:keys [db]} _]
+    (pprint (str "Within validate-access-token: authenticated?=" (:authenticated? db) ", access-token=" (:access-token db) ", initialized?=" (:initialized? db)))
     {:http-xhrio {:method          :post
                   :uri             "/validate-token"
                   :params          {:access-token (:access-token db)}
@@ -350,17 +361,20 @@
   :fetch-aws-delegation-token
   manual-check-spec
   (fn [db _]
-   (let [auth0 (js/Auth0. (clj->js {:domain "helodali.auth0.com"
-                                    :clientID "UNQ9LKBRomyn7hLPKKJmdK2mI7RNphGs"
-                                    :callbackURL "dummy"}))
-         options {:id_token (:id-token db) :api "aws"
-                  :principal "arn:aws:iam::128225160927:saml-provider/auth0-provider"
-                  :role "arn:aws:iam::128225160927:role/access-to-s3-per-user"}]
-     (.getDelegationToken auth0 (clj->js options) handle-delegation-token-retrieval)
-     (-> db
-        (assoc :delegation-token nil)
-        (assoc :delegation-token-expiration nil)
-        (assoc :aws-s3 nil)))))
+    (if (:delegation-token-retrieval-underway db)
+      db
+      (let [auth0 (js/Auth0. (clj->js {:domain "helodali.auth0.com"
+                                       :clientID "UNQ9LKBRomyn7hLPKKJmdK2mI7RNphGs"
+                                       :callbackURL "dummy"}))
+            options {:id_token (:id-token db) :api "aws"
+                     :principal "arn:aws:iam::128225160927:saml-provider/auth0-provider"
+                     :role "arn:aws:iam::128225160927:role/access-to-s3-per-user"}]
+        (.getDelegationToken auth0 (clj->js options) handle-delegation-token-retrieval)
+        (-> db
+           (assoc :delegation-token nil)
+           (assoc :delegation-token-expiration nil)
+           (assoc :delegation-token-retrieval-underway true)
+           (assoc :aws-s3 nil))))))
 
 (reg-event-db
   :setup-aws-delegation
@@ -374,17 +388,51 @@
       (-> db
          (assoc :delegation-token credentials)
          (assoc :delegation-token-expiration (parse-date :date-time (get credentials "Expiration")))
+         (assoc :delegation-token-retrieval-underway false)
          (assoc :aws-s3 s3)))))
 
-(reg-event-db
+(reg-event-fx
+  :logout
+  interceptors
+  (fn [{:keys [db]} _]
+    {:db (-> db
+            (assoc :authenticated? false)
+            (assoc :id-token nil)
+            (assoc :access-token nil)
+            (assoc :sit-and-spin true))
+     :http-xhrio {:method          :post
+                   :uri             "/logout"
+                   :params          {:access-token (:access-token db)
+                                     :uref (get-in db [:profile :uuid])}
+                   :headers         {:x-csrf-token (:csrf-token db)}
+                   :timeout         5000
+                   :format          (ajax/transit-request-format {})
+                   :response-format (ajax/transit-response-format {:keywords? true})
+                   :on-success      [:complete-logout]
+                   :on-failure      [:bad-result {}]}
+     :sync-to-local-storage [{:k "helodali.access-token" :v nil}
+                             {:k "helodali.id-token" :v nil}]}))
+
+;; A successful logout: reset the db to the unauthenticated default
+(reg-event-fx
+  :complete-logout
+  manual-check-spec
+  (fn [{:keys [db]} [_ result]]
+    {:db (-> helodali.db/default-db
+            (assoc :sit-and-spin false))
+     :route-client {:route-name helodali.routes/home :args {}}}))
+
+(reg-event-fx
   :authenticated
   manual-check-spec
   (fn [db [authenticated? access-token id-token]]
     (pprint (str "Event :authenticated with params: authenticated?=" authenticated? ", access-token=" access-token ", id-token=" id-token))
-    (-> db
-      (assoc :authenticated? authenticated?)
-      (assoc :id-token id-token)
-      (assoc :access-token access-token))))
+    {:db (-> db
+           (assoc :authenticated? authenticated?)
+           (assoc :id-token id-token)
+           (assoc :access-token access-token))
+     :sync-to-local-storage [{:k "helodali.access-token" :v access-token}
+                             {:k "helodali.id-token" :v id-token}]}))
 
 (reg-event-fx
   :copy-item
@@ -488,15 +536,6 @@
         (merge (delete-fx new-db type item)
                {:dispatch-n (list [:delete-s3-objects "helodali-raw-images" images])})))))
 
-;; Push new 'defaults' element in the front of vector given by 'path'
-(reg-event-fx
-  :create-vector-element
-  manual-check-spec
-  (fn [{:keys [db]} [path defaults]] ;; defaults is a map, e.g. the output of helodali.db/default-purchase, inserted at head of vector
-    (let [val (into [defaults] (get-in db path))
-          new-db (assoc-in db path val)]
-      (update-fx new-db path val))))
-
 ;; Apply this change only to our app-db: Push new 'defaults' element in the front of vector given by 'path'
 (reg-event-db
   :create-local-vector-element
@@ -504,35 +543,6 @@
   (fn [db [path defaults]] ;; defaults is a map, e.g. the output of helodali.db/default-purchase, inserted at head of vector
     (let [val (into [defaults] (get-in db path))]
       (assoc-in db path val))))
-
-(reg-event-fx
-  :create-profile-vector-element
-  manual-check-spec
-  (fn [{:keys [db]} [path defaults]]       ;; 'path' should be relative to app-db's :profile, e.g. [:degrees]
-    (let [val (into [defaults] (get-in db (into [:profile] path)))
-          new-db (assoc-in db (into [:profile] path) val)
-          _ (check-and-throw :helodali.spec/db db)
-          val (walk-cleaner val)]
-      {:db new-db
-       :http-xhrio {:method          :post
-                    :uri             "/update-profile"
-                    :params          {:uuid (get-in db [:profile :uuid])
-                                      :path path :val val
-                                      :access-token (:access-token db)}
-                    :headers         {:x-csrf-token (:csrf-token db)}
-                    :timeout         5000
-                    :format          (ajax/transit-request-format {})
-                    :response-format (ajax/transit-response-format {:keywords? true})
-                    :on-success      [:noop]
-                    :on-failure      [:bad-result {}]}})))
-
-(reg-event-fx
-  :delete-vector-element
-  manual-check-spec
-  (fn [{:keys [db]} [path idx]]
-    (let [val (remove-vector-element (get-in db path) idx)
-          new-db (assoc-in db path val)]
-      (update-fx new-db path val))))
 
 (reg-event-db
   :delete-local-vector-element
@@ -557,27 +567,6 @@
           new-db (assoc-in db path val)]
       (merge (update-fx new-db path val)
              {:dispatch-n dispatches}))))
-
-(reg-event-fx
-  :delete-profile-vector-element
-  manual-check-spec
-  (fn [{:keys [db]} [path idx]]       ;; 'path' should be relative to app-db's :profile, e.g. [:degrees]
-    (let [val (remove-vector-element (get-in db (into [:profile] path)) idx)
-          new-db (assoc-in db (into [:profile] path) val)
-          _ (check-and-throw :helodali.spec/db db)
-          val (walk-cleaner val)]
-      {:db new-db
-       :http-xhrio {:method          :post
-                    :uri             "/update-profile"
-                    :params          {:uuid (get-in db [:profile :uuid])
-                                      :path path :val val
-                                      :access-token (:access-token db)}
-                    :headers         {:x-csrf-token (:csrf-token db)}
-                    :timeout         5000
-                    :format          (ajax/transit-request-format {})
-                    :response-format (ajax/transit-response-format {:keywords? true})
-                    :on-success      [:noop]
-                    :on-failure      [:bad-result {}]}})))
 
 (reg-event-db
   :display-single-item
@@ -671,8 +660,9 @@
         {:dispatch-n (list [:fetch-aws-delegation-token] [:get-signed-url path-to-object-map bucket object-key url-key expiration-key])}
         ;; Get the signed url
         (let [s3 (:aws-s3 db)
-              expiration-time (ct/plus (ct/now) (ct/minutes 2))
-              params (clj->js {:Bucket bucket :Key object-key :Expires 120})
+              expiration-seconds (* 60 20) ;; 20 minutes
+              expiration-time (ct/plus (ct/now) (ct/seconds expiration-seconds))
+              params (clj->js {:Bucket bucket :Key object-key :Expires expiration-seconds})
               url (js->clj (.getSignedUrl s3 "getObject" params))]
           (pprint (str "Retrieved signedUrl: " url))
           {:db (-> db

@@ -4,7 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [helodali.db :refer [initialize-db update-item create-item delete-item refresh-image-data
                                  update-user-table valid-user? refresh-item-path cache-access-token
-                                 valid-session?]]
+                                 valid-session? delete-access-token]]
             [helodali.auth0 :as auth0]
             [ring.util.response :refer [content-type response resource-response file-response redirect]]
             [ring.middleware.reload :refer [wrap-reload]]
@@ -66,7 +66,6 @@
   (POST "/login" [access-token :as req]
     (let [userinfo (auth0/get-userinfo access-token)]
       (pprint (str "Handle /login with userinfo: " userinfo))
-      ; (pprint (str "  And req: " req))
       (if (nil? (:sub userinfo))
         (do
           (pprint "No :sub claim found in userinfo: " userinfo)
@@ -74,6 +73,10 @@
         (do
           (cache-access-token access-token userinfo)
           (response (initialize-db userinfo))))))
+
+  (POST "/logout" [access-token uref :as req]
+    (pprint (str "logout access-token/uuid: " access-token "/" uref))
+    (process-request uref access-token #(delete-access-token access-token uref)))
 
   ;; Redirect any client side routes to "/".
   (ANY "/view/*" [] (redirect "/"))

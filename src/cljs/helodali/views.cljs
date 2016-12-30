@@ -44,10 +44,26 @@
                            [label :label "Press" :on-click #(select-fn :press)]
                            [label :label "Purchases" :on-click #(select-fn :purchases)]]]])))
 
+(defn account-popover-body
+  []
+  (fn [showing-account-popover? & {:keys [showing-injected? position-injected]}]
+    (let [select-fn (fn [view]
+                       (route helodali.routes/view {:type (name view)})
+                       (reset! showing-account-popover? false))]
+      [re-com/popover-content-wrapper :showing-injected? showing-account-popover? :position-injected position-injected
+        :width "160px" :backdrop-opacity 0.3 :on-cancel #(reset! showing-account-popover? false) :style {:cursor "pointer"}
+        :body [v-box
+                :children [[label :label "Artist Profile" :on-click #(select-fn :profile)]
+                           [label :label "Account" :on-click #(select-fn :account)]
+                           [label :label "Logout" :on-click (fn []
+                                                               (dispatch [:logout])
+                                                               (reset! showing-account-popover? false))]]]])))
+
 (defn header
   "Display main page header"
   []
   (let [showing-more? (r/atom false)
+        showing-account-popover? (r/atom false)
         search-pattern (r/atom "")]
     (fn []
       [h-box :size "0 0 auto" :height "100px" :gap "10px" :align :center :justify :around :class "header"
@@ -58,8 +74,12 @@
                     [h-box :gap "8px" :justify :around
                       :children [[md-icon-button :md-icon-name "zmdi zmdi-collection-image-o" :size :larger
                                                  :on-click #(route helodali.routes/view {:type (name :artwork)})]
-                                 [md-icon-button :md-icon-name "zmdi zmdi-account-o" :size :larger
-                                                 :on-click #(route-profile)]
+                                 ; [md-icon-button :md-icon-name "zmdi zmdi-account-o" :size :larger
+                                 ;                 :on-click #(route-profile)]
+                                 [re-com/popover-anchor-wrapper :showing? showing-account-popover? :position :right-below
+                                   :anchor   [md-icon-button :md-icon-name "zmdi zmdi-account-o" :size :larger
+                                                    :on-click #(reset! showing-account-popover? true)]
+                                   :popover  [account-popover-body showing-account-popover?]]
                                  [re-com/popover-anchor-wrapper :showing? showing-more? :position :right-below
                                    :anchor   [md-icon-button :md-icon-name "zmdi zmdi-more" :size :larger
                                               ; label :label "more" :style {:cursor "pointer"}
@@ -84,8 +104,6 @@
   [auth-result]
   (pprint (str "auth-result: " (js->clj auth-result)))
   (let [result (js->clj auth-result)]
-    (.setItem js/localStorage "helodali.access-token" (get result "accessToken"));
-    (.setItem js/localStorage "helodali.id-token" (get result "idToken"));
     (dispatch [:authenticated true (get result "accessToken") (get result "idToken")])))
 
 (defn main-panel []
@@ -97,7 +115,8 @@
        profile (subscribe [:app-key :profile])
        access-token (subscribe [:app-key :access-token])
        id-token (subscribe [:app-key :id-token])
-       delegation-token (subscribe [:app-key :delegation-token])]
+       delegation-token (subscribe [:app-key :delegation-token])
+       sit-and-spin (subscribe [:app-key :sit-and-spin])]
    (fn []
      (let [lock (js/Auth0Lock. "UNQ9LKBRomyn7hLPKKJmdK2mI7RNphGs" "helodali.auth0.com"
                                (clj->js {:auth {:params {:scope "openid name email"}}
@@ -125,6 +144,8 @@
        ;;
        (pprint (str "Main Panel: authenticated?=" @authenticated? ", access-token=" @access-token ", initialized?=" @initialized?))
        (cond ;; Note: the clauses below are formatted oddly because of parinfer and the desire not to let the code run as wide as this comment.
+         @sit-and-spin (show-spinner)
+
          (and (not @authenticated?) (empty? @access-token))
          ;; Display login widget
          [v-box :gap "0px" :width "100%" :height "100%" :margin "0"
