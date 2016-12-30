@@ -131,7 +131,7 @@
 ;; Document
 (s/def ::document (s/keys :req-un [::uuid ::name ::created ::last-modified]
                           :opt-un [::notes ::size ::processing
-                                   ::signed-raw-url ::signed-raw-url-expiration-time]))
+                                   ::key ::signed-raw-url ::signed-raw-url-expiration-time]))
 
 ;; User's artist profile
 (s/def ::photo (s/nilable string?))

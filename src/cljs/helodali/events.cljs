@@ -605,6 +605,45 @@
   (fn [db [_ result]]
     (assoc db :message result)))
 
+;; This event should be dispatched when an item or path into an item needs to be
+;; refreshed from the database. We dispatch continually, with a
+;; 400ms delay, until a satisfactory result is returned as determined by the
+;; given satisfied function. The 'item-path' argument must contain at table
+;; and id at minimum. E.g. [:documents 2]
+(reg-event-fx
+  :refresh-item
+  manual-check-spec
+  (fn [{:keys [db]} [item-path satisfied-fn]]
+    (let [type (first item-path)
+          id (second item-path)]
+      {:http-xhrio {:method          :post
+                    :uri             "/refresh-item-path"
+                    :params          {:uref (get-in db [:profile :uuid])
+                                      :access-token (:access-token db)
+                                      :table type :path (rest (rest item-path))
+                                      :item-uuid (get-in db [type id :uuid])}
+                    :headers         {:x-csrf-token (:csrf-token db)}
+                    :timeout         5000
+                    :format          (ajax/transit-request-format {})
+                    :response-format (ajax/transit-response-format {:keywords? true})
+                    :on-success      [:apply-item-refresh item-path satisfied-fn]
+                    :on-failure      [:bad-result {}]}})))
+
+(reg-event-fx
+  :apply-item-refresh
+  manual-check-spec
+  (fn [{:keys [db]} [item-path satisfied-fn result]]
+    ;; If the 'result', which is a map, does not satisfy the given satisfied-fn, then we are still
+    ;; waiting on some type of processing and will try again after a delay.
+    (pprint (str "apply-item-refresh result: " result))
+    (if (not (satisfied-fn result))
+      {:dispatch-later [{:ms 1000 :dispatch [:refresh-item item-path satisfied-fn]}]}
+      ;; else merge the map into the item
+      (let [val (-> (get-in db item-path)
+                    (merge result)
+                    (walk-cleaner))]
+        {:db (assoc-in db item-path val)}))))
+
 ;; This event should be dispatched when an artwork has images being processed and hence
 ;; a fetch is required from DynamoDB. We dispatch continually, with a
 ;; 400ms delay, until a result is returned.
@@ -645,7 +684,7 @@
         {:db (-> db
                 (assoc-in path-to-image image))}))))
 
-;; Get the signed URL to access designated S3 object. Define a one week
+;; Get the signed URL to access designated S3 object. Define a 20 minute
 ;; expiration. If the delegation token has not been fetched yet, then trigger
 ;; another attempt at this event in 400 ms.
 (reg-event-fx

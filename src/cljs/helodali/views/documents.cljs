@@ -21,123 +21,6 @@
     "(no title)"
     title))
 
-(defn display-purchase-view
-  [purchase odd-row?]
-  (let [bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
-        buyer-contact (if (empty? (:buyer purchase))
-                        (r/atom nil)
-                        (subscribe [:item-by-uuid :contacts (:buyer purchase)]))
-        agent-contact (if (empty? (:agent purchase))
-                        (r/atom nil)
-                        (subscribe [:item-by-uuid :contacts (:agent purchase)]))
-        dealer-contact (if (empty? (:dealer purchase))
-                         (r/atom nil)
-                         (subscribe [:item-by-uuid :contacts (:dealer purchase)]))]
-    [(fn []
-      [v-box :gap "4px" :justify :start :align :start :padding "10px" :width "100%"
-         :style {:background bg-color :border-radius "4px"}
-         :children [[h-box :gap "6px" :align :center ;:style {:border "dashed 1px red"}
-                       :children [[:span.uppercase.light-grey "Purchased: "]
-                                  [:span (unparse (formatters :date) (:date purchase))]
-                                  (when (not (empty? @buyer-contact))
-                                     [h-box :gap "6px" :align :center :children [[:span "by "]
-                                                                                 [:span.bold (:name @buyer-contact)]]])
-                                  (when (:on-public-display purchase)
-                                    [:span.uppercase " | on public display"])
-                                  (when (:collection purchase)
-                                    [:span.uppercase " | part of collection"])
-                                  (when (not (empty? (:location purchase)))
-                                    [:span (str " | " (:location purchase))])]]
-                    [h-box :gap "8px"
-                       :children [[h-box :gap "6px" :align :center
-                                      :children [[:span.uppercase.light-grey "Price: "]
-                                                 [:span (:price purchase)]]]
-                                  (when (> (:total-commission-percent purchase) 0)
-                                    [h-box :gap "6px" :align :center
-                                      :children [[:span.uppercase.light-grey "  Total Commision Percent: "]
-                                                 [:span (:total-commission-percent purchase)]]])
-                                  (when (:donated purchase)
-                                    [:span.bold.uppercase " |  donated"])
-                                  (when (:commissioned purchase)
-                                    [:span.bold.uppercase " |  commissioned"])]]
-                    (when (not (empty? @agent-contact))
-                      [h-box :gap "6px" :align :center
-                         :children [[:span.uppercase.light-grey "agent: "]
-                                    [:span (:name @agent-contact)]]])
-                    (when (not (empty? @dealer-contact))
-                      [h-box :gap "6px" :align :center
-                         :children [[:span.uppercase.light-grey "dealer: "]
-                                    [:span (:name @dealer-contact)]]])
-                    (when (not (empty? (:notes purchase)))
-                      [h-box :gap "6px" :children [[:span.uppercase.light-grey "Notes: "]
-                                                   [:span (:notes purchase)]]])]])]))
-
-(defn display-purchase-edit
-  [id idx odd-row?]
-  (let [bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
-        buyer-uuid (subscribe [:by-path [:documents id :purchases idx :buyer]])
-        agent-uuid (subscribe [:by-path [:documents id :purchases idx :agent]])
-        dealer-uuid (subscribe [:by-path [:documents id :purchases idx :dealer]])
-        contacts (subscribe [:items-vals-with-uuid :contacts :name]) ;; this is a list of 2-tuples [uuid name]
-        purchase-date (subscribe [:by-path [:documents id :purchases idx :date]])
-        on-public-display (subscribe [:by-path [:documents id :purchases idx :on-public-display]])
-        collection (subscribe [:by-path [:documents id :purchases idx :collection]])
-        location (subscribe [:by-path [:documents id :purchases idx :location]])
-        price (subscribe [:by-path [:documents id :purchases idx :price]])
-        total-commission-percent (subscribe [:by-path [:documents id :purchases idx :total-commission-percent]])
-        donated (subscribe [:by-path [:documents id :purchases idx :donated]])
-        commissioned (subscribe [:by-path [:documents id :purchases idx :commissioned]])
-        notes (subscribe [:by-path [:documents id :purchases idx :notes]])]
-    [(fn []
-      [v-box :gap "4px" :justify :start :align :start :padding "10px"
-         :style {:background bg-color :border "1px solid lightgray" :border-radius "4px"} :width "100%"
-         :children [[h-box :gap "6px" :align :center
-                       :children [[:span.input-label (str "Purchased ")]
-                                  [datepicker-dropdown :model (goog.date.UtcDateTime. @purchase-date)
-                                        :on-change #(dispatch [:set-local-item-val [:documents id :purchases idx :date] %])]
-                                  [h-box :gap "6px" :align :center
-                                     :children [[:span "by "]
-                                                [single-dropdown :choices (uuid-label-list-to-options @contacts) :model (if (nil? @buyer-uuid) :none buyer-uuid) :width "200px"
-                                                       :on-change #(if (and (not= @buyer-uuid %) (not (and (= @buyer-uuid nil) (= % :none))))
-                                                                     (dispatch [:set-local-item-val [:documents id :purchases idx :buyer] %]))]]]
-                                  [checkbox :model @on-public-display :label "On Public Display?"
-                                     :on-change #(dispatch [:set-local-item-val [:documents id :purchases idx :on-public-display] (not @on-public-display)])]
-                                  [checkbox :model @collection :label "Part of Collection?"
-                                     :on-change #(dispatch [:set-local-item-val [:documents id :purchases idx :collection] (not @collection)])]]]
-                    [h-box :gap "6px" :align :center
-                      :children [[:span.input-label "Location"]
-                                 [input-text :width "384px" :model (str @location) :style {:border "none"}
-                                      :on-change #(dispatch [:set-local-item-val [:documents id :purchases idx :location] %])]
-                                 [checkbox :model @donated :label "Donated?"
-                                    :on-change #(dispatch [:set-local-item-val [:documents id :purchases idx :donated] (not @donated)])]
-                                 [checkbox :model @commissioned :label "Commissioned?"
-                                    :on-change #(dispatch [:set-local-item-val [:documents id :purchases idx :commissioned] (not @commissioned)])]]]
-                    [h-box :gap "8px" :align :center
-                       :children [[h-box :gap "4px" :align :center
-                                    :children [[:span.input-label "Price "]
-                                               [input-text :width "80px" :model (str @price) :style {:border-radius "4px"}
-                                                   :attr {:max-length 12} :on-change #(dispatch [:set-local-item-val [:documents id :purchases idx :price] (js/Number %)])]]]
-                                  [h-box :gap "4px" :align :center
-                                    :children [[:span.input-label "Total commission percentage given to agents and dealers "]
-                                               [input-text :width "70px" :model (str @total-commission-percent) :style {:border-radius "4px"}
-                                                   :attr {:max-length 12} :on-change #(dispatch [:set-local-item-val [:documents id :purchases idx :total-commission-percent] (js/Number %)])]]]]]
-                    [h-box :gap "6px" :align :center
-                       :children [[:span.input-label "Agent "]
-                                  [single-dropdown :choices (uuid-label-list-to-options @contacts) :model (if (nil? @agent-uuid) :none agent-uuid) :width "200px"
-                                       :on-change #(if (and (not= @agent-uuid %) (not (and (= @agent-uuid nil) (= % :none))))
-                                                     (dispatch [:set-local-item-val [:documents id :purchases idx :agent] (if (= :none %) nil %)]))]
-                                  [:span.input-label "Dealer "]
-                                  [single-dropdown :choices (uuid-label-list-to-options @contacts) :model (if (nil? @dealer-uuid) :none dealer-uuid) :width "200px"
-                                       :on-change #(if (and (not= @dealer-uuid %) (not (and (= @dealer-uuid nil) (= % :none))))
-                                                     (dispatch [:set-local-item-val [:documents id :purchases idx :dealer] (if (= :none %) nil %)]))]]]
-                    [h-box :gap "6px" :align :center :justify :between :align-self :stretch
-                       :children [[h-box :gap "6px" :align :center
-                                     :children [[:span.input-label "Notes "]
-                                                [input-textarea :model (str @notes) :width "520px" :rows 4
-                                                    :on-change #(dispatch [:set-local-item-val [:documents id :purchases idx :notes] %])]]]
-                                  [button :label "Delete" :class "btn-default"
-                                          :on-click #(dispatch [:delete-local-vector-element [:documents id :purchases] idx])]]]]])]))
-
 (defn item-properties-panel
   [id]
   (let [editing (subscribe [:item-key :documents id :editing])
@@ -276,6 +159,7 @@
         last-modified (subscribe [:item-key :documents id :last-modified])
         processing (subscribe [:item-key :documents id :processing])
         editing (subscribe [:item-key :documents id :editing])
+        key (subscribe [:item-key :documents id :key])
         signed-raw-url (subscribe [:item-key :documents id :signed-raw-url])
         signed-raw-url-expiration-time (subscribe [:item-key :documents id :signed-raw-url-expiration-time])
         document-input-id (str "document-upload-" id)
@@ -295,21 +179,41 @@
                                    [row-button :md-icon-name "zmdi zmdi-delete"
                                      :mouse-over-row? true :tooltip "Delete this item" :tooltip-position :right-center
                                      :on-click #(dispatch [:delete-artwork-item :documents id])]]]
+            view-control [h-box :gap "12px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
+                             :children [[row-button :md-icon-name "zmdi zmdi-edit"
+                                          :mouse-over-row? true :tooltip "Edit this item" :tooltip-position :right-center
+                                          :on-click #(dispatch [:edit-item [:exhibitions id]])]
+                                        [row-button :md-icon-name "zmdi zmdi-delete"
+                                          :mouse-over-row? true :tooltip "Delete this item" :tooltip-position :right-center
+                                          :on-click #(dispatch [:delete-item :exhibitions id])]]]
+            view [[h-box :gap "18px" :align :center :justify :between
+                    :children [[:span.bold @document-name]
+                               [:span.all-small-caps (str (quot @size 1024) " KB")]]]
+                  (when (not (empty? @created))
+                    [h-box :gap "8px" :align :center :justify :start
+                            :children [[:span.uppercase.light-grey "created"]
+                                       [:span (safe-date-string @created)]]])
+                  (when (not (empty? @last-modified))
+                    [h-box :gap "8px" :align :center :justify :start
+                            :children [[:span.uppercase.light-grey "last modified"]
+                                       [:span (safe-date-string @last-modified)]]])
+                  (when (not (empty? @notes))
+                    [v-box :gap "4px" :align :start :justify :start :max-width "480px"
+                            :children [[:span.uppercase.light-grey "notes"]
+                                       [:span @notes]]])]
             url (cond
                   @processing "/image-assets/ajax-loader.gif"
                   (and (not (nil? @signed-raw-url-expiration-time)) (not (expired? @signed-raw-url-expiration-time))) @signed-raw-url
                   :else "/image-assets/thumb-stub.png")  ;; TODO: Need a documents-stub image
             object-fit "none"]
         ;; Perform some dispatching if the document is not in sync with S3 and database
-        (if @processing
-          (dispatch [:refresh-image [:documents id :images 0]])
-          (when (and (not (nil? image)) (or (nil? url) (expired? expiration)))
-            (dispatch [:get-signed-url [:documents id :images 0] "helodali-images" (:key image) :signed-thumb-url :signed-thumb-url-expiration-time])))
-        (when (and (:key image) (expired? (:signed-raw-url-expiration-time image)))
-          (dispatch [:get-signed-url [:documents id :images 0] "helodali-raw-images" (:key image) :signed-raw-url :signed-raw-url-expiration-time]))
+        (when @processing
+          (dispatch [:refresh-item [:documents id] #(not (empty? (:size %)))]))
+        (when (and @key (expired? @signed-raw-url-expiration-time))
+          (dispatch [:get-signed-url [:documents id] "helodali-documents" @key :signed-raw-url :signed-raw-url-expiration-time]))
 
-        ;; Base UI on new-item versus single-item versus inline display within contact-sheet
-        ;; A new-item view does not present the image or edit/delete controls
+        ;; Base UI on new-item versus single-item
+        ;; A new-item view does not present the document upload or edit/delete controls
         (if (= @display-type :new-item)
           [h-box :gap "4px" :align :start :justify :start :style container-style :style {:flex-flow "row wrap"}
             :children [[item-properties-panel id]]]
@@ -321,11 +225,6 @@
                                                                   :on-click #(if (not (= @display-type :new-item)) ;; Don't toggle 'expanded' when in :new-item mode
                                                                                (dispatch [:set-local-item-val [:documents id :expanded] (not @expanded)])
                                                                                nil)}]]
-                                                                  ; :style {:z-index 1}
-                                                                  ; :onMouseOver #(when (= @display-type :single-item)
-                                                                  ;                  (reset! mouse-over-image true))
-                                                                  ; :onMouseOut #(when (= @display-type :single-item)
-                                                                  ;                 (reset! mouse-over-image false))}]]
                                                   (when (and @editing (= @display-type :single-item) (not (:processing image)))
                                                     [h-box :gap "8px" :align :center :justify :center :style {:background-color "#428bca"}
                                                        :children [(when-not (empty? (:metadata image))

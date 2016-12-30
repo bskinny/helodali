@@ -45,6 +45,10 @@
 (defn default-document
   []
   {:uuid (generate-uuid)
+   :key nil
+   :signed-raw-url nil
+   :signed-raw-url-expiration-time nil
+   :processing false
    :created (now)
    :last-modified nil ;; implies same as :created
    :name nil

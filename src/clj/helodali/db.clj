@@ -264,12 +264,15 @@
 
 (defn refresh-item-path
   "Fetch item from artwork, press, exhibitions, documents, or contacts table. The 'path'
-   argument is a keyword or vector path into the item."
+   argument is a keyword or vector path into the item and can be nil to return the entire item."
   ;; TODO: think about optimzing the get-item call with projections
   [table uref item-uuid path]
   (pprint (str "refresh-item-path uref/item-uuid: " uref "/" item-uuid))
-  (let [item (far/get-item co table {:uref uref :uuid item-uuid})
-        val (get-in (coerce-item table item) path)]
+  (let [item (->> (far/get-item co table {:uref uref :uuid item-uuid})
+                  (coerce-item table))
+        val (if (empty? path)
+              item
+              (get-in item path))]
     (pprint (str "Refresh returning: " val))
     val))
 
