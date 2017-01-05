@@ -32,15 +32,15 @@ body {
     display: flex;
 }
 
-.cover {
+.fit-cover {
   object-fit: cover;
 }
 
-.contain {
+.fit-contain {
   object-fit: contain;
 }
 
-.none {
+.fit-none {
   object-fit: none;
 }
 

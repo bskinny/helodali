@@ -415,9 +415,9 @@
                   (and (not (nil? expiration)) (not (expired? expiration))) @signed-thumb-url
                   :else "/image-assets/thumb-stub.png")
             object-fit (cond
-                          (:processing image) "none"
-                          (or (= @display-type :contact-sheet) @editing) "cover"
-                          :else "contain")]
+                          (:processing image) "fit-none"
+                          (or (= @display-type :contact-sheet) @editing) "fit-cover"
+                          :else "fit-contain")]
         ;; Perform some dispatching if the artwork is not in sync with S3 and database
         (if (:processing image)
           (dispatch [:refresh-image [:artwork id :images 0]])
@@ -429,9 +429,9 @@
         ;; Base UI on new-item versus single-item versus inline display within contact-sheet
         ;; A new-item view does not present the image or edit/delete controls
         (if (= @display-type :new-item)
-          [h-box :gap "4px" :align :start :justify :start :style container-style :style {:flex-flow "row wrap"}
+          [h-box :gap "4px" :align :start :justify :start :style {:flex-flow "row wrap"} ; :style container-style
             :children [[item-properties-panel id]]]
-          [h-box :gap "4px" :align :start :justify :start :style container-style :padding "20px" :style {:flex-flow "row wrap"}
+          [h-box :gap "4px" :align :start :justify :start :padding "20px" :style {:flex-flow "row wrap"} ; :style container-style
             :children [[v-box :gap "2px" :width image-size :align :center :justify :center :height "100%"
                          :children [[v-box ;:max-width image-size :max-height image-size ;:style {:margin-top "10px" :z-index 0 :position "relative"}
                                        :children [[box :max-width image-size :max-height image-size
@@ -540,7 +540,7 @@
                                         :on-click #(dispatch [:copy-item :artwork id :title])]
                                     [row-button :md-icon-name "zmdi zmdi-delete"
                                       :mouse-over-row? true :tooltip "Delete this item"
-                                      :on-click #(dispatch [:delete-item :artwork id])]]]]]))]))
+                                      :on-click #(dispatch [:delete-artwork-item :artwork id])]]]]]))]))
 
 (defn item-list-view
   "Display item properties in single line - no image display. The 'widths' map contains the string
@@ -584,7 +584,7 @@
                                       :on-click #(dispatch [:copy-item :artwork id :title])]
                                   [row-button :md-icon-name "zmdi zmdi-delete"
                                     :mouse-over-row? true :tooltip "Delete this item"
-                                    :on-click #(dispatch [:delete-item :artwork id])]]]]])]))
+                                    :on-click #(dispatch [:delete-artwork-item :artwork id])]]]]])]))
 
 (defn row-view
   "Display items one per row with a small thumbnail"
@@ -598,7 +598,6 @@
       (let [widths {:title (+ 4 (max-string-length @titles 80))
                     :style (+ (max-string-length (map name @types) 80) (max-string-length (map #(str " | " (clojure.string/join ", " (map name %))) @styles) 60))
                     :medium (+ 4 (max-string-length @mediums 30))}]
-        (pprint (str "style width: " (:style widths)))
         [v-box :gap "4px" :align :center :justify :start
            :children (into [] (map (partial item-row-view widths) @items (cycle [true false])))]))))
 
