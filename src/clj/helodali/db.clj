@@ -32,6 +32,7 @@
                (coerce-int [:expenses :list-price :year :editions]))
     :contacts (keywordize-vals m [:role])
     :exhibitions (keywordize-vals m [:kind])
+    :documents (coerce-int m [:size])
     :profile (-> m
                (coerce-int [:birth-year])
                (assoc :degrees (apply vector (map #(coerce-int % [:year]) (:degrees m))))
@@ -135,7 +136,7 @@
       (when (not (empty? openid-item))
         (sync-userinfo userinfo openid-item))
       {:artwork (query-by-uref :artwork uref)
-       :documents []       ;; TODO
+       :documents (query-by-uref :documents uref)
        :exhibitions (query-by-uref :exhibitions uref)
        :contacts (query-by-uref :contacts uref)
        :press (query-by-uref :press uref)
@@ -334,7 +335,7 @@
                    (map #(assoc % :created (unparse (formatters :date) (:created %))))
                    (map #(assoc % :purchases (fix-date :unparse :date (:purchases %)))))]
     (doall (map #(far/delete-table co %) tables))
-    (doall (map #(create-table %) [:press :exhibitions :artwork :contacts]))
+    (doall (map #(create-table %) [:press :exhibitions :documents :artwork :contacts]))
     (far/create-table co :profiles
       [:uuid :s]  ; Hash key of uuid-valued user reference, (:s => string type)
       {:throughput {:read 2 :write 2} ; Read & write capacity (units/sec)

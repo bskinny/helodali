@@ -21,14 +21,17 @@
     v))
 
 (defn fix-date
-  "Called with a list, such as an artwork's :purchases, and converts a date valued kw to/from string
+  "Called with a list of maps, such as an artwork's :purchases, and converts a date valued kw to/from string
    The type argument is a keyword of either :parse or :unparse."
   [type kw l]
   ; (pprint (str "fix-date: " kw " " l))
   (let [parse-unparse (if (= type :parse)
                         parse
                         unparse)]
-    (apply vector (map #(assoc % kw (parse-unparse (formatters :date) (get % kw))) l))))
+    (apply vector (map #(if (get % kw)
+                          (assoc % kw (parse-unparse (formatters :date) (get % kw)))
+                          %)
+                       l))))
 
 (defn keywordize-vals
   "Given map and set of keys, convert the values associated with keys to keyword.

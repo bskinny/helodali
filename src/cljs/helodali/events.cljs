@@ -98,7 +98,7 @@
   :initialize-db-from-result
   (fn [db [_ result]]
     ;; Some values in the items need coercion back to DateTime and keyword syntaxes.
-    ; (pprint (str "Raw: " result))
+    (pprint (str "Raw: " (:documents result)))
     (pprint (str "initialize-db-from-result, access-token: " (:access-token db)))
     (let [fixer (partial fix-date :parse)
           artwork (->> (:artwork result)
@@ -109,6 +109,9 @@
                    (fixer :publication-date))
           contacts (->> (:contacts result)
                      (fixer :created))
+          documents (->> (:documents result)
+                       (fixer :created)
+                       (fixer :last-modified))
           exhibitions (->> (:exhibitions result)
                         (fixer :created)
                         (fixer :begin-date)
@@ -116,6 +119,7 @@
       (-> db
         (assoc :artwork (into-sorted-map (map #(merge (helodali.db/default-artwork) %) artwork)))
         (assoc :exhibitions (into-sorted-map (map #(merge (helodali.db/default-exhibition) %) exhibitions)))
+        (assoc :documents (into-sorted-map (map #(merge (helodali.db/default-document) %) documents)))
         (assoc :contacts (into-sorted-map (map #(merge (helodali.db/default-contact) %) contacts)))
         (assoc :press (into-sorted-map (map #(merge (helodali.db/default-press) %) press)))
         (assoc :profile (:profile result))
@@ -125,8 +129,8 @@
 ;; Update top-level app-db keys
 (reg-event-db
   :update-db-from-result
-  (fn [db [_ result]]
-    ; (pprint (str "Result: " result))
+  manual-check-spec
+  (fn [db [result]]
     (merge db result)))
 
 ;; path is a vector pointing into the app db, e.g. [:display-type]
@@ -170,6 +174,8 @@
     (set? in) (set (map walk-cleaner in))
     :else (cleaner in)))
 
+;; Replace the local app-db with what is defined in 'db' and apply changes to server database
+;; 'path' with value 'val'. 'path' may point to an item or a specific attribute.
 (defn- update-fx
   [db path val]
   (let [spec-it (check-and-throw :helodali.spec/db db)
@@ -289,6 +295,9 @@
           ;; of the key (e.g. :purchases in artwork) in either diffA or diffB and overwite the entire value instead of
           ;; trying to pinpoint the exact change within the collection. TODO: We should reconsider vector-valued keys because of this?
           changes (cond-> diffA
+                     (:signed-raw-url diffA) (dissoc :signed-raw-url) ;; For :documents
+                     (:signed-raw-url-expiration-time diffA) (dissoc :signed-raw-url-expiration-time) ;; For :documents
+                     (:processing diffA) (dissoc :processing) ;; For :documents
                      (:editing diffA) (dissoc :editing)
                      (and (= type :profile) (or (:degrees diffA) (:degrees diffB))) (assoc :degrees (:degrees item))
                      (and (= type :profile) (or (:collections diffA) (:collections diffB))) (assoc :collections (:collections item))
@@ -439,12 +448,18 @@
                    (assoc-in [type id :created] (ct/now))
                    (assoc-in [type id name-attribute] (str (get-in db [type source-id name-attribute]) " Copy")))
           new-db (cond-> new-db
-                    (= type :artwork) (assoc-in [type id :images] [])) ;; Empty out images as they will be copied separately
+                    (= type :artwork) (assoc-in [type id :images] []) ;; Empty out images as they will be copied separately
+                    (= type :documents) (assoc-in [type id] (merge (get-in new-db [type id]) {:key nil
+                                                                                              :signed-raw-url nil
+                                                                                              :signed-raw-url-expiration-time nil
+                                                                                              :processing nil})))
           db-changes (create-fx new-db type (get-in new-db [type id]))]
       (condp = type
         :artwork (merge db-changes
                       {:dispatch-n (apply list (map (fn [m] [:copy-s3-within-bucket "helodali-raw-images" m [type id]])
                                                     (get-in db [type source-id :images])))})
+        :documents (merge db-changes
+                      {:dispatch-n (list [:copy-s3-object "helodali-documents" (get-in db [type source-id]) [type id]])})
         db-changes))))
 
 
@@ -493,18 +508,23 @@
       (reset! app-db-undo nil)
       (create-fx new-db type (get-in new-db [type id])))))
 
+(defn- reflect-item-deletion
+  [db type id]
+  (let [item (get-in db [type id])
+        new-db (update-in db [type] dissoc id)
+        mode (get db :display-type)]
+        ;; If view mode is :new-item or :single-item, then switch to default view for type
+    (if (or (= mode :new-item) (= mode :single-item))
+       (assoc new-db :display-type (helodali.db/default-view-for-type type))
+       new-db)))
+
 ;; Dispatch this event to delete an item of type contacts, exhibitions, press
 (reg-event-fx
   :delete-item
   interceptors
   (fn [{:keys [db]} [type id]]
     (let [item (get-in db [type id])
-          new-db (update-in db [type] dissoc id)
-          mode (get db :display-type)
-          ;; If view mode is :new-item or :single-item, then switch to default view for type
-          new-db (if (or (= mode :new-item) (= mode :single-item))
-                   (assoc new-db :display-type (helodali.db/default-view-for-type type))
-                   new-db)]
+          new-db (reflect-item-deletion db type id)]
       ;; Submit change to server for all deletes except those to the placeholder item
       (if (= 0 id)
         {:db new-db}
@@ -516,18 +536,25 @@
   interceptors
   (fn [{:keys [db]} [type id]]
     (let [item (get-in db [type id])
-          images (:images item)
-          new-db (update-in db [type] dissoc id)
-          mode (get db :display-type)
-          ;; If view mode is :new-item or :single-item, then switch to default view for type
-          new-db (if (or (= mode :new-item) (= mode :single-item))
-                   (assoc new-db :display-type (helodali.db/default-view-for-type type))
-                   new-db)]
+          new-db (reflect-item-deletion db type id)]
       ;; Submit change to server for all deletes except those to the placeholder item
       (if (= 0 id)
         {:db new-db}
         (merge (delete-fx new-db type item)
-               {:dispatch-n (list [:delete-s3-objects "helodali-raw-images" images])})))))
+               {:dispatch-n (list [:delete-s3-objects "helodali-raw-images" (:images item)])})))))
+
+;; Dispatch this event to delete a document item, the file needs to be removed from S3.
+(reg-event-fx
+  :delete-document-item
+  interceptors
+  (fn [{:keys [db]} [type id]]
+    (let [item (get-in db [type id])
+          new-db (reflect-item-deletion db type id)]
+      ;; Submit change to server for all deletes except those to the placeholder item
+      (if (= 0 id)
+        {:db new-db}
+        (merge (delete-fx new-db type item)
+               {:dispatch-n (list [:delete-s3-objects "helodali-documents" (filter #(not (empty? (:key %))) [item])])})))))
 
 ;; Apply this change only to our app-db: Push new 'defaults' element in the front of vector given by 'path'
 (reg-event-db
@@ -559,6 +586,27 @@
           val (remove-vector-element (get-in db path) idx)
           new-db (assoc-in db path val)]
       (merge (update-fx new-db path val)
+             {:dispatch-n dispatches}))))
+
+;; Delete a S3 object from the given item. This involves issuing the S3 delete and
+;; the removal of :key, :signed-raw-url and :signed-raw-url-expiration-time keys
+;; from the item in app-db. Also remove the :key value from the item in the database.
+(reg-event-fx
+  :delete-s3-object-from-item
+  manual-check-spec
+  (fn [{:keys [db]} [buckets path-to-item]]
+    (let [s3-object (get-in db path-to-item)
+          dispatches (apply list (map (fn [bucket] [:delete-s3-objects bucket [s3-object]]) buckets))
+          val (-> s3-object
+                 (dissoc :key)
+                 (dissoc :filename)
+                 (dissoc :size)
+                 (dissoc :signed-raw-url)
+                 (dissoc :signed-raw-url-expiration-time))
+          new-db (assoc-in db path-to-item val)]
+      (merge (update-fx new-db path-to-item {:key nil
+                                             :filename nil
+                                             :size 0})
              {:dispatch-n dispatches}))))
 
 (reg-event-db
@@ -701,7 +749,7 @@
                   (assoc-in (conj path-to-object-map url-key) url)
                   (assoc-in (conj path-to-object-map expiration-key) expiration-time))})))))
 
-;; Upload an image to the helodali-raw-images bucket. The object key ("filename") is composed
+;; Upload an image to the helodali-raw-images bucket. The s3 object key ("filename") is composed
 ;; as follows: sub/artwork-uuid/image-uuid/filename
 ;; Where sub is the user's openid subject identifier
 ;;       artwork-uuid is the uuid of the associated artwork item
@@ -759,7 +807,114 @@
         {:db (assoc-in db (conj images-path idx) {:uuid new-uuid :processing true})
          :dispatch [:delete-s3-objects "helodali-raw-images" [image-to-delete]]}))))
 
-;; Copy given object. Construct new object key from new item's uuid and generate-uuid. Replace
+;; Perform an s3 operation, such as putObject or copyObject. The 'op-type' argument tells us what
+;; operation to perform.
+(reg-fx
+  :s3-operation
+  (fn [{:keys [op-type s3 params on-success]}]
+    (let [callback (fn [err data]
+                      (if (nil? err)
+                        (on-success)
+                        (pprint (str "Err from putObject: " err)))) ;; TODO: dispatch error event?
+          op (condp = op-type
+                      :put-object #(.putObject s3 params callback)
+                      :copy-object #(.copyObject s3 params callback)
+                      :delete-objects #(.deleteObjects s3 params callback)
+                      (pprint (str "Error, s3-operation unknown op-type: " op-type)))]
+      (op))))
+
+(reg-event-fx
+  :on-s3-success
+  interceptors
+  (fn [{:keys [db]} [item-path changes]]
+    (let [item (-> (get-in db item-path)
+                  (merge changes)
+                  (assoc :processing false))
+          new-db (assoc-in db item-path item)]
+      (update-fx new-db item-path changes))))
+
+;; Upload an object to the given s3 bucket. The s3 object key ("filename") is composed
+;; as follows: sub/item-uuid/new-uuid/filename
+;; Where sub is the user's openid subject identifier
+;;       item-uuid is the uuid of the associated item, such as a document
+;;       new-uuid is unique to this invocation of add/replace object
+;;       filename is the basename of the file selected by the user
+;; This function differs from add-image in that we are also responsible for updating
+;; the database (as opposed to Lambda being triggered).
+(reg-event-fx
+  :add-s3-object
+  manual-check-spec
+  (fn [{:keys [db]} [bucket item-path js-file]]
+    (if (expired? (:delegation-token-expiration db))
+      ;; Refresh the expired delegation-token
+      {:dispatch-n (list [:fetch-aws-delegation-token] [:add-s3-object bucket item-path js-file])}
+      (let [filename (.-name js-file)
+            s3 (:aws-s3 db)
+            this-uuid (generate-uuid)
+            object-key (str (:sub (:userinfo db)) "/" (get-in db (conj item-path :uuid)) "/" this-uuid "/" filename)
+            params (clj->js {:Bucket bucket :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})
+            changes {:key object-key :filename filename :size (.-size js-file)}]
+        (pprint (str "object-key: " object-key))
+        (pprint (str "ContentType: " (.-type js-file)))
+        {:s3-operation {:op-type :put-object :s3 s3 :params params
+                        :on-success #(dispatch [:on-s3-success item-path changes])}
+         :db (-> db
+               (assoc-in (conj item-path :processing) true)
+               (assoc-in (conj item-path :signed-raw-url) nil)
+               (assoc-in (conj item-path :signed-raw-url-expiration-time) nil))}))))
+
+;; Similar to add-s3-object but replace the existing object - delete the existing and add the new with a unique object-key
+(reg-event-fx
+  :replace-s3-object
+  manual-check-spec
+  (fn [{:keys [db]} [bucket item-path js-file]]
+    (if (expired? (:delegation-token-expiration db))
+      ;; Refresh the expired delegation-token
+      {:dispatch-n (list [:fetch-aws-delegation-token] [:replace-s3-object bucket item-path js-file])}
+      (let [filename (.-name js-file)
+            s3 (:aws-s3 db)
+            this-uuid (generate-uuid)
+            object-key (str (:sub (:userinfo db)) "/" (get-in db (conj item-path :uuid)) "/" this-uuid "/" filename)
+            s3-object-to-delete (get-in db item-path)
+            params (clj->js {:Bucket bucket :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})
+            changes {:key object-key :filename filename :size (.-size js-file)}]
+        (pprint (str "object-key: " object-key))
+        (pprint (str "ContentType: " (.-type js-file)))
+        {:s3-operation {:op-type :put-object :s3 s3 :params params
+                        :on-success #(dispatch [:on-s3-success item-path changes])}
+         :db (-> db
+               (assoc-in (conj item-path :processing) true)
+               (assoc-in (conj item-path :signed-raw-url) nil)
+               (assoc-in (conj item-path :signed-raw-url-expiration-time) nil))
+         :dispatch [:delete-s3-objects bucket [s3-object-to-delete]]}))))
+
+;; Copy object within same bucket and update database when done.
+;; Construct new object key from new item's uuid and generate-uuid.
+(reg-event-fx
+  :copy-s3-object
+  manual-check-spec
+  (fn [{:keys [db]} [bucket source-object-map target-item-path]]
+    (if (expired? (:delegation-token-expiration db))
+      ;; Refresh the expired delegation-token
+      {:dispatch-n (list [:fetch-aws-delegation-token] [:copy-s3-object bucket source-object-map target-item-path])}
+      (let [s3 (:aws-s3 db)
+            copy-source (str bucket "/" (:key source-object-map))
+            this-uuid (generate-uuid)
+            object-key (str (:sub (:userinfo db)) "/" (get-in db (conj target-item-path :uuid)) "/" this-uuid "/" (:filename source-object-map))
+            params (clj->js {:Bucket bucket :Key object-key :CopySource copy-source})
+            changes {:key object-key}]
+        (pprint (str "object-key: " object-key))
+        {:s3-operation {:op-type :copy-object :s3 s3 :params params
+                        :on-success #(dispatch [:on-s3-success target-item-path changes])}
+         :db (-> db
+               (assoc-in (conj target-item-path :processing) true)
+               (assoc-in (conj target-item-path :signed-raw-url) nil)
+               (assoc-in (conj target-item-path :signed-raw-url-expiration-time) nil))}))))
+
+
+;; Copy given image. Differs from the above by not needing to update the database (in this case, Lambda
+;; is doing that for us).
+;; Construct new object key from new item's uuid and generate-uuid. Replace
 ;; the target image map with just :uuid and :processing=true and is appended to images vector.
 (reg-event-fx
   :copy-s3-within-bucket
@@ -792,13 +947,12 @@
   manual-check-spec
   (fn [{:keys [db]} [bucket objects]]
     (if (empty? objects)
-      ;; nothing to do
-      {:db db}
+      {:db db} ;; nothing to do
       (if (nil? (:delegation-token db))
-        {:dispatch-later [{:ms 400 :dispatch [:delete-images bucket objects]}]}
+        {:dispatch-later [{:ms 400 :dispatch [:delete-s3-objects bucket objects]}]}
         (if (expired? (:delegation-token-expiration db))
           ;; Refresh the expired delegation-token
-          {:dispatch-n (list [:fetch-aws-delegation-token] [:delete-images bucket objects])}
+          {:dispatch-n (list [:fetch-aws-delegation-token] [:delete-s3-objects bucket objects])}
           (let [s3 (:aws-s3 db)
                 callback (fn [err data]
                            (if (not (nil? err))

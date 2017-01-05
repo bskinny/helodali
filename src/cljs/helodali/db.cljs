@@ -45,16 +45,17 @@
 (defn default-document
   []
   {:uuid (generate-uuid)
+   :title nil
    :key nil
    :signed-raw-url nil
    :signed-raw-url-expiration-time nil
    :processing false
    :created (now)
-   :last-modified nil ;; implies same as :created
-   :name nil
-   :size nil
+   :filename nil
+   :size 0
    :notes nil
-   :editing false})
+   :editing false
+   :expanded false})
 
 (defn default-press
   []
@@ -188,7 +189,7 @@
    :sort-keys {:artwork [:year false]  ;; true/false for forward/reverse sorting
                :contacts [:name true]
                :exhibitions [:name true]
-               :documents [:name true]
+               :documents [:title true]
                :purchases [:date false]
                :press [:publication-date false]
                :search-results [:item-type false]}})
@@ -197,7 +198,7 @@
   [type]
   (let [defaults (condp = type
                     :artwork (default-artwork)
-                    :document-name (default-document)
+                    :documents (default-document)
                     :exhibitions (default-exhibition)
                     :contacts (default-contact)
                     :press (default-press)

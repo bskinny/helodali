@@ -14,7 +14,7 @@
 (s/def ::date #(instance? goog.date.Date %)) ;; a DateTime, down to the day
 (s/def ::time #(instance? goog.date.Date %))  ;; A DateTime
 (s/def ::created #(instance? goog.date.Date %))  ;; A DateTime
-(s/def ::last-modified #(instance? goog.date.Date %))  ;; A DateTime
+(s/def ::last-modified #(instance? goog.date.Date %))  ;; A DateTime, non-nil value otherwise undefined
 (s/def ::include-in-cv boolean?)
 (s/def ::ref (s/nilable ::uuid)) ;; Used to reference an item, certain situations require allowing nil
 (s/def ::associated-documents (s/nilable (s/* ::uuid)))
@@ -22,19 +22,19 @@
 
 ;; Artwork
 (s/def ::year (s/and int? #(> % 1000)))
-(s/def ::key string?)
-(s/def ::filename string?)
+(s/def ::key (s/nilable string?))
+(s/def ::filename (s/nilable string?))
 (s/def ::processing boolean?)
-(s/def ::signed-thumb-url string?)
-(s/def ::signed-thumb-url-expiration-time #(instance? goog.date.Date %))
-(s/def ::signed-raw-url string?)
+(s/def ::signed-thumb-url (s/nilable string?))
+(s/def ::signed-thumb-url-expiration-time (s/nilable #(instance? goog.date.Date %)))
+(s/def ::signed-raw-url (s/nilable string?))
 (s/def ::size (s/nilable int?))
 (s/def ::space (s/nilable string?))
 (s/def ::width (s/nilable int?))
 (s/def ::height (s/nilable int?))
 (s/def ::density (s/nilable int?))
 (s/def ::format (s/nilable string?))
-(s/def ::signed-raw-url-expiration-time #(instance? goog.date.Date %))
+(s/def ::signed-raw-url-expiration-time (s/nilable #(instance? goog.date.Date %)))
 (s/def ::metadata (s/keys :opt-un [::size ::space ::height ::width ::density ::format]))
 (s/def ::image (s/keys :req-un [::uuid]
                        :opt-un [::key ::filename ::processing ::signed-thumb-url ::signed-thumb-url-expiration-time
@@ -129,8 +129,8 @@
                                      ::images ::associated-documents ::associated-press]))
 
 ;; Document
-(s/def ::document (s/keys :req-un [::uuid ::name ::created ::last-modified]
-                          :opt-un [::notes ::size ::processing
+(s/def ::document (s/keys :req-un [::uuid ::created]
+                          :opt-un [::notes ::size ::processing ::filename ::last-modified ::title
                                    ::key ::signed-raw-url ::signed-raw-url-expiration-time]))
 
 ;; User's artist profile
