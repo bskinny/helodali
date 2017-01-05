@@ -6,4 +6,5 @@ out
 figwheel_server.log
 ProcFile
 .DS_Store
+.nrepl-port
 .lein-repl-history
