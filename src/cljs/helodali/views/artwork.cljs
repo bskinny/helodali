@@ -471,15 +471,16 @@
                                                                        :emphasise? true :tooltip "Delete this image" ;:tooltip-position :right-center
                                                                        :on-click #(if-not (empty? @images)  ;; TODO: fix this when we support multiple images
                                                                                     (dispatch [:delete-s3-vector-element ["helodali-raw-images"]
-                                                                                                        [:artwork id :images] (:uuid (first @images))]))])
-                                                                  (when-not (empty? (:key image))
-                                                                    [popover-tooltip :label "Download original image"
-                                                                         :showing? showing-download-tooltip? :position :below-center
-                                                                         :anchor [:a {:class "zmdi zmdi-download rc-md-icon-button rc-icon-emphasis"
-                                                                                      :on-mouse-over (handler-fn (reset! showing-download-tooltip? true))
-                                                                                      :on-mouse-out  (handler-fn (reset! showing-download-tooltip? false))
-                                                                                      :href (:signed-raw-url image)
-                                                                                      :download ""}]])]])]]
+                                                                                                        [:artwork id :images] (:uuid (first @images))]))])]])
+                                                  (when (and @expanded (not (or single-item @editing (empty? (:key image)) (:processing image))))
+                                                    [h-box :gap "8px" :align :center :justify :center :style {:background-color "#428bca"}
+                                                       :children [[popover-tooltip :label "Download original image"
+                                                                     :showing? showing-download-tooltip? :position :below-center
+                                                                     :anchor [:a {:class "zmdi zmdi-download rc-md-icon-button rc-icon-emphasis"
+                                                                                  :on-mouse-over (handler-fn (reset! showing-download-tooltip? true))
+                                                                                  :on-mouse-out  (handler-fn (reset! showing-download-tooltip? false))
+                                                                                  :href (:signed-raw-url image)
+                                                                                  :download ""}]]]])]]
                                     (when (and @expanded (or (not @editing) (not single-item))) controls)
                                     (when (not @expanded) [:span (title-string @title)])]]
                        (when @expanded [item-properties-panel id])]])))]))
