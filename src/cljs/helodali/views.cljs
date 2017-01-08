@@ -12,7 +12,6 @@
               [helodali.views.search-results :refer [search-results-view]]
               [cljs.pprint :refer [pprint]]
               [cljsjs.auth0-lock]
-              [cljsjs.auth0]
               [reagent.core  :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
               [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button
@@ -68,20 +67,18 @@
         search-pattern (r/atom "")]
     (fn []
       [h-box :size "0 0 auto" :height "100px" :gap "10px" :align :center :justify :around :class "header"
-         :children [[re-com/title :level :level2 :label "Helodali"]
+         :children [[re-com/title :level :level2 :label "helodali"]
                     [input-text :width "200px" :model search-pattern :placeholder "Search" :style {:border "none"}
                          :on-change #(if (not (empty? %))
                                        (route-search %))]
                     [h-box :gap "8px" :justify :around
                       :children [[md-icon-button :md-icon-name "zmdi zmdi-collection-image-o" :size :larger
                                                  :on-click #(route helodali.routes/view {:type (name :artwork)})]
-                                 ; [md-icon-button :md-icon-name "zmdi zmdi-account-o" :size :larger
-                                 ;                 :on-click #(route-profile)]
-                                 [re-com/popover-anchor-wrapper :showing? showing-account-popover? :position :right-below
+                                 [re-com/popover-anchor-wrapper :showing? showing-account-popover? :position :below-right
                                    :anchor   [md-icon-button :md-icon-name "zmdi zmdi-account-o" :size :larger
                                                     :on-click #(reset! showing-account-popover? true)]
                                    :popover  [account-popover-body showing-account-popover?]]
-                                 [re-com/popover-anchor-wrapper :showing? showing-more? :position :right-below
+                                 [re-com/popover-anchor-wrapper :showing? showing-more? :position :below-center
                                    :anchor   [md-icon-button :md-icon-name "zmdi zmdi-more" :size :larger
                                               ; label :label "more" :style {:cursor "pointer"}
                                                     :on-click #(reset! showing-more? true)]
@@ -121,7 +118,9 @@
    (fn []
      (let [lock (js/Auth0Lock. "UNQ9LKBRomyn7hLPKKJmdK2mI7RNphGs" "helodali.auth0.com"
                                (clj->js {:auth {:params {:scope "openid name email"}}
-                                         :rememberLastLogin true}))
+                                         :rememberLastLogin true
+                                         :theme {:logo "/image-assets/logo.png"
+                                                 :primaryColor "red"}}))
            _ (.on lock "authenticated" handle-authenticated)]
        ;;
        ;; Perform whatever dispatching is needed depending on current state
@@ -149,9 +148,10 @@
 
          (and (not @authenticated?) (empty? @access-token))
          ;; Display login widget
-         [v-box :gap "0px" :width "100%" :height "100%" :margin "0"
+         [v-box :gap "20px" :width "100%" :height "100%" :margin "0" :class "login-page"
                 :align :center :justify :center ;:style {:border "dashed 1px red"}
-            :children [[md-icon-button :md-icon-name "zmdi zmdi-run" :size :larger
+            :children [[re-com/title :level :level1 :label "helodali"]
+                       [md-icon-button :md-icon-name "zmdi zmdi-brush" :size :larger
                             :on-click #(.show lock (clj->js {:initialScreen "login"
                                                              :rememberLastLogin true}))]]]
 
@@ -159,7 +159,7 @@
          ;; Finally, display the app
          [v-box :gap "0px" :width "100%" :margin "0" ; :style {:border "dashed 1px red"}
             :children [[header]
-                       [re-com/line :size "1px" :color "#ccc"]
+                       [re-com/line :size "1px" :color "#fdfdfd"]
                        (if (not (empty? @msg))
                          [re-com/alert-box :alert-type :warning :closeable? true :body @msg])
                        [re-com/gap :size "18px"]

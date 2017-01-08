@@ -1,11 +1,10 @@
 
 body {
   background-color: #fafafa;
-  /*heigth: "100%"*/
 }
 
 .header {
-  background-color: #fff;
+  background-color: #fdfdfd;
 }
 
 .red {
@@ -42,6 +41,17 @@ body {
 
 .fit-none {
   object-fit: none;
+}
+
+.login-page {
+  /*background-image: url("/image-assets/login-paper.jpg");*/
+  background-color: #f2db9a;
+  background: -webkit-linear-gradient(#ffebb1, #b6a36f);
+  background: -o-linear-gradient(#ffebb1, #e1cc94);
+  background: -moz-linear-gradient(#ffebb1, #b6a36f);
+  background: linear-gradient(#ffebb1,#b6a36f);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
 }
 
 .image-controls-overlay {
