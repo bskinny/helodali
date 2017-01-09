@@ -2,13 +2,28 @@
     (:require [helodali.db :as db]
               [helodali.routes :refer [route-single-item route-new-item]]
               [helodali.misc :refer [trunc compute-bg-color max-string-length url-to-href safe-date-string
-                                     sort-by-datetime sort-by-key-then-created]]
+                                     sort-by-datetime sort-by-key-then-created uuid-label-list-to-options]]
               [cljs.pprint :refer [pprint]]
               [reagent.core  :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
               [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button hyperlink
                                               input-text input-textarea single-dropdown selection-list
                                               button datepicker-dropdown checkbox]]))
+
+(defn display-associated-documents-view
+  [uuid odd-row?]
+  (let [bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
+        document (subscribe [:item-by-uuid :documents uuid])]
+    [(fn []
+      [h-box :gap "6px" :justify :start :align :center :padding "4px" :width "100%"
+         :style {:background bg-color :border-radius "4px"}
+         :children [(when (not (nil? (:created @document)))
+                      [:span (safe-date-string (:created @document))])
+                    (when (not (empty? (:title @document)))
+                      [hyperlink :class "semibold italic" :label (:title @document)
+                                 :on-click #(route-single-item :documents uuid)])
+                    (when (not (empty? (:filename @document)))
+                      [:span (:filename @document)])]])]))
 
 (defn item-view
   "Display an item"
@@ -20,6 +35,8 @@
         publication (subscribe [:item-key :press id :publication])
         volume (subscribe [:item-key :press id :volume])
         url (subscribe [:item-key :press id :url])
+        associated-documents (subscribe [:by-path-and-deref-set-sorted-by [:exhibitions id :associated-documents] :documents (partial sort-by-key-then-created :title false)])
+        documents (subscribe [:items-vals-with-uuid :documents :title]) ;; TODO: a document may not have a title, resulting in an empty string in the selection list
         publication-date (subscribe [:item-key :press id :publication-date])
         page-numbers (subscribe [:item-key :press id :page-numbers])
         include-in-cv? (subscribe [:item-key :press id :include-in-cv])
@@ -62,6 +79,11 @@
                   (if @include-in-cv?
                     [:span.italics "Included in your CV"]
                     [:span.italics "Excluded from your CV"])
+                  (when (not (empty? @associated-documents))
+                    [h-box :gap "8px" :align :center :justify :start
+                            :children [[:span.uppercase.light-grey "Documents"]
+                                       [v-box :gap "4px" :align :start :justify :start
+                                          :children (into [] (map display-associated-documents-view @associated-documents (cycle [true false])))]]])
                   (when (not (empty? @notes))
                     [v-box :gap "4px" :align :start :justify :start :max-width "480px"
                             :children [[:span.uppercase.light-grey "notes"]
@@ -108,6 +130,10 @@
                                     :on-change #(dispatch [:set-local-item-val [:press id :page-numbers] %])]]]
                   [checkbox :model include-in-cv? :label "Include in your CV?"
                      :on-change #(dispatch [:set-local-item-val [:press id :include-in-cv] (not @include-in-cv?)])]
+                  [h-box :gap "6px" :align :center
+                     :children [[:span.input-label "Documents"]
+                                [selection-list :choices (uuid-label-list-to-options @documents false) :model (if (empty? @associated-documents) #{} (set @associated-documents)) ;:height "140px"
+                                       :on-change #(dispatch [:set-local-item-val [:exhibitions id :associated-documents] %])]]]
                   [:span.uppercase.light-grey "Notes"]
                   [input-textarea :model (str @notes) :width "360px"
                       :rows 4 :on-change #(dispatch [:set-local-item-val [:press id :notes] %])]]]
