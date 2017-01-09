@@ -52,7 +52,7 @@
                 :uri             "/csrf-token"
                 :timeout         5000
                 :response-format (ajax/json-response-format {:keywords? true})
-                :on-success      [:update-db-from-result]
+                :on-success      [:update-db-from-result (fn [db] true)]
                 :on-failure      [:bad-result {} false]}})
 
 (reg-event-fx
@@ -129,12 +129,14 @@
         (assoc :userinfo (:userinfo result))
         (assoc :initialized? true)))))
 
-;; Update top-level app-db keys
+;; Update top-level app-db keys if supplied predicate evaluates true
 (reg-event-db
   :update-db-from-result
   manual-check-spec
-  (fn [db [result]]
-    (merge db result)))
+  (fn [db [predicate-fx result]]
+    (if (predicate-fx db)
+      (merge db result)
+      db)))
 
 ;; path is a vector pointing into the app db, e.g. [:display-type]
 (reg-event-db
@@ -347,7 +349,7 @@
                   :timeout         5000
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
-                  :on-success      [:update-db-from-result]
+                  :on-success      [:update-db-from-result #(= (:access-token %) (:access-token db))]  ;; Apply update if the access-token has not been changed in the meantime
                   :on-failure      [:bad-result {:access-token nil :id-token nil}]}}))
 
 ;; POST /login request and retrieve :profile
