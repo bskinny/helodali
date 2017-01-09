@@ -47,21 +47,24 @@
 ;  (fn  [_ _]
 ;    helodali.db/default-db))
 
+(defn- csrf-token-request []
+  {:http-xhrio {:method          :get
+                :uri             "/csrf-token"
+                :timeout         5000
+                :response-format (ajax/json-response-format {:keywords? true})
+                :on-success      [:update-db-from-result]
+                :on-failure      [:bad-result {} false]}})
+
 (reg-event-fx
   :initialize-db
   [(inject-cofx :local-store-items)]
   (fn [{:keys [db local-store-items]} _]
     (enable-console-print!)
     ; (pprint (str "initialize-db with localStorage: " local-store-items))
-    {:http-xhrio {:method          :get
-                  :uri             "/csrf-token"
-                  :timeout         5000
-                  :response-format (ajax/json-response-format {:keywords? true})
-                  :on-success      [:update-db-from-result]
-                  :on-failure      [:bad-result {}]}
-     :db (-> helodali.db/default-db
-            (assoc :access-token (:access-token local-store-items))
-            (assoc :id-token (:id-token local-store-items)))}))
+    (merge (csrf-token-request)
+           {:db (-> helodali.db/default-db
+                   (assoc :access-token (:access-token local-store-items))
+                   (assoc :id-token (:id-token local-store-items)))})))
 
 (reg-cofx
   :local-store-items
@@ -177,82 +180,94 @@
 ;; Replace the local app-db with what is defined in 'db' and apply changes to server database
 ;; 'path' with value 'val'. 'path' may point to an item or a specific attribute.
 (defn- update-fx
-  [db path val]
-  (let [spec-it (check-and-throw :helodali.spec/db db)
-        type (first path)
-        id (second path)
-        inside-item-path (rest (rest path))  ;; hop over type and 'id' which only exists on the client app-db
-        val (walk-cleaner val)
-        fx {:db db}]
-    ;; Submit change to server for all updates except those to the placeholder item in the client, which
-    ;; does not yet exist on the server. Also skip the update if the update is on an item, as a whole, and
-    ;; the set of changes, val, is empty
-    (if (or (= id 0) (and (empty? inside-item-path) (empty? val)))
-      fx
-      (merge fx {:http-xhrio {:method          :post
-                              :uri             "/update-item"
-                              :params          {:uref (get-in db [type id :uref])
-                                                :uuid (get-in db [type id :uuid])
-                                                :table type :path inside-item-path :val val
-                                                :access-token (:access-token db)}
-                              :headers         {:x-csrf-token (:csrf-token db)}
-                              :timeout         5000
-                              :format          (ajax/transit-request-format {})
-                              :response-format (ajax/transit-response-format {:keywords? true})
-                              :on-success      [:noop]
-                              :on-failure      [:bad-result {}]}}))))
+  ([db path val]
+   (update-fx db path val false))
+  ([db path val is-retry?]
+   (let [spec-it (check-and-throw :helodali.spec/db db)
+         type (first path)
+         id (second path)
+         inside-item-path (rest (rest path))  ;; hop over type and 'id' which only exists on the client app-db
+         val (walk-cleaner val)
+         retry-fx (or is-retry? #(update-fx db path val true))
+         fx (if is-retry? {} {:db db})]
+     ;; Submit change to server for all updates except those to the placeholder item in the client, which
+     ;; does not yet exist on the server. Also skip the update if the update is on an item, as a whole, and
+     ;; the set of changes, val, is empty
+     (if (or (= id 0) (and (empty? inside-item-path) (empty? val)))
+       fx
+       (merge fx {:http-xhrio {:method          :post
+                               :uri             "/update-item"
+                               :params          {:uref (get-in db [type id :uref])
+                                                 :uuid (get-in db [type id :uuid])
+                                                 :table type :path inside-item-path :val val
+                                                 :access-token (:access-token db)}
+                               :headers         {:x-csrf-token (:csrf-token db)}
+                               :timeout         5000
+                               :format          (ajax/transit-request-format {})
+                               :response-format (ajax/transit-response-format {:keywords? true})
+                               :on-success      [:noop]
+                               :on-failure      [:bad-result {} retry-fx]}})))))
 
 ;; Similar to above but restricted to the app-db's :profile, which results to writes against
 ;; the :profiles table on the server. 'path' should be [:profile] or start as such.
 (defn- update-profile-fx
-  [db path val]
-  (let [ _ (check-and-throw :helodali.spec/db db)
-        inside-profile-path (rest path)
-        val (walk-cleaner val)]
-    {:db db
-     :http-xhrio {:method          :post
-                  :uri             "/update-profile"
-                  :params          {:uuid (get-in db [:profile :uuid])
-                                    :path inside-profile-path :val val
-                                    :access-token (:access-token db)}
-                  :headers         {:x-csrf-token (:csrf-token db)}
-                  :timeout         5000
-                  :format          (ajax/transit-request-format {})
-                  :response-format (ajax/transit-response-format {:keywords? true})
-                  :on-success      [:noop]
-                  :on-failure      [:bad-result {}]}}))
+  ([db path val]
+   (update-profile-fx db path val false))
+  ([db path val is-retry?]
+   (let [ _ (check-and-throw :helodali.spec/db db)
+         inside-profile-path (rest path)
+         retry-fx (or is-retry? #(update-profile-fx db path val true))
+         val (walk-cleaner val)
+         fx (if is-retry? {} {:db db})]
+     (merge fx {:http-xhrio {:method          :post
+                             :uri             "/update-profile"
+                             :params          {:uuid (get-in db [:profile :uuid])
+                                               :path inside-profile-path :val val
+                                               :access-token (:access-token db)}
+                             :headers         {:x-csrf-token (:csrf-token db)}
+                             :timeout         5000
+                             :format          (ajax/transit-request-format {})
+                             :response-format (ajax/transit-response-format {:keywords? true})
+                             :on-success      [:noop]
+                             :on-failure      [:bad-result {} retry-fx]}}))))
 
 (defn- create-fx
-  [db table item]
-  (let [spec-it (check-and-throw :helodali.spec/db db)
-        item (-> item
-                (walk-cleaner)
-                (assoc :uref (get-in db [:profile :uuid]))
-                (dissoc :editing :expanded))]
-    {:db db
-     :http-xhrio {:method          :post
-                  :uri             "/create-item"
-                  :params          {:table table :item item :access-token (:access-token db)}
-                  :headers         {:x-csrf-token (:csrf-token db)}
-                  :timeout         5000
-                  :format          (ajax/transit-request-format {})
-                  :response-format (ajax/transit-response-format {:keywords? true})
-                  :on-success      [:noop]
-                  :on-failure      [:bad-result {}]}}))
+  ([db table item]
+   (create-fx db table item false))
+  ([db table item is-retry?]
+   (let [spec-it (check-and-throw :helodali.spec/db db)
+         item (-> item
+                 (walk-cleaner)
+                 (assoc :uref (get-in db [:profile :uuid]))
+                 (dissoc :editing :expanded))
+         retry-fx (or is-retry? #(create-fx db table item true))
+         fx (if is-retry? {} {:db db})]
+     (merge fx {:http-xhrio {:method          :post
+                             :uri             "/create-item"
+                             :params          {:table table :item item :access-token (:access-token db)}
+                             :headers         {:x-csrf-token (:csrf-token db)}
+                             :timeout         5000
+                             :format          (ajax/transit-request-format {})
+                             :response-format (ajax/transit-response-format {:keywords? true})
+                             :on-success      [:noop]
+                             :on-failure      [:bad-result {} retry-fx]}}))))
 
 (defn- delete-fx
-  [db table item]
-  (let [spec-it (check-and-throw :helodali.spec/db db)]
-    {:db db
-     :http-xhrio {:method          :post
-                  :uri             "/delete-item"
-                  :params          {:table table :uref (:uref item) :uuid (:uuid item) :access-token (:access-token db)}
-                  :headers         {:x-csrf-token (:csrf-token db)}
-                  :timeout         5000
-                  :format          (ajax/transit-request-format {})
-                  :response-format (ajax/transit-response-format {:keywords? true})
-                  :on-success      [:noop]
-                  :on-failure      [:bad-result {}]}}))
+  ([db table item]
+   (delete-fx db table item false))
+  ([db table item is-retry?]
+   (let [spec-it (check-and-throw :helodali.spec/db db)
+         retry-fx (or is-retry? #(delete-fx db table item true))
+         fx (if is-retry? {} {:db db})]
+     (merge fx {:http-xhrio {:method          :post
+                             :uri             "/delete-item"
+                             :params          {:table table :uref (:uref item) :uuid (:uuid item) :access-token (:access-token db)}
+                             :headers         {:x-csrf-token (:csrf-token db)}
+                             :timeout         5000
+                             :format          (ajax/transit-request-format {})
+                             :response-format (ajax/transit-response-format {:keywords? true})
+                             :on-success      [:noop]
+                             :on-failure      [:bad-result {} retry-fx]}}))))
 
 ;; Switch to edit mode for given item. Stash the current app-db to undo changes
 ;; that are canceled. 'item-path' is a path to item such as [:press 2]
@@ -347,7 +362,7 @@
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
                   :on-success      [:initialize-db-from-result]
-                  :on-failure      [:bad-result {}]}}))
+                  :on-failure      [:bad-result {} false]}}))
 
 (defn- handle-delegation-token-retrieval
   "The delegation-result contains 'Credentials'"
@@ -410,7 +425,7 @@
                    :format          (ajax/transit-request-format {})
                    :response-format (ajax/transit-response-format {:keywords? true})
                    :on-success      [:complete-logout]
-                   :on-failure      [:bad-result {}]}
+                   :on-failure      [:bad-result {} false]}
      :sync-to-local-storage [{:k "helodali.access-token" :v nil}
                              {:k "helodali.id-token" :v nil}]}))
 
@@ -521,7 +536,7 @@
 ;; Dispatch this event to delete an item of type contacts, exhibitions, press
 (reg-event-fx
   :delete-item
-  interceptors
+  manual-check-spec
   (fn [{:keys [db]} [type id]]
     (let [item (get-in db [type id])
           new-db (reflect-item-deletion db type id)]
@@ -533,7 +548,7 @@
 ;; Dispatch this event to delete an artwork item, images needs to be removed from S3.
 (reg-event-fx
   :delete-artwork-item
-  interceptors
+  manual-check-spec
   (fn [{:keys [db]} [type id]]
     (let [item (get-in db [type id])
           new-db (reflect-item-deletion db type id)]
@@ -546,7 +561,7 @@
 ;; Dispatch this event to delete a document item, the file needs to be removed from S3.
 (reg-event-fx
   :delete-document-item
-  interceptors
+  manual-check-spec
   (fn [{:keys [db]} [type id]]
     (let [item (get-in db [type id])
           new-db (reflect-item-deletion db type id)]
@@ -630,16 +645,29 @@
   (fn [db _]
     db))
 
-(reg-event-db
+(reg-event-fx
+  :retry-request
+  manual-check-spec
+  (fn [{:keys [db]} [retry-fx]]
+    (retry-fx)))
+
+(reg-event-fx
   :bad-result
-  (fn [db [_ merge-this result]]
+  manual-check-spec
+  (fn [{:keys [db]} [merge-this retry-fx result]]
     (pprint (str "bad-result: " result))
-    (let [db (merge db merge-this)]
-      (if (string? result)
-        (assoc db :message result)
-        (if (map? result)
-          (assoc db :message (str (:reason (:response result))))
-          (assoc db :message "An error occurred when processing the request"))))))
+    (if (= 403 (:status result))
+      ;; Refetch the csrf-token and retry the operation
+      (merge (csrf-token-request)
+             {:dispatch [:retry-request retry-fx]})
+      ;; else update the message to alert the user of the trouble
+      ;; TODO: Need to back out change made to local app-db
+      (let [db (merge db merge-this)]
+        (if (string? result)
+          (assoc db :message result)
+          (if (map? result)
+            (assoc db :message (str (:reason (:response result))))
+            (assoc db :message "An error occurred when processing the request")))))))
 
 (reg-event-db
   :good-image-upload-result
@@ -668,7 +696,7 @@
                     :format          (ajax/transit-request-format {})
                     :response-format (ajax/transit-response-format {:keywords? true})
                     :on-success      [:apply-item-refresh item-path satisfied-fn]
-                    :on-failure      [:bad-result {}]}})))
+                    :on-failure      [:bad-result {} false]}})))
 
 (reg-event-fx
   :apply-item-refresh
@@ -705,7 +733,7 @@
                     :format          (ajax/transit-request-format {})
                     :response-format (ajax/transit-response-format {:keywords? true})
                     :on-success      [:apply-image-refresh path-to-image]
-                    :on-failure      [:bad-result {}]}})))
+                    :on-failure      [:bad-result {} false]}})))
 
 (reg-event-fx
   :apply-image-refresh
@@ -979,4 +1007,4 @@
 ;                     :format          (ajax/json-request-format)
 ;                     :response-format (ajax/json-response-format {:keywords? true})
 ;                     :on-success      [:good-image-upload-result]
-;                     :on-failure      [:bad-result {}]}})))
+;                     :on-failure      [:bad-result {} false]}})))
