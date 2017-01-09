@@ -86,6 +86,13 @@
     ""
     (unparse (formatters :date) dt)))
 
+(defn safe-string
+  "Return a non-empty string: either input string or provided 'default' if input string is empty"
+  [s default]
+  (if (empty? s)
+    default
+    s))
+
 (defn sort-by-datetime
   "Used as a comparator to sort, comparing two datetime key values and
    falling back to :created time of the item. If the input maps do not
