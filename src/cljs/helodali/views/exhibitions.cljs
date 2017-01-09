@@ -41,7 +41,7 @@
                       [:span (safe-date-string (:created @document))])
                     (when (not (empty? (:title @document)))
                       [hyperlink :class "semibold italic" :label (:title @document)
-                                 :on-click #(route-single-item :document uuid)])
+                                 :on-click #(route-single-item :documents uuid)])
                     (when (not (empty? (:filename @document)))
                       [:span (:filename @document)])]])]))
 
