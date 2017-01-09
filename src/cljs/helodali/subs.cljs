@@ -185,7 +185,8 @@
     (map #(get % k) (vals (dissoc (get db type) 0)))))
 
 ;; Get a specific kw value from all items and include the uuid of the item-key
-;; returning a vector of [uuid val]
+;; returning a vector of [uuid val]. Ignore item with id == 0 as that is the
+;; placeholder for item creation.
 (reg-sub
   :items-vals-with-uuid
   (fn [db [_ type k]]

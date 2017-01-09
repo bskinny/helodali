@@ -3,7 +3,7 @@
               [helodali.routes :refer [route-single-item route-new-item]]
               [helodali.misc :refer [trunc compute-bg-color convert-map-to-options max-string-length expired?
                                      sort-by-datetime sort-by-key-then-created uuid-label-list-to-options
-                                     safe-date-string]]
+                                     safe-date-string safe-string]]
               [cljs.pprint :refer [pprint]]
               [cljs-time.format :refer [unparse formatters]]
               [reagent.core  :as r]
@@ -13,13 +13,6 @@
                                               button datepicker-dropdown checkbox popover-tooltip
                                               popover-anchor-wrapper popover-content-wrapper handler-fn]])
     (:import goog.date.UtcDateTime))
-
-(defn- title-string
-  "Return a non-empty title"
-  [title]
-  (if (empty? title)
-    "(no title)"
-    title))
 
 (defn item-view
   "Display a document"
@@ -172,9 +165,9 @@
     [(fn []
       (let [lm (or @last-modified @created)]
         [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
-          :children [[hyperlink :class "semibold" :style {:width (str (max 14 (:title widths)) "ch")} :label (trunc (title-string @title) (:title widths))
+          :children [[hyperlink :class "semibold" :style {:width (str (max 14 (:title widths)) "ch")} :label (trunc (safe-string @title "(no title)") (:title widths))
                          :on-click #(route-single-item :documents @uuid)]
-                     [label :width (str (max 14 (:filename widths)) "ch") :label (title-string @filename)]
+                     [label :width (str (max 14 (:filename widths)) "ch") :label (safe-string @filename "(no file attached)")]
                      [label :width "15ch" :label (safe-date-string @created)]
                      [label :width "15ch" :label (safe-date-string lm)]
                      [label :width "8ch" :label (str (quot @size 1024) " KB")]
