@@ -30,6 +30,21 @@
                     (when (not (empty? (:publication @press)))
                       [:span (:publication @press)])]])]))
 
+(defn display-associated-documents-view
+  [uuid odd-row?]
+  (let [bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
+        document (subscribe [:item-by-uuid :documents uuid])]
+    [(fn []
+      [h-box :gap "6px" :justify :start :align :center :padding "4px" :width "100%"
+         :style {:background bg-color :border-radius "4px"}
+         :children [(when (not (nil? (:created @document)))
+                      [:span (safe-date-string (:created @document))])
+                    (when (not (empty? (:title @document)))
+                      [hyperlink :class "semibold italic" :label (:title @document)
+                                 :on-click #(route-single-item :document uuid)])
+                    (when (not (empty? (:filename @document)))
+                      [:span (:filename @document)])]])]))
+
 (defn item-view
   "Display an item"
   [id]
@@ -39,7 +54,9 @@
         begin-date (subscribe [:item-key :exhibitions id :begin-date])
         end-date (subscribe [:item-key :exhibitions id :end-date])
         url (subscribe [:item-key :exhibitions id :url])
+        associated-documents (subscribe [:by-path-and-deref-set-sorted-by [:exhibitions id :associated-documents] :documents (partial sort-by-key-then-created :title false)])
         associated-press (subscribe [:by-path-and-deref-set-sorted-by [:exhibitions id :associated-press] :press (partial sort-by-datetime :publication-date true)])
+        documents (subscribe [:items-vals-with-uuid :documents :title]) ;; TODO: a document may not have a title, resulting in an empty string in the selection list
         press (subscribe [:items-vals-with-uuid :press :title])
         kind (subscribe [:item-key :exhibitions id :kind])
         notes (subscribe [:item-key :exhibitions id :notes])
@@ -75,6 +92,11 @@
                             :children [[:span.uppercase.light-grey "Press"]
                                        [v-box :gap "4px" :align :start :justify :start
                                           :children (into [] (map display-press-view @associated-press (cycle [true false])))]]])
+                  (when (not (empty? @associated-documents))
+                    [h-box :gap "8px" :align :center :justify :start
+                            :children [[:span.uppercase.light-grey "Documents"]
+                                       [v-box :gap "4px" :align :start :justify :start
+                                          :children (into [] (map display-associated-documents-view @associated-documents (cycle [true false])))]]])
                   (when (not (empty? @notes))
                     [v-box :gap "4px" :align :start :justify :start :max-width "480px"
                             :children [[:span.uppercase.light-grey "notes"]
@@ -114,6 +136,10 @@
                      :children [[:span.input-label "Press"]
                                 [selection-list :choices (uuid-label-list-to-options @press false) :model (if (empty? @associated-press) #{} (set @associated-press)) ;:height "140px"
                                        :on-change #(dispatch [:set-local-item-val [:exhibitions id :associated-press] %])]]]
+                  [h-box :gap "6px" :align :center
+                     :children [[:span.input-label "Documents"]
+                                [selection-list :choices (uuid-label-list-to-options @documents false) :model (if (empty? @associated-documents) #{} (set @associated-documents)) ;:height "140px"
+                                       :on-change #(dispatch [:set-local-item-val [:exhibitions id :associated-documents] %])]]]
                   [:span.uppercase.light-grey "Notes"]
                   [input-textarea :model (str @notes) :width "360px"
                       :rows 4 :on-change #(dispatch [:set-local-item-val [:exhibitions id :notes] %])]]]
