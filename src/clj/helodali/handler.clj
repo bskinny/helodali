@@ -23,7 +23,7 @@
 
 (defroutes routes
   (GET "/" []
-    (-> (file-response "index.html" {:root "resources/public"})
+    (-> (resource-response "index.html" {:root "public"})
        (content-type "text/html")))
 
   (GET "/csrf-token" [] (response {:csrf-token *anti-forgery-token*}))

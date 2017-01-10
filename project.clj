@@ -15,6 +15,7 @@
                  [compojure "1.5.1"]
                  [yogthos/config "0.8"]
                  [cljsjs/auth0-lock "10.8.1-0"]
+                 [cljsjs/auth0 "7.0.4-0"]
                  [cljsjs/aws-sdk-js "2.2.41-2"]
                  [ring/ring-defaults "0.2.1"]
                  [ring-middleware-format "0.7.0"]
@@ -26,7 +27,9 @@
                  [venantius/accountant "0.1.7"]]
 
   :plugins [[lein-cljsbuild "1.1.5"]
-            [lein-ring "0.10.0"]]
+            [lein-ring "0.10.0"]
+            [lein-asset-minifier "0.3.1"
+               :exclusions [org.clojure/clojure]]]
 
   :hooks [leiningen.cljsbuild]  ;; This adds cljsbuild when lein does an ordinary compile
 
@@ -46,34 +49,35 @@
              :ring-handler helodali.handler/dev-handler}
 
   :profiles
-  {:dev
-   {:dependencies [[binaryage/devtools "0.8.3"]]
-    :plugins      [[lein-figwheel "0.5.8"]
-                   [lein-doo "0.1.7"]]}}
+    {:dev
+       {:dependencies [[binaryage/devtools "0.8.3"]]
+        :plugins      [[lein-figwheel "0.5.8"]
+                       [lein-doo "0.1.7"]]
 
 
-  :cljsbuild
-  {:builds
-   [{:id           "dev"
-     :source-paths ["src/cljs" "src/cljc" "env/dev/cljs"]
-     :figwheel     {:on-jsload "helodali.core/mount-root"}
-     :compiler     {:main                 helodali.dev
-                    :output-to            "resources/public/js/compiled/app.js"
-                    :output-dir           "resources/public/js/compiled/out"
-                    :asset-path           "js/compiled/out"
-                    :source-map-timestamp true
-                    :preloads             [devtools.preload]
-                    :external-config      {:devtools/config {:features-to-install :all}}}}
-
-
-    {:id           "min"
-     :source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
-     :jar true
-     :compiler     {:main            helodali.prod
-                    :output-to       "resources/public/js/compiled/app.js"
-                    :optimizations   :advanced
-                    :closure-defines {goog.DEBUG false}
-                    :pretty-print    false}}]}
+        :cljsbuild
+          {:builds
+            {:app
+              {:source-paths ["src/cljs" "src/cljc" "env/dev/cljs"]
+               :figwheel     {:on-jsload "helodali.core/mount-root"}
+               :compiler     {:main                 helodali.dev
+                              :output-to            "resources/public/js/compiled/app.js"
+                              :output-dir           "resources/public/js/compiled/out"
+                              :asset-path           "js/compiled/out"
+                              :source-map-timestamp true
+                              :preloads             [devtools.preload]
+                              :external-config      {:devtools/config {:features-to-install :all}}}}}}}
+     :uberjar
+        {:cljsbuild
+          {:builds
+            {:app
+             {:source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
+              :jar true
+              :compiler     {:main            helodali.prod
+                             :output-to       "resources/public/js/compiled/app.js"
+                             :optimizations   :advanced
+                             :closure-defines {goog.DEBUG false}
+                             :pretty-print    false}}}}}}
 
     ; {:id           "test"
     ;  :source-paths ["src/cljs" "test/cljs" "src/cljc"]
@@ -87,6 +91,6 @@
 
   :aot [helodali.server]
 
-  :uberjar-name "helodali.jar"
+  :uberjar-name "helodali.jar")
 
-  :prep-tasks [["cljsbuild" "once" "min"] "compile"])
+  ; :prep-tasks [["cljsbuild" "once" "app"] "compile"])
