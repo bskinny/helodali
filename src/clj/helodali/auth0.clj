@@ -1,13 +1,14 @@
 (ns helodali.auth0
   (:require [clj-http.client :as http]
             [cheshire.core :refer [parse-string generate-string]]
+            [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [slingshot.slingshot :refer [throw+ try+]]))
 
 (def options {:timeout 900  ;; ms
               ; :debug true
               :user-agent "helodali.com-webapp"
-              :trust-store "resources/comodo-trust.jks"  ;; The CA signing Auth0 ssl servers
+              :trust-store (io/resource "comodo-trust.jks")  ;; The CA signing Auth0 ssl servers
               :throw-exception false
               :as :auto  ;; Try to automatically coerce the output based on the content-type
               :content-type :json

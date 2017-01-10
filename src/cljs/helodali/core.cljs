@@ -1,18 +1,18 @@
 (ns helodali.core
     (:require [reagent.core :as reagent]
               [re-frame.core :as re-frame]
-              [devtools.core :as devtools]
+              ; [devtools.core :as devtools]
               [helodali.events]
               [helodali.subs]
               [helodali.views :as views]
               [helodali.config :as config]))
 
 
-(defn dev-setup []
-  (when config/debug?
-    (enable-console-print!)
-    (println "dev mode")
-    (devtools/install!)))
+; (defn dev-setup []
+;   (when config/debug?
+;     (enable-console-print!)
+;     (println "dev mode")
+;     (devtools/install!)))
 
 (defn mount-root []
   (reagent/render [views/main-panel]
@@ -20,5 +20,5 @@
 
 (defn ^:export init []
   (re-frame/dispatch-sync [:initialize-db])
-  (dev-setup)
+  ; (dev-setup)
   (mount-root))

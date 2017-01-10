@@ -25,7 +25,10 @@
                  [slingshot "0.12.2"]
                  [venantius/accountant "0.1.7"]]
 
-  :plugins [[lein-cljsbuild "1.1.4"]]
+  :plugins [[lein-cljsbuild "1.1.5"]
+            [lein-ring "0.10.0"]]
+
+  :hooks [leiningen.cljsbuild]  ;; This adds cljsbuild when lein does an ordinary compile
 
   :min-lein-version "2.6.1"
 
@@ -36,13 +39,15 @@
   :clean-targets ^{:protect false} ["resources/public/js/compiled" "target"
                                     "test/js"]
 
+  :ring {:handler helodali.handler/handler
+         :uberwar-name "helodali.war"}
+
   :figwheel {:css-dirs ["resources/public/css"]
              :ring-handler helodali.handler/dev-handler}
 
   :profiles
   {:dev
-   {:dependencies [[binaryage/devtools "0.8.2"]]
-
+   {:dependencies [[binaryage/devtools "0.8.3"]]
     :plugins      [[lein-figwheel "0.5.8"]
                    [lein-doo "0.1.7"]]}}
 
@@ -50,9 +55,9 @@
   :cljsbuild
   {:builds
    [{:id           "dev"
-     :source-paths ["src/cljs" "src/cljc"]
+     :source-paths ["src/cljs" "src/cljc" "env/dev/cljs"]
      :figwheel     {:on-jsload "helodali.core/mount-root"}
-     :compiler     {:main                 helodali.core
+     :compiler     {:main                 helodali.dev
                     :output-to            "resources/public/js/compiled/app.js"
                     :output-dir           "resources/public/js/compiled/out"
                     :asset-path           "js/compiled/out"
@@ -62,20 +67,20 @@
 
 
     {:id           "min"
-     :source-paths ["src/cljs" "src/cljc"]
+     :source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
      :jar true
-     :compiler     {:main            helodali.core
+     :compiler     {:main            helodali.prod
                     :output-to       "resources/public/js/compiled/app.js"
                     :optimizations   :advanced
                     :closure-defines {goog.DEBUG false}
-                    :pretty-print    false}}
+                    :pretty-print    false}}]}
 
-    {:id           "test"
-     :source-paths ["src/cljs" "test/cljs" "src/cljc"]
-     :compiler     {:main          helodali.runner
-                    :output-to     "resources/public/js/compiled/test.js"
-                    :output-dir    "resources/public/js/compiled/test/out"
-                    :optimizations :none}}]}
+    ; {:id           "test"
+    ;  :source-paths ["src/cljs" "test/cljs" "src/cljc"]
+    ;  :compiler     {:main          helodali.runner
+    ;                 :output-to     "resources/public/js/compiled/test.js"
+    ;                 :output-dir    "resources/public/js/compiled/test/out"
+    ;                 :optimizations :none}}]}
 
 
   :main helodali.server
