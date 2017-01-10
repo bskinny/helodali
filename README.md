@@ -7,10 +7,11 @@ Helodali is a SPA style webapp using [re-frame](https://github.com/Day8/re-frame
 ## Development Mode
 
 ### Run application:
+Define the following environment variables before proceeding: AWS_DYNAMODB_ACCESS_KEY, AWS_DYNAMODB_SECRET_KEY and AWS_DYNAMODB_ENDPOINT.
 
 ```
 lein clean
-lein figwheel
+rlwrap lein figwheel
 ```
 
 Figwheel will automatically push cljs changes to the browser.
@@ -30,29 +31,8 @@ The above command assumes that you have [phantomjs](https://www.npmjs.com/packag
 
 ```
 lein clean
-lein uberjar
+lein with-profile uberjar ring uberwar
 ```
 
-That should compile the clojurescript code first, and then create the standalone jar.
+That should compile the clojurescript code first, and then create the war file.
 
-When you run the jar you can set the port the ring server will use by setting the environment variable PORT.
-If it's not set, it will run on port 3000 by default.
-
-To deploy to ..., first create your app:
-
-```
-heroku create
-```
-
-Then deploy the application:
-
-```
-git push heroku master
-```
-
-To compile clojurescript to javascript:
-
-```
-lein clean
-lein cljsbuild once min
-```
