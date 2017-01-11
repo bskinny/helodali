@@ -7,12 +7,6 @@
             [helodali.common :refer [coerce-int fix-date keywordize-vals]]
             [clojure.pprint :refer [pprint]]))
 
-;; DynamoDB client-options map - real keys are needed for AWS, not for local use.
-; (def co
-;   {:access-key "qweasdzxcqweasdzxc"
-;    :secret-key "qweasdqweasd"
-;    :endpoint "http://localhost:8000"})
-
 (def co
   {:access-key (get (System/getenv) "AWS_DYNAMODB_ACCESS_KEY")
    :secret-key (get (System/getenv) "AWS_DYNAMODB_SECRET_KEY")
