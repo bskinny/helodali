@@ -41,12 +41,6 @@
 (def manual-check-spec [(when ^boolean js/goog.DEBUG debug)
                         trim-v])
 
-; For demo and development purposes
-; (reg-event-db
-;  :initialize-db
-;  (fn  [_ _]
-;    helodali.db/default-db))
-
 (defn- csrf-token-request []
   {:http-xhrio {:method          :get
                 :uri             "/csrf-token"
@@ -137,13 +131,6 @@
     (if (predicate-fx db)
       (merge db result)
       db)))
-
-;; path is a vector pointing into the app db, e.g. [:display-type]
-(reg-event-db
-  :set-app-val
-  interceptors
-  (fn [db [path val]]
-    (assoc-in db path val)))
 
 ;; Update the app-db locally (i.e. do not propogate change to server)
 ;; path is a vector pointing into :profile or items, e.g. :artwork, :contacts, etc. E.g.
@@ -535,15 +522,58 @@
        (assoc new-db :display-type (helodali.db/default-view-for-type type))
        new-db)))
 
+(defn- referenced-in-purchases?
+  "Check the given list of purchases for the presence of the given contact (uuid)."
+  [purchases uuid]
+  (let [matched (filter #(or (= :buyer uuid) (= :agent uuid) (= :dealer uuid)) purchases)]
+    (not (empty? matched))))
+
+(defn- referenced-in-exhibition-history?
+  "Check the given list of exhibition-history for the presence of the given exhibition (uuid)."
+  [exhibition-history uuid]
+  (let [matched (filter #(= :ref uuid) exhibition-history)]
+    (not (empty? matched))))
+
+(defn- referential-integrity-check
+  "Determine if the given item is referenced elsewhere in the app-db. A non-empty string will be returned if so,
+   nil or empty string otherwise."
+  [db type id]
+  (let [uuid (get-in db [type id :uuid])
+        ret-fx (fn [items type name-kw]
+                 (if (empty? items)
+                   nil
+                   (str "The item cannot be removed since it is referenced in the following " (name type) ": "
+                        (clojure.string/join ", " (map #(get % name-kw) items)) ". ")))]
+    (condp = type
+      :press (let [exhibitions (filter #(contains? (get % :associated-press) uuid) (vals (:exhibitions db)))]
+               (ret-fx exhibitions :exhibitions :name))
+      :documents (let [exhibitions (filter #(contains? (get % :associated-documents) uuid) (vals (:exhibitions db)))
+                       artwork (filter #(contains? (get % :associated-documents) uuid) (vals (:artwork db)))
+                       press (filter #(contains? (get % :associated-documents) uuid) (vals (:press db)))
+                       contacts (filter #(contains? (get % :associated-documents) uuid) (vals (:contacts db)))]
+                   (pprint (str "press matches: " press))
+                   (apply str [(ret-fx exhibitions :exhibitions :name)
+                               (ret-fx artwork :artwork :title)
+                               (ret-fx press :press :title)
+                               (ret-fx contacts :contacts :name)]))
+      :contacts (let [artwork (filter #(referenced-in-purchases? (get % :purchases) uuid) (vals (:artwork db)))]
+                  (ret-fx artwork :artwork :title))
+      :exhibitions (let [artwork (filter #(referenced-in-exhibition-history? (get % :exhibition-history) uuid) (vals (:artwork db)))]
+                     (ret-fx artwork :artwork :title))
+      nil)))
+
 ;; Dispatch this event to delete an item of type contacts, exhibitions, press
 (reg-event-fx
   :delete-item
   manual-check-spec
   (fn [{:keys [db]} [type id]]
     (let [item (get-in db [type id])
-          new-db (reflect-item-deletion db type id)]
+          refint (referential-integrity-check db type id)
+          new-db (if (empty? refint)
+                   (reflect-item-deletion db type id)
+                   (assoc db :message refint))]
       ;; Submit change to server for all deletes except those to the placeholder item
-      (if (= 0 id)
+      (if (or (= 0 id) (not (empty? refint)))
         {:db new-db}
         (delete-fx new-db type item)))))
 
@@ -553,9 +583,12 @@
   manual-check-spec
   (fn [{:keys [db]} [type id]]
     (let [item (get-in db [type id])
-          new-db (reflect-item-deletion db type id)]
+           refint (referential-integrity-check db type id)
+           new-db (if (empty? refint)
+                    (reflect-item-deletion db type id)
+                    (assoc db :message refint))]
       ;; Submit change to server for all deletes except those to the placeholder item
-      (if (= 0 id)
+      (if (or (= 0 id) (not (empty? refint)))
         {:db new-db}
         (merge (delete-fx new-db type item)
                {:dispatch-n (list [:delete-s3-objects "helodali-raw-images" (:images item)])})))))
@@ -566,9 +599,12 @@
   manual-check-spec
   (fn [{:keys [db]} [type id]]
     (let [item (get-in db [type id])
-          new-db (reflect-item-deletion db type id)]
+           refint (referential-integrity-check db type id)
+           new-db (if (empty? refint)
+                    (reflect-item-deletion db type id)
+                    (assoc db :message refint))]
       ;; Submit change to server for all deletes except those to the placeholder item
-      (if (= 0 id)
+      (if (or (= 0 id) (not (empty? refint)))
         {:db new-db}
         (merge (delete-fx new-db type item)
                {:dispatch-n (list [:delete-s3-objects "helodali-documents" (filter #(not (empty? (:key %))) [item])])})))))

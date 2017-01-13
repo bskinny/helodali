@@ -161,7 +161,9 @@
             :children [[header]
                        [re-com/line :size "1px" :color "#fdfdfd"]
                        (if (not (empty? @msg))
-                         [re-com/alert-box :alert-type :warning :closeable? true :body @msg])
+                         [box :width "50%" :align-self :center
+                            :child [re-com/alert-box :alert-type :warning :closeable? true :body @msg
+                                       :on-close #(dispatch [:set-local-item-val [:message] ""])]])
                        [re-com/gap :size "18px"]
                        (condp = @view
                          :artwork [artwork-view]

@@ -234,7 +234,7 @@
   (fn []
     [h-box :gap "18px" :align :center :justify :center
        :children [[md-icon-button :md-icon-name "zmdi zmdi-view-headline mdc-text-grey"
-                                  :on-click #(dispatch [:set-app-val [:display-type] :list])]
+                                  :on-click #(dispatch [:set-local-item-val [:display-type] :list])]
                   [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
                                   :on-click #(route-new-item :exhibitions)]]]))
 

@@ -654,13 +654,13 @@
   (fn []
     [h-box :gap "18px" :align :center :justify :center
        :children [;[md-icon-button :md-icon-name "zmdi zmdi-view-dashboard mdc-text-grey"
-                  ;     :on-click #(dispatch [:set-app-val [:display-type] :large-contact-sheet])
+                  ;     :on-click #(dispatch [:set-local-item-val [:display-type] :large-contact-sheet])
                   [md-icon-button :md-icon-name "zmdi zmdi-apps mdc-text-grey"
-                       :on-click #(dispatch [:set-app-val [:display-type] :contact-sheet])]
+                       :on-click #(dispatch [:set-local-item-val [:display-type] :contact-sheet])]
                   [md-icon-button :md-icon-name "zmdi zmdi-view-list mdc-text-grey"
-                                  :on-click #(dispatch [:set-app-val [:display-type] :row])]
+                                  :on-click #(dispatch [:set-local-item-val [:display-type] :row])]
                   [md-icon-button :md-icon-name "zmdi zmdi-view-headline mdc-text-grey"
-                                  :on-click #(dispatch [:set-app-val [:display-type] :list])]
+                                  :on-click #(dispatch [:set-local-item-val [:display-type] :list])]
                   [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
                                   :on-click #(route-new-item :artwork)]]]))
 

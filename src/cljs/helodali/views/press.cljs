@@ -35,7 +35,7 @@
         publication (subscribe [:item-key :press id :publication])
         volume (subscribe [:item-key :press id :volume])
         url (subscribe [:item-key :press id :url])
-        associated-documents (subscribe [:by-path-and-deref-set-sorted-by [:exhibitions id :associated-documents] :documents (partial sort-by-key-then-created :title false)])
+        associated-documents (subscribe [:by-path-and-deref-set-sorted-by [:press id :associated-documents] :documents (partial sort-by-key-then-created :title false)])
         documents (subscribe [:items-vals-with-uuid :documents :title]) ;; TODO: a document may not have a title, resulting in an empty string in the selection list
         publication-date (subscribe [:item-key :press id :publication-date])
         page-numbers (subscribe [:item-key :press id :page-numbers])
@@ -133,7 +133,7 @@
                   [h-box :gap "6px" :align :center
                      :children [[:span.input-label "Documents"]
                                 [selection-list :choices (uuid-label-list-to-options @documents false) :model (if (empty? @associated-documents) #{} (set @associated-documents)) ;:height "140px"
-                                       :on-change #(dispatch [:set-local-item-val [:exhibitions id :associated-documents] %])]]]
+                                       :on-change #(dispatch [:set-local-item-val [:press id :associated-documents] %])]]]
                   [:span.uppercase.light-grey "Notes"]
                   [input-textarea :model (str @notes) :width "360px"
                       :rows 4 :on-change #(dispatch [:set-local-item-val [:press id :notes] %])]]]
@@ -222,7 +222,7 @@
   (fn []
     [h-box :gap "18px" :align :center :justify :center
        :children [[md-icon-button :md-icon-name "zmdi zmdi-view-headline mdc-text-grey"
-                                  :on-click #(dispatch [:set-app-val [:display-type] :list])]
+                                  :on-click #(dispatch [:set-local-item-val [:display-type] :list])]
                   [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
                                   :on-click #(route-new-item :press)]]]))
 
