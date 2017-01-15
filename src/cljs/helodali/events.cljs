@@ -1,10 +1,10 @@
 (ns helodali.events
   (:require
     [ajax.core :as ajax]
-    [helodali.common :refer [coerce-int empty-string-to-nil fix-date parse-date unparse-date]]
+    [helodali.common :refer [coerce-int empty-string-to-nil fix-date parse-date unparse-date unparse-datetime]]
     [helodali.spec :as hs] ;; Keep this here even though we refer to the namespace directly below
     [helodali.misc :refer [expired? generate-uuid find-element-by-key-value find-item-by-key-value
-                           remove-vector-element into-sorted-map]]
+                           remove-vector-element into-sorted-map trunc]]
     [helodali.routes :refer [route]]
     [cljs-time.core :as ct]
     [cljs.pprint :refer [pprint]]
@@ -49,19 +49,30 @@
                 :on-success      [:update-db-from-result (fn [db] true)]
                 :on-failure      [:bad-result {} false]}})
 
+(defn- safe-unparse-date
+  [v]
+  (if (instance? js/goog.date.UtcDateTime v)
+    (unparse-date v)
+    v))
+
+(defn- safe-unparse-datetime
+  [v]
+  (if (instance? js/goog.date.UtcDateTime v)
+    (unparse-datetime v)
+    v))
+
 (reg-event-fx
   :initialize-db
-  [(inject-cofx :local-store-items)]
-  (fn [{:keys [db local-store-items]} _]
+  [(inject-cofx :local-store-tokens)]
+  (fn [{:keys [db local-store-tokens]} _]
     (enable-console-print!)
-    ; (pprint (str "initialize-db with localStorage: " local-store-items))
     (merge (csrf-token-request)
            {:db (-> helodali.db/default-db
-                   (assoc :access-token (:access-token local-store-items))
-                   (assoc :id-token (:id-token local-store-items)))})))
+                   (assoc :access-token (:access-token local-store-tokens))
+                   (assoc :id-token (:id-token local-store-tokens)))})))
 
 (reg-cofx
-  :local-store-items
+  :local-store-tokens
   (fn [cofx _]
       "Read in items from localstore, into a map we can merge into app-db. If we are missing the id-token
        then remove the access-token as we need to reauthenticate"
@@ -69,16 +80,43 @@
           id-token (.getItem js/localStorage "helodali.id-token")]
       (if (and (empty? id-token) (not (empty? access-token)))
         (.removeItem js/localStorage "helodali.access-token");
-        (assoc cofx :local-store-items
+        (assoc cofx :local-store-tokens
                {:access-token (.getItem js/localStorage "helodali.access-token")
                 :id-token (.getItem js/localStorage "helodali.id-token")})))))
+
+(defn- current-signed-urls
+  "Generate a map of the signed-urls for artwork and document items in the app-db."
+  [db]
+  ;; TODO: Verify that the below works when multiple images per artwork is supported.
+  (let [images (->> (vals (:artwork db))
+                    (reduce (fn [a b] (into a (:images b))) [])
+                    (filter #(or (not (empty? (:signed-thumb-url %))) (not (empty? (:signed-raw-url %)))))
+                    (map (fn [image] {(:uuid image) {:signed-raw-url (:signed-raw-url image)
+                                                     :signed-raw-url-expiration-time (safe-unparse-datetime (:signed-raw-url-expiration-time image))
+                                                     :signed-thumb-url (:signed-thumb-url image)
+                                                     :signed-thumb-url-expiration-time (safe-unparse-datetime (:signed-thumb-url-expiration-time image))}}))
+                    (reduce into {}))
+        documents (->> (vals (:documents db))
+                       (filter #(not (empty? (:signed-raw-url %))))
+                       (map (fn [document] {(:uuid document) {:signed-raw-url (:signed-raw-url document)
+                                                              :signed-raw-url-expiration-time (safe-unparse-datetime (:signed-raw-url-expiration-time document))}}))
+                       (reduce into {}))]
+    (merge images documents)))
+
+(reg-cofx
+  :local-store-signed-urls
+  (fn [cofx _]
+      "Read in the map of signed-urls which is keyed by uuids of images and documents"
+    (let [urls (into {} (some->> (.getItem js/localStorage "helodali.signed-urls")
+                                 (cljs.reader/read-string)))]
+      (assoc cofx :local-store-signed-urls urls))))
 
 (defn- apply-local-storage-change
   [{:keys [k v]}]
   ;; If value (v) is nil, remove the item, otherwise set the value
   (if (empty? v)
     (.removeItem js/localStorage k)
-    (.setItem js/localStorage k v)))
+    (.setItem js/localStorage k (str v))))
 
 (reg-fx
   :sync-to-local-storage
@@ -91,12 +129,31 @@
   (fn [{:keys [route-name args]}]
     (route route-name args)))
 
-(reg-event-db
+(defn- apply-artwork-signed-urls
+  "Traverse the cached signed-urls and attach them to images in the given list (not
+   sorted-map) of artwork"
+  [artwork signed-urls]
+  (if (empty? signed-urls)
+    artwork
+    (let [update-images (fn [item]
+                          (let [images (map (fn [image]
+                                              (if-let [urls (get signed-urls (:uuid image))]
+                                                (merge image {:signed-thumb-url-expiration-time
+                                                                (parse-date :date-time (:signed-thumb-url-expiration-time urls))
+                                                              :signed-thumb-url (:signed-thumb-url urls) ;; TODO: check expiration?
+                                                              :signed-raw-url-expiration-time
+                                                                (parse-date :date-time (:signed-raw-url-expiration-time urls))
+                                                              :signed-raw-url (:signed-raw-url urls)})
+                                                image))
+                                            (:images item))]
+                            (assoc item :images (apply vector images))))]
+       (map #(update-images %) artwork))))
+
+(reg-event-fx
   :initialize-db-from-result
-  (fn [db [_ result]]
+  [(inject-cofx :local-store-signed-urls)]
+  (fn [{:keys [db local-store-signed-urls]} [_ result]]
     ;; Some values in the items need coercion back to DateTime and keyword syntaxes.
-    (pprint (str "Raw: " (:documents result)))
-    (pprint (str "initialize-db-from-result, access-token: " (:access-token db)))
     (let [fixer (partial fix-date :parse)
           artwork (->> (:artwork result)
                       (fixer :created)
@@ -113,15 +170,17 @@
                         (fixer :created)
                         (fixer :begin-date)
                         (fixer :end-date))]
-      (-> db
-        (assoc :artwork (into-sorted-map (map #(merge (helodali.db/default-artwork) %) artwork)))
-        (assoc :exhibitions (into-sorted-map (map #(merge (helodali.db/default-exhibition) %) exhibitions)))
-        (assoc :documents (into-sorted-map (map #(merge (helodali.db/default-document) %) documents)))
-        (assoc :contacts (into-sorted-map (map #(merge (helodali.db/default-contact) %) contacts)))
-        (assoc :press (into-sorted-map (map #(merge (helodali.db/default-press) %) press)))
-        (assoc :profile (:profile result))
-        (assoc :userinfo (:userinfo result))
-        (assoc :initialized? true)))))
+      {:db (-> db
+              (assoc :artwork (-> (map #(merge (helodali.db/default-artwork) %) artwork)
+                                  (apply-artwork-signed-urls local-store-signed-urls)
+                                  (into-sorted-map)))
+              (assoc :exhibitions (into-sorted-map (map #(merge (helodali.db/default-exhibition) %) exhibitions)))
+              (assoc :documents (into-sorted-map (map #(merge (helodali.db/default-document) %) documents)))
+              (assoc :contacts (into-sorted-map (map #(merge (helodali.db/default-contact) %) contacts)))
+              (assoc :press (into-sorted-map (map #(merge (helodali.db/default-press) %) press)))
+              (assoc :profile (:profile result))
+              (assoc :userinfo (:userinfo result))
+              (assoc :initialized? true))})))
 
 ;; Update top-level app-db keys if supplied predicate evaluates true
 (reg-event-db
@@ -140,12 +199,6 @@
   interceptors
   (fn [db [path val]]
     (assoc-in db path val)))
-
-(defn- safe-unparse-date
-  [v]
-  (if (instance? js/goog.date.UtcDateTime v)
-    (unparse-date v)
-    v))
 
 (defn- cleaner
   [in]
@@ -551,7 +604,6 @@
                        artwork (filter #(contains? (get % :associated-documents) uuid) (vals (:artwork db)))
                        press (filter #(contains? (get % :associated-documents) uuid) (vals (:press db)))
                        contacts (filter #(contains? (get % :associated-documents) uuid) (vals (:contacts db)))]
-                   (pprint (str "press matches: " press))
                    (apply str [(ret-fx exhibitions :exhibitions :name)
                                (ret-fx artwork :artwork :title)
                                (ret-fx press :press :title)
@@ -742,7 +794,6 @@
   (fn [{:keys [db]} [item-path satisfied-fn result]]
     ;; If the 'result', which is a map, does not satisfy the given satisfied-fn, then we are still
     ;; waiting on some type of processing and will try again after a delay.
-    (pprint (str "apply-item-refresh result: " result))
     (if (not (satisfied-fn result))
       {:dispatch-later [{:ms 1000 :dispatch [:refresh-item item-path satisfied-fn]}]}
       ;; else merge the map into the item
@@ -773,13 +824,22 @@
                     :on-success      [:apply-image-refresh path-to-image]
                     :on-failure      [:bad-result {} false]}})))
 
+;; This event removes signed url key/vals from maps representing images and documents.
+(reg-event-db
+  :flush-signed-urls
+  manual-check-spec
+  (fn [db [path-to-object-map]]
+    (let [o (-> (get-in db path-to-object-map)
+                (dissoc :signed-raw-url :signed-raw-url-expiration-time
+                        :signed-thumb-url :signed-thumb-url-expiration-time))]
+      (assoc-in db path-to-object-map o))))
+
 (reg-event-fx
   :apply-image-refresh
   manual-check-spec
   (fn [{:keys [db]} [path-to-image result]]
     ;; If the 'result' map is empty, then we are still waiting on image processing and will
     ;; try again after a delay.
-    (pprint (str "apply-image-refresh result: " result))
     (if (empty? result)
       {:dispatch-later [{:ms 1000 :dispatch [:refresh-image path-to-image]}]}
       ;; else merge the map into the artwork and unset :processing
@@ -791,13 +851,15 @@
         {:db (-> db
                 (assoc-in path-to-image image))}))))
 
-;; Get the signed URL to access designated S3 object. Define a 20 minute
+;; Get the signed URL to access designated S3 object. Define a 24 hour
 ;; expiration. If the delegation token has not been fetched yet, then trigger
 ;; another attempt at this event in 400 ms.
 (reg-event-fx
   :get-signed-url
   manual-check-spec
   (fn [{:keys [db]} [path-to-object-map bucket object-key url-key expiration-key]]
+    (pprint (str "get-signed-url with existing key " (trunc (get-in db (conj path-to-object-map url-key)) 20) " and expiration "
+                 (safe-unparse-datetime (get-in db (conj path-to-object-map url-key)))))
     (if (nil? (:delegation-token db))
       ;; Wait for the delegation-token to be fetched
       {:dispatch-later [{:ms 400 :dispatch [:get-signed-url path-to-object-map bucket object-key url-key expiration-key]}]}
@@ -806,14 +868,17 @@
         {:dispatch-n (list [:fetch-aws-delegation-token] [:get-signed-url path-to-object-map bucket object-key url-key expiration-key])}
         ;; Get the signed url
         (let [s3 (:aws-s3 db)
-              expiration-seconds (* 60 20) ;; 20 minutes
+              expiration-seconds (* 60 60 24) ;; 24 hours
               expiration-time (ct/plus (ct/now) (ct/seconds expiration-seconds))
               params (clj->js {:Bucket bucket :Key object-key :Expires expiration-seconds})
-              url (js->clj (.getSignedUrl s3 "getObject" params))]
+              url (js->clj (.getSignedUrl s3 "getObject" params))
+              new-db (-> db
+                        (assoc-in (conj path-to-object-map url-key) url)
+                        (assoc-in (conj path-to-object-map expiration-key) expiration-time))]
           (pprint (str "Retrieved signedUrl: " url))
-          {:db (-> db
-                  (assoc-in (conj path-to-object-map url-key) url)
-                  (assoc-in (conj path-to-object-map expiration-key) expiration-time))})))))
+          {:db new-db
+           :sync-to-local-storage [{:k "helodali.signed-urls"
+                                    :v (current-signed-urls new-db)}]})))))
 
 ;; Upload an image to the helodali-raw-images bucket. The s3 object key ("filename") is composed
 ;; as follows: sub/artwork-uuid/image-uuid/filename

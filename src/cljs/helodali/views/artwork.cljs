@@ -436,6 +436,7 @@
                          :children [[v-box ;:max-width image-size :max-height image-size ;:style {:margin-top "10px" :z-index 0 :position "relative"}
                                        :children [[box :max-width image-size :max-height image-size
                                                     :child [:img {:src url :class object-fit :width image-size :height image-size ;:style {:object-fit "cover"}
+                                                                  :on-error #(dispatch [:flush-signed-urls [:artwork id :images 0]])
                                                                   :on-click #(if (not (= @display-type :new-item)) ;; Don't toggle 'expanded' when in :new-item mode
                                                                                (dispatch [:set-local-item-val [:artwork id :expanded] (not @expanded)])
                                                                                nil)}]]

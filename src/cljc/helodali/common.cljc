@@ -49,3 +49,8 @@
   "Called with clj-time or cljs-time object, convert to string"
   [d]
   (unparse (formatters :date) d))
+
+(defn unparse-datetime
+  "Called with clj-time or cljs-time object, convert to string"
+  [d]
+  (unparse (formatters :date-time) d))
