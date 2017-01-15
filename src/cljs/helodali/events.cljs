@@ -129,6 +129,20 @@
   (fn [{:keys [route-name args]}]
     (route route-name args)))
 
+(defn- apply-document-signed-urls
+  "Traverse the cached signed-urls and attach them to documents in the given list (not
+   sorted-map) of documents"
+  [documents signed-urls]
+  (if (empty? signed-urls)
+    documents
+    (let [update-documents (fn [document]
+                             (if-let [url (get signed-urls (:uuid documents))]
+                               (merge document {:signed-raw-url-expiration-time
+                                                  (parse-date :date-time (:signed-raw-url-expiration-time url))
+                                                :signed-raw-url (:signed-raw-url url)})
+                               document))]
+       (map #(update-documents %) documents))))
+
 (defn- apply-artwork-signed-urls
   "Traverse the cached signed-urls and attach them to images in the given list (not
    sorted-map) of artwork"
@@ -175,7 +189,9 @@
                                   (apply-artwork-signed-urls local-store-signed-urls)
                                   (into-sorted-map)))
               (assoc :exhibitions (into-sorted-map (map #(merge (helodali.db/default-exhibition) %) exhibitions)))
-              (assoc :documents (into-sorted-map (map #(merge (helodali.db/default-document) %) documents)))
+              (assoc :documents (-> (map #(merge (helodali.db/default-document) %) documents)
+                                    (apply-document-signed-urls local-store-signed-urls)
+                                    (into-sorted-map)))
               (assoc :contacts (into-sorted-map (map #(merge (helodali.db/default-contact) %) contacts)))
               (assoc :press (into-sorted-map (map #(merge (helodali.db/default-press) %) press)))
               (assoc :profile (:profile result))

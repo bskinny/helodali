@@ -522,6 +522,7 @@
         [h-box :gap "6px" :align :center :justify :start :style {:background bg-color} :padding "8px" :width "100%"
           :children [[box :max-width thumb-size :max-height thumb-size :margin "10px"
                        :child [:img {:src url :class "cover" :width thumb-size :height thumb-size
+                                     :on-error #(dispatch [:flush-signed-urls [:artwork id :images 0]])
                                      :on-click #(route-single-item :artwork @uuid)}]]
                      ; [re-com/gap :size "20px"]
                      [v-box :gap "2px" :align :start :justify :around
