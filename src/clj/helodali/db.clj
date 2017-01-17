@@ -3,6 +3,7 @@
             [clj-uuid :as uuid]
             [clj-time.core :refer [now days ago]]
             [clj-time.format :refer [parse unparse formatters]]
+            ; [aws.sdk.s3 :as s3]
             [helodali.demodata :as demo]
             [helodali.common :refer [coerce-int fix-date keywordize-vals]]
             [clojure.pprint :refer [pprint]]))
@@ -392,6 +393,24 @@
 ; (pprint (update-profile brianw [:degrees] nil))
 ; (delete-item :artwork brianw "a5ef27a1-7814-4e37-addc-25c5e54b6d29")
 ; (pprint (update-item :artwork brianw "b8d80fe3-aeb5-11e6-a116-c83ff47bbdcb" [:status] :not-for-sale))
+
+; (def old "facebook|10208314583117362/37093235-beae-4731-a4c0-b6307bc52c4b/f07cbe4a-bc65-44fd-bafc-7629ebd6cf8c/It is Art.png")
+; (def new "facebook|10208723122690596/37093235-beae-4731-a4c0-b6307bc52c4b/f07cbe4a-bc65-44fd-bafc-7629ebd6cf8c/It is Art.png")
+;
+; (defn rename-s3-object
+;   "Perform a copy of the current object to the new name followed by a delete.
+;    Apparently the aws command line tool's mv command uses this approach as well."
+;   [bucket old-key new-key]
+;   (let [cred (dissoc co :endpoint)
+;         copy-result (s3/copy-object cred bucket old-key new-key)]
+;     (pprint (str "s3 copy result" copy-result))))
+;
+; (defn rename-user-s3-objects
+;   "Given a user's uuid and a new sub value, look for all documents and images
+;    defined in the database and issue copy/delete requests to s3 to rename-s3
+;    the objects."
+;   [uuid sub])
+
 
 (comment
   (far/get-item co :press {:uref brianw :uuid "123123-222-123123-0001"})
