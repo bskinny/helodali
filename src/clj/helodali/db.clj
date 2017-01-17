@@ -7,6 +7,9 @@
             [helodali.common :refer [coerce-int fix-date keywordize-vals]]
             [clojure.pprint :refer [pprint]]))
 
+;; These evironment variables are only necessary when running the app locally
+;; or outside AWS. Within AWS, we assign an IAM role to the ElastocBeanstalk
+;; instance housing the application.
 (def co
   {:access-key (get (System/getenv) "AWS_DYNAMODB_ACCESS_KEY")
    :secret-key (get (System/getenv) "AWS_DYNAMODB_SECRET_KEY")
@@ -34,6 +37,19 @@
                (assoc :lectures-and-talks (apply vector (map #(coerce-int % [:year]) (:lectures-and-talks m))))
                (assoc :residencies (apply vector (map #(coerce-int % [:year]) (:residencies m)))))
     m))
+
+(defn create-user-if-necessary
+  "Look for the given sub as a user of our application if she does not exist yet, create her."
+  [userinfo]
+  (when-not (nil? (:sub userinfo))
+    (let [openid-item (far/get-item co :openid {:sub (:sub userinfo)})]
+      (when (nil? (:uref openid-item))
+        (let [uuid (str (uuid/v1))
+              created (unparse (formatters :date) (now))]
+          (pprint (str "Creating user account for " (:sub userinfo)))
+          (far/put-item co :accounts {:uuid uuid :created created})
+          (far/put-item co :profiles {:uuid uuid :name (:name userinfo) :created created})
+          (far/put-item co :openid {:uref uuid :sub (:sub userinfo) :email (:email userinfo)}))))))
 
 (defn get-profile-by-sub
   "Given an openid subject identifier (the 'sub' claim), resolve to a profile map
@@ -89,12 +105,12 @@
   (pprint (str "cache-access-token: " access-token " and sub: " (:sub userinfo)))
   (let [openid-item (far/get-item co :openid {:sub (:sub userinfo)})
         _ (pprint (str "openid-item: " openid-item))
-        uref (:uref openid-item)
-        session (far/get-item co :sessions {:uref uref :token access-token})]
-    (if session
-      (pprint (str "Session exists: " session))
-      (let [time-stamp (unparse (formatters :date-time) (now))]
-        (far/put-item co :sessions {:uref uref :token access-token :ts time-stamp})))))
+        uref (:uref openid-item)]
+    (when uref
+      (if-let [session (far/get-item co :sessions {:uref uref :token access-token})]
+        (pprint (str "Session exists: " session))
+        (let [time-stamp (unparse (formatters :date-time) (now))]
+          (far/put-item co :sessions {:uref uref :token access-token :ts time-stamp}))))))
 
 (defn delete-access-token
   [access-token uref]

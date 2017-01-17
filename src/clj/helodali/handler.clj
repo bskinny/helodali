@@ -4,7 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [helodali.db :refer [initialize-db update-item create-item delete-item refresh-image-data
                                  update-user-table valid-user? refresh-item-path cache-access-token
-                                 valid-session? delete-access-token]]
+                                 valid-session? delete-access-token create-user-if-necessary]]
             [helodali.auth0 :as auth0]
             [ring.util.response :refer [content-type response resource-response file-response redirect]]
             [ring.middleware.reload :refer [wrap-reload]]
@@ -68,9 +68,9 @@
       (pprint (str "Handle /login with userinfo: " userinfo))
       (if (nil? (:sub userinfo))
         (do
-          (pprint "No :sub claim found in userinfo: " userinfo)
-          {})    ;; TODO: send back an error message?
+          {:message (str "No :sub claim found in userinfo: " userinfo)})
         (do
+          (create-user-if-necessary userinfo)
           (cache-access-token access-token userinfo)
           (response (initialize-db userinfo))))))
 
