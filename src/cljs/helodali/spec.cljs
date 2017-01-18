@@ -45,8 +45,7 @@
 (s/def ::series boolean?)
 (s/def ::editions int?)
 (s/def ::condition (s/nilable string?))
-(s/def ::exhibition-history-item (s/keys :req-un [::ref]
-                                         :opt-un [::notes ::images]))
+(s/def ::exhibition-history-item (s/keys :opt-un [::ref ::notes ::images]))
 (s/def ::exhibition-history (s/* ::exhibition-history-item))
 (s/def ::price float?)
 (s/def ::donated boolean?)

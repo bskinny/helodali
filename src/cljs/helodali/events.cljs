@@ -7,6 +7,7 @@
                            remove-vector-element into-sorted-map trunc]]
     [helodali.routes :refer [route]]
     [cljs-time.core :as ct]
+    [cljs.reader]
     [cljs.pprint :refer [pprint]]
     [reagent.core :as r]
     [re-frame.core :refer [reg-event-db reg-event-fx reg-fx inject-cofx path trim-v reg-cofx

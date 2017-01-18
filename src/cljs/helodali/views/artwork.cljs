@@ -440,7 +440,8 @@
                                                                   :on-click #(if (not (= @display-type :new-item)) ;; Don't toggle 'expanded' when in :new-item mode
                                                                                (dispatch [:set-local-item-val [:artwork id :expanded] (not @expanded)])
                                                                                nil)}]]
-                                                  (when (and @editing (= @display-type :single-item) (not (:processing image)))
+                                                  (when (or (and @editing (= @display-type :single-item) (not (:processing image)))
+                                                            (and (not @editing) (= @display-type :single-item) (nil? image)))
                                                     [h-box :gap "8px" :align :center :justify :center :style {:background-color "#428bca"}
                                                        :children [(when-not (empty? (:metadata image))
                                                                     (let [md (:metadata image)]
