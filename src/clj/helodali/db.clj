@@ -3,7 +3,7 @@
             [clj-uuid :as uuid]
             [clj-time.core :refer [now days ago]]
             [clj-time.format :refer [parse unparse formatters]]
-            ; [aws.sdk.s3 :as s3]
+            [aws.sdk.s3 :as s3]
             [helodali.demodata :as demo]
             [helodali.common :refer [coerce-int fix-date keywordize-vals]]
             [clojure.pprint :refer [pprint]]))
@@ -380,7 +380,7 @@
 
 ; (far/scan co :sessions)
 ; (cache-access-token "swizBbwU7cC7x123" {:sub "facebook|10208314583117362"})
-; (pprint (far/query co :openid {:email [:eq "brian.williams@mayalane.com"]} {:index "email-index"}))
+; (pprint (far/query co :openid {:email [:eq "brian@mayalane.com"]} {:index "email-index"}))
 ; (pprint (far/get-item co :openid {:sub "facebook|10208314583117362"}))
 ; (pprint (far/update-item co :openid {:sub "facebook|10208314583117362"}
 ;                          {:update-expr     (str "SET #email = :val")
@@ -394,25 +394,85 @@
 ; (delete-item :artwork brianw "a5ef27a1-7814-4e37-addc-25c5e54b6d29")
 ; (pprint (update-item :artwork brianw "b8d80fe3-aeb5-11e6-a116-c83ff47bbdcb" [:status] :not-for-sale))
 
-; (def old "facebook|10208314583117362/37093235-beae-4731-a4c0-b6307bc52c4b/f07cbe4a-bc65-44fd-bafc-7629ebd6cf8c/It is Art.png")
-; (def new "facebook|10208723122690596/37093235-beae-4731-a4c0-b6307bc52c4b/f07cbe4a-bc65-44fd-bafc-7629ebd6cf8c/It is Art.png")
-;
-; (defn rename-s3-object
-;   "Perform a copy of the current object to the new name followed by a delete.
-;    Apparently the aws command line tool's mv command uses this approach as well."
-;   [bucket old-key new-key]
-;   (let [cred (dissoc co :endpoint)
-;         copy-result (s3/copy-object cred bucket old-key new-key)]
-;     (pprint (str "s3 copy result" copy-result))))
-;
-; (defn rename-user-s3-objects
-;   "Given a user's uuid and a new sub value, look for all documents and images
-;    defined in the database and issue copy/delete requests to s3 to rename-s3
-;    the objects."
-;   [uuid sub])
+;; These functions interact with DynamoDB as well as S3 objects
+(defn rename-s3-object
+  "Perform a copy of the current object to the new name followed by a delete.
+   Apparently the aws command line tool's mv command uses this approach as well.
+   If a failure occurs, return nil, otherwise return the new key."
+  [bucket old-key new-key]
+  (let [cred (dissoc co :endpoint)
+        copy-result (try (s3/copy-object cred bucket old-key new-key)
+                      (catch Exception ex
+                        (str ex)))]
+    (if-not (map? copy-result)
+      (do
+        (pprint (str "Error attempting to copy " old-key " to " new-key " in bucket " bucket ": " copy-result))
+        nil)
+      (try (s3/delete-object cred bucket old-key)
+           new-key
+        (catch Exception ex
+          (do
+            (pprint (str "Error deleting " old-key " from bucket " bucket ": " ex))
+            nil))))))
 
+(defn- rename-images
+  "Execute a copy/delete to rename the object keys in the given images list"
+  [uref old-sub new-sub item]
+  (pprint "In rename-images")
+  (let [rename-keys (fn [idx image]
+                      (let [old-key (:key image)
+                            new-key (clojure.string/replace-first (:key image) old-sub new-sub)]
+                        (when (not= new-key old-key)
+                          ;; Rename the objects in both helodali-images and helodali-raw-images buckets
+                          (do
+                            (pprint (str "Renaming image " old-key " to " new-key))
+                            (when (rename-s3-object "helodali-raw-images" old-key new-key)
+                              (when (rename-s3-object "helodali-images" old-key new-key)
+                                (update-item :artwork uref (:uuid item) [:images idx :key] new-key)))))))]
+    (doall (map-indexed rename-keys (:images item)))))
+
+(defn- rename-document
+  "Execute a copy/delete to rename the object keys in the given document"
+  [uref old-sub new-sub document]
+  (let [old-key (:key document)
+        new-key (clojure.string/replace-first (:key document) old-sub new-sub)]
+    (when (not= new-key old-key)
+      ;; Rename the objects in the helodali-documents bucket
+      (do
+        (pprint (str "Renaming document " old-key " to " new-key))
+        (when (rename-s3-object "helodali-documents" old-key new-key)
+          (update-item :documents uref (:uuid document) [:key] new-key))))))
+
+(defn rename-user-s3-objects
+  "Given a user's uuid and old/new sub values, look for all documents and images
+   defined in the database and issue copy/delete requests to s3 to rename
+   the objects with the old sub in the base of the object name to the new sub at the base.
+   For example, given old=facebook|00001 and new=facebook|00002, rename
+     facebook|00001/37093235-beae-4731-a4c0-b6307bc52c4b/f07cbe4a-bc65-44fd-bafc-7629ebd6cf8c/art.png to
+     facebook|00002/37093235-beae-4731-a4c0-b6307bc52c4b/f07cbe4a-bc65-44fd-bafc-7629ebd6cf8c/art.png"
+  [uuid old-sub new-sub]
+  (let [artwork (far/query co :artwork {:uref [:eq uuid]})
+        artwork-renamer (partial rename-images uuid old-sub new-sub)
+        documents (far/query co :documents {:uref [:eq uuid]})
+        document-renamer (partial rename-document uuid old-sub new-sub)]
+    (doall (map (fn [item] (artwork-renamer item)) artwork))
+    (doall (map (fn [item] (document-renamer item)) documents))))
+
+(defn- associate-user-sub-and-uuid
+  "A maintenance function to be used when a openid sub changes for an existing user.
+   An openid item is assumed to exist for the new sub (which would have been created
+   by a login to helodali). This function changes the uuid (uref) within the new openid
+   item."
+  [sub uuid]
+  (pprint (far/update-item co :openid {:sub sub}
+                           {:update-expr     (str "SET #uref = :val")
+                            :expr-attr-names {"#uref" "uref"}
+                            :expr-attr-vals  {":val" uuid}
+                            :return          :all-new})))
 
 (comment
+  (associate-user-sub-and-uuid "facebook|10208723122690596" "1073c8b0-ab47-11e6-8f9d-c83ff47bbdcb")
+  (rename-user-s3-objects "1073c8b0-ab47-11e6-8f9d-c83ff47bbdcb" "facebook|10208314583117362" "facebook|10208723122690596")
   (far/get-item co :press {:uref brianw :uuid "123123-222-123123-0001"})
   (def all (far/scan co :artwork))
   (far/query co :artwork {:uref [:eq brianw]}))

@@ -17,7 +17,7 @@
                  [cljsjs/auth0-lock "10.8.1-0"]
                  [cljsjs/auth0 "7.0.4-0"]
                  [cljsjs/aws-sdk-js "2.2.41-2"]
-                 ; [clj-aws-s3 "0.3.10" :exclusions [joda-time]]
+                 [org.clojars.bskinny/clj-aws-s3 "0.3.11" :exclusions [joda-time]]
                  [ring/ring-defaults "0.2.1"]
                  [ring-middleware-format "0.7.0"]
                  [ring "1.5.0"]
