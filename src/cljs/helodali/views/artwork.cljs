@@ -3,7 +3,7 @@
               [helodali.routes :refer [route-single-item route-new-item]]
               [helodali.misc :refer [trunc compute-bg-color convert-map-to-options max-string-length expired?
                                      sort-by-datetime sort-by-key-then-created uuid-label-list-to-options
-                                     remove-vector-element]]
+                                     remove-vector-element title-string]]
               [cljs.pprint :refer [pprint]]
               [cljs-time.format :refer [unparse formatters]]
               [reagent.core  :as r]
@@ -24,13 +24,6 @@
 (def media-options (convert-map-to-options db/media))
 
 (def style-options (convert-map-to-options db/styles))
-
-(defn- title-string
-  "Return a non-empty title"
-  [title]
-  (if (empty? title)
-    "(no title)"
-    title))
 
 (defn display-exhibition-history-view
   [exhibition-history odd-row?]

@@ -135,6 +135,13 @@
           (* -1 key-comparison)
           key-comparison)))))
 
+(defn title-string
+  "Return a non-empty title"
+  [title]
+  (if (empty? title)
+    "(no title)"
+    title))
+
 (defn trunc
    "Truncate given string and use ... to designate truncating occurred"
    [s l]

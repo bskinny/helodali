@@ -34,6 +34,16 @@
           reverse? (not (get-in db [:sort-keys type 1]))]
       (sort #(comparator kw reverse? (get-in db [type %1]) (get-in db [type %2])) (filter (partial < 0) (keys (get db type)))))))
 
+;; Filtered list of ids sorted by the kw and direction defined in app-db's :sort-keys maps
+;; Also differs from the above with the use of a separate sort-key which can differ from item type
+(reg-sub
+  :filtered-items-keys-sorted-by-key
+  (fn [db [_ filter-fx type sort-key comparator]]
+    (let [kw (get-in db [:sort-keys sort-key 0])
+          reverse? (not (get-in db [:sort-keys sort-key 1]))
+          filtered-items (filter #(and (< 0 %) (filter-fx (get-in db [type %]))) (keys (get db type)))]
+      (sort #(comparator kw reverse? (get-in db [type %1]) (get-in db [type %2])) filtered-items))))
+
 ;; Return list of maps (e.g. an artwork's purchases) in sorted order, using :created as the tie-breaker
 (reg-sub
   :by-path-sorted-by
