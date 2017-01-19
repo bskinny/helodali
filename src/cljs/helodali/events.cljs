@@ -595,7 +595,7 @@
 (defn- referenced-in-purchases?
   "Check the given list of purchases for the presence of the given contact (uuid)."
   [purchases uuid]
-  (let [matched (filter #(or (= :buyer uuid) (= :agent uuid) (= :dealer uuid)) purchases)]
+  (let [matched (filter #(or (= (:buyer %) uuid) (= (:agent %) uuid) (= (:dealer %) uuid)) purchases)]
     (not (empty? matched))))
 
 (defn- referenced-in-exhibition-history?

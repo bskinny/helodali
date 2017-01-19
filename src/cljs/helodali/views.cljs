@@ -170,10 +170,13 @@
                          :contacts [contacts-view]
                          :press [press-view]
                          :profile [profile-view]
+                         :account [box :width "50%" :align-self :center
+                                     :child [re-com/alert-box :alert-type :warning :closeable? true :body "The account page is still being developed"]]
                          :purchases [purchases-view]
                          :documents [documents-view]
                          :exhibitions [exhibitions-view]
                          :search-results [search-results-view]
-                         [:span (str "Unexpected value for :view of " @view)])]]
+                         [box :width "50%" :align-self :center
+                            :child [re-com/alert-box :alert-type :warning :closeable? true :body (str "Unexpected value for :view of " @view)]])]]
 
          :else (show-spinner))))))
