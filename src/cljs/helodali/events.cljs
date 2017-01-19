@@ -601,7 +601,7 @@
 (defn- referenced-in-exhibition-history?
   "Check the given list of exhibition-history for the presence of the given exhibition (uuid)."
   [exhibition-history uuid]
-  (let [matched (filter #(= :ref uuid) exhibition-history)]
+  (let [matched (filter #(= (:ref %) uuid) exhibition-history)]
     (not (empty? matched))))
 
 (defn- referential-integrity-check
