@@ -31,7 +31,7 @@
         exhibition (if (empty? (:ref exhibition-history))
                       (r/atom nil)
                       (subscribe [:item-by-uuid :exhibitions (:ref exhibition-history)]))]
-    [(fn []
+    (fn []
       [v-box :gap "8px" :justify :start :align :start :padding "10px" ;:width "100%"
          :style {:background bg-color :border-radius "4px"}
          :children [[h-box :gap "6px" :align :center ;:style {:border "dashed 1px red"}
@@ -50,7 +50,7 @@
                     (when (not (empty? (:notes exhibition-history)))
                       [h-box :gap "6px" :align :start ;:style {:border "dashed 1px red"}
                            :children [[label :width "11ch" :class "uppercase light-grey" :label "Notes: "]
-                                      [re-com/box :max-width "360px" :child [:p (:notes exhibition-history)]]]])]])]))
+                                      [re-com/box :max-width "360px" :child [:p (:notes exhibition-history)]]]])]])))
 
 (defn display-exhibition-history-edit
   [id idx odd-row?]
@@ -58,7 +58,7 @@
         exhibition-uuid (subscribe [:by-path [:artwork id :exhibition-history idx :ref]])
         exhibitions (subscribe [:items-vals-with-uuid :exhibitions :name]) ;; this is a list of 2-tuples [uuid name]
         notes (subscribe [:by-path [:artwork id :exhibition-history idx :notes]])]
-    [(fn []
+    (fn []
       [v-box :gap "4px" :justify :start :align :start :padding "10px"
          :style {:background bg-color :border "1px solid lightgray" :border-radius "4px"} :width "100%"
          :children [[h-box :gap "6px" :align :center
@@ -73,7 +73,7 @@
                                                 [input-textarea :model (str @notes) :width "520px"
                                                     :rows 4 :on-change #(dispatch [:set-local-item-val [:artwork id :exhibition-history idx :notes] %])]]]
                                   [button :label "Delete" :class "btn-default"
-                                          :on-click #(dispatch [:delete-local-vector-element [:artwork id :exhibition-history] idx])]]]]])]))
+                                          :on-click #(dispatch [:delete-local-vector-element [:artwork id :exhibition-history] idx])]]]]])))
 
 (defn display-purchase-view
   [purchase odd-row?]
@@ -87,7 +87,8 @@
         dealer-contact (if (empty? (:dealer purchase))
                          (r/atom nil)
                          (subscribe [:item-by-uuid :contacts (:dealer purchase)]))]
-    [(fn []
+    (pprint (str "purchase: " purchase))
+    (fn []
       [v-box :gap "4px" :justify :start :align :start :padding "10px" :width "100%"
          :style {:background bg-color :border-radius "4px"}
          :children [[h-box :gap "6px" :align :center ;:style {:border "dashed 1px red"}
@@ -124,7 +125,7 @@
                                     [:span (:name @dealer-contact)]]])
                     (when (not (empty? (:notes purchase)))
                       [h-box :gap "6px" :children [[:span.uppercase.light-grey "Notes: "]
-                                                   [:span (:notes purchase)]]])]])]))
+                                                   [:span (:notes purchase)]]])]])))
 
 (defn display-purchase-edit
   [id idx odd-row?]
@@ -142,7 +143,7 @@
         donated (subscribe [:by-path [:artwork id :purchases idx :donated]])
         commissioned (subscribe [:by-path [:artwork id :purchases idx :commissioned]])
         notes (subscribe [:by-path [:artwork id :purchases idx :notes]])]
-    [(fn []
+    (fn []
       [v-box :gap "4px" :justify :start :align :start :padding "10px"
          :style {:background bg-color :border "1px solid lightgray" :border-radius "4px"} :width "100%"
          :children [[h-box :gap "6px" :align :center
@@ -190,7 +191,7 @@
                                                 [input-textarea :model (str @notes) :width "520px" :rows 4
                                                     :on-change #(dispatch [:set-local-item-val [:artwork id :purchases idx :notes] %])]]]
                                   [button :label "Delete" :class "btn-default"
-                                          :on-click #(dispatch [:delete-local-vector-element [:artwork id :purchases] idx])]]]]])]))
+                                          :on-click #(dispatch [:delete-local-vector-element [:artwork id :purchases] idx])]]]]])))
 
 (defn display-secondary-image
   [id editing? idx image odd-row?]
@@ -207,7 +208,7 @@
       (dispatch [:refresh-image [:artwork id :images idx]])
       (when (and (not (nil? image)) (or (nil? url) (expired? expiration)))
         (dispatch [:get-signed-url [:artwork id :images idx] (:key image)])))
-    [(fn []
+    (fn []
       [v-box ;:max-width image-size :max-height image-size ;:style {:margin-top "10px" :z-index 0 :position "relative"}
          :children [[box :max-width image-size :max-height image-size
                       :child [:img {:src url}]] ; :on-click #()}]]  TODO: on-click should present a larger image
@@ -224,7 +225,7 @@
                                                     (.click el))]
                                     [md-icon-button :md-icon-name "zmdi zmdi-delete"
                                        :emphasise? true :tooltip "Delete this image" ;:tooltip-position :right-center
-                                       :on-click #(dispatch [:delete-s3-vector-element ["helodali-raw-images"] [:artwork id :images] (:uuid image)])]]])]])]))
+                                       :on-click #(dispatch [:delete-s3-vector-element ["helodali-raw-images"] [:artwork id :images] (:uuid image)])]]])]])))
 
 (defn item-properties-panel
   [id]
@@ -273,13 +274,15 @@
               [v-box :gap "12px" :align :start :justify :start
                   :children [(when (not (empty? @purchases))
                                [v-box :gap "16px" :align :start :justify :start
-                                  :children (into [] (map display-purchase-view @purchases (cycle [true false])))])
+                                  :children (into [] (mapv (fn [idx purchase bg] ^{:key (str "purchase-" idx)} [display-purchase-view purchase bg])
+                                                           (range (count @purchases)) @purchases (cycle [true false])))])
                              (when (not (empty? @exhibition-history))
                                [v-box :gap "16px" :align :start :justify :start
-                                  :children (into [] (map display-exhibition-history-view @exhibition-history (cycle [true false])))])
+                                  :children (into [] (mapv (fn [idx exhibition bg] ^{:key (str "exhibition-" idx)} [display-exhibition-history-view exhibition bg])
+                                                           (range (count @exhibition-history)) @exhibition-history (cycle [true false])))])
                              (when (> (count @images) 1)
                                [h-box :gap "16px" :align :start :justify :start :padding "20px" :style {:flex-flow "row wrap"}
-                                  :children (into [] (map (partial display-secondary-image id false) (range 1 (count @images)) (rest @images) (cycle [true false])))])]]
+                                  :children (into [] (mapv (fn [idx image bg] ^{:key (str "image-" idx)} [display-secondary-image id false idx image bg]) (range 1 (count @images)) (rest @images) (cycle [true false])))])]]
             create-control [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
                               :children [[button :label "Create" :class "btn-default"
                                            :on-click #(dispatch [:create-from-placeholder :artwork])]
@@ -343,7 +346,8 @@
                                           [:span "Purchases"]]]
                              (when (not (empty? @purchases))
                                [v-box :gap "16px" :align :start :justify :start :align-self :stretch
-                                  :children (into [] (map (partial display-purchase-edit id) (range (count @purchases)) (cycle [true false])))])
+                                  :children (into [] (mapv (fn [idx bg] ^{:key (str "purchase-" idx)} [display-purchase-edit id idx bg])
+                                                           (range (count @purchases)) (cycle [true false])))])
                              [re-com/gap :size "4px"]
                              [h-box :gap "6px" :align :center :justify :start
                                 :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Add an Exhibition record"
@@ -351,7 +355,8 @@
                                            [:span "Exhibitions"]]]
                              (when (not (empty? @exhibition-history))
                                [v-box :gap "16px" :align :start :justify :start :align-self :stretch
-                                  :children (into [] (map (partial display-exhibition-history-edit id) (range (count @exhibition-history)) (cycle [true false])))])]]]
+                                  :children (into [] (mapv (fn [idx bg] ^{:key (str "exhibition-" idx)} [display-exhibition-history-edit id idx bg])
+                                                           (range (count @exhibition-history)) (cycle [true false])))])]]]
         [v-box :gap "8px" :align :start :justify :start :margin "20px" ;:style {:border "dashed 1px #ddd"}
            :children [[h-box :gap "10px"  :align :start :justify :start
                          :children (if (and @editing single-item) edit view)]
@@ -379,7 +384,7 @@
         display-type (subscribe [:app-key :display-type])
         single-item (or (= @display-type :single-item) (= @display-type :new-item))
         image-size (if (or (= @display-type :contact-sheet) @editing) "240px" "480px")]  ;; Set image size based on contact-sheet vs. other views
-    [(fn []
+    (fn []
       (let [controls [h-box :gap "2px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
                         :children [;(when (not (= @display-type :contact-sheet))
                                    ;  [row-button :disabled? (not @editing) :md-icon-name "zmdi zmdi-plus-circle-o"
@@ -478,7 +483,7 @@
                                                                                   :download ""}]]]])]]
                                     (when (and @expanded (or (not @editing) (not single-item))) controls)
                                     (when (not @expanded) [:span (title-string @title)])]]
-                       (when @expanded [item-properties-panel id])]])))]))
+                       (when @expanded [item-properties-panel id])]])))))
 
 (defn item-row-view
   "Display item as thumbnail and selective properties. The 'widths' map contains the string
@@ -500,7 +505,7 @@
         facebook (subscribe [:item-key :artwork id :facebook])
         medium (subscribe [:item-key :artwork id :medium])
         dimensions (subscribe [:item-key :artwork id :dimensions])]
-    [(fn []
+    (fn []
       (let [col1-wdith (max (:title widths) (:style widths))
             image (first @images)
             expiration (:signed-thumb-url-expiration-time image)
@@ -537,7 +542,7 @@
                                         :on-click #(dispatch [:copy-item :artwork id :title])]
                                     [row-button :md-icon-name "zmdi zmdi-delete"
                                       :mouse-over-row? true :tooltip "Delete this item"
-                                      :on-click #(dispatch [:delete-artwork-item :artwork id])]]]]]))]))
+                                      :on-click #(dispatch [:delete-artwork-item :artwork id])]]]]]))))
 
 (defn item-list-view
   "Display item properties in single line - no image display. The 'widths' map contains the string
@@ -563,9 +568,9 @@
         facebook (subscribe [:item-key :artwork id :facebook])
         medium (subscribe [:item-key :artwork id :medium])
         dimensions (subscribe [:item-key :artwork id :dimensions])]
-    [(fn []
+    (fn []
       [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
-        :children [[hyperlink :class "semibold" :style {:width (str (max 14 (:title widths)) "ch")} :label (trunc (title-string @title) (:title widths))
+        :children [[hyperlink :style {:width (str (max 14 (:title widths)) "ch")} :label (trunc (title-string @title) (:title widths))
                        :on-click #(route-single-item :artwork @uuid)]
                    [label :width "6ch" :label @year]
                    [label :width "12ch" :label (clojure.string/replace (name @status) #"-" " ")]
@@ -574,14 +579,14 @@
                    [label :width "20ch" :label (str @dimensions)]
                    [label :width "12ch" :label (str @list-price)]
                    [label :width "12ch" :label (str @expenses)]
-                   [label :width "10ch" :label (name @type)]
+                   [label :width "12ch" :label (name @type)]
                    [h-box :gap "2px" :justify :center :align :center :style {:font-size "18px"}
                        :children [[row-button :md-icon-name "zmdi zmdi-copy"
                                       :mouse-over-row? true :tooltip "Copy this item"
                                       :on-click #(dispatch [:copy-item :artwork id :title])]
                                   [row-button :md-icon-name "zmdi zmdi-delete"
                                     :mouse-over-row? true :tooltip "Delete this item"
-                                    :on-click #(dispatch [:delete-artwork-item :artwork id])]]]]])]))
+                                    :on-click #(dispatch [:delete-artwork-item :artwork id])]]]]])))
 
 (defn row-view
   "Display items one per row with a small thumbnail"
@@ -596,7 +601,7 @@
                     :style (+ (max-string-length (map name @types) 80) (max-string-length (map #(str " | " (clojure.string/join ", " (map name %))) @styles) 60))
                     :medium (+ 4 (max-string-length @mediums 30))}]
         [v-box :gap "4px" :align :center :justify :start
-           :children (into [] (map (partial item-row-view widths) @items (cycle [true false])))]))))
+           :children (into [] (mapv (fn [id bg] ^{:key id} [item-row-view widths id bg]) @items (cycle [true false])))]))))
 
 (defn list-view
   "Display list of items, one per line"
@@ -609,40 +614,40 @@
       (let [widths {:title (+ 4 (max-string-length @titles 80))
                     :medium (+ 4 (max-string-length @mediums 30))}
             header [h-box :align :center :justify :start :width "100%"
-                      :children [[hyperlink :class "bold uppercase" :style {:width (str (max 14 (:title widths)) "ch")} :label "Artwork Title"
+                      :children [[hyperlink :class "uppercase" :style {:width (str (max 14 (:title widths)) "ch")} :label "Artwork Title"
                                     :tooltip "Sort by Title" :on-click #(if (= (first @sort-key) :title)
                                                                           (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
                                                                           (dispatch [:set-local-item-val [:sort-keys :artwork] [:title true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "6ch"} :label "year"
+                                 [hyperlink :class "uppercase" :style {:width "6ch"} :label "year"
                                      :tooltip "Sort by Year" :on-click #(if (= (first @sort-key) :year)
                                                                           (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
                                                                           (dispatch [:set-local-item-val [:sort-keys :artwork] [:year false]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "12ch"} :label "status"
+                                 [hyperlink :class "uppercase" :style {:width "12ch"} :label "status"
                                      :tooltip "Sort by Status" :on-click #(if (= (first @sort-key) :status)
                                                                             (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
                                                                             (dispatch [:set-local-item-val [:sort-keys :artwork] [:status true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width (str (max 8 (get widths :medium)) "ch")} :label "medium"
+                                 [hyperlink :class "uppercase" :style {:width (str (max 8 (get widths :medium)) "ch")} :label "medium"
                                     :tooltip "Sort by Medium" :on-click #(if (= (first @sort-key) :medium)
                                                                           (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
                                                                           (dispatch [:set-local-item-val [:sort-keys :artwork] [:medium false]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "20ch"} :label "dimensions"
+                                 [hyperlink :class "uppercase" :style {:width "20ch"} :label "dimensions"
                                     :tooltip "Sort by Dimensions" :on-click #(if (= (first @sort-key) :dimensions)
                                                                               (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
                                                                               (dispatch [:set-local-item-val [:sort-keys :artwork] [:dimensions false]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "12ch"} :label "list price"
+                                 [hyperlink :class "uppercase" :style {:width "12ch"} :label "list price"
                                     :tooltip "Sort by Price" :on-click #(if (= (first @sort-key) :list-price)
                                                                           (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
                                                                           (dispatch [:set-local-item-val [:sort-keys :artwork] [:list-price false]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "12ch"} :label "expenses"
+                                 [hyperlink :class "uppercase" :style {:width "12ch"} :label "expenses"
                                     :tooltip "Sort by Expenses" :on-click #(if (= (first @sort-key) :expenses)
                                                                              (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
                                                                              (dispatch [:set-local-item-val [:sort-keys :artwork] [:expenses false]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "10ch"} :label "type"
+                                 [hyperlink :class "uppercase" :style {:width "12ch"} :label "type"
                                     :tooltip "Sort by Type" :on-click #(if (= (first @sort-key) :type)
                                                                          (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
                                                                          (dispatch [:set-local-item-val [:sort-keys :artwork] [:type false]]))]]]]
-        [v-box :gap "4px" :align :center :justify :start
-           :children (into [header] (map (partial item-list-view widths) @items (cycle [true false])))]))))
+        [v-box :gap "4px" :align :center :justify :start :margin "10px"
+           :children (into [header] (mapv (fn [id bg] ^{:key id} [item-list-view widths id bg]) @items (cycle [true false])))]))))
 
 (defn view-selection
   "The row of view selection controls: contact-sheet row list"
@@ -668,7 +673,7 @@
     (fn []
       (when (not (empty? @item-path))
         [v-box :gap "10px" :margin "40px" ;:style {:flex-flow "row wrap"}
-           :children [(item-view id)]]))))
+           :children [[item-view id]]]))))
 
 (defn new-item-view
   []
@@ -677,7 +682,7 @@
     (fn []
       (when (not (empty? @item-path))
         [v-box :gap "10px" :margin "40px" :align :center :justify :start
-           :children [(item-view id)]]))))
+           :children [[item-view id]]]))))
 
 (defn artwork-contact-sheet
   "Display contact sheet of items"
@@ -686,7 +691,7 @@
     (fn []
       (when (not (empty? @items))
         [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
-           :children (into [] (map (partial item-view) @items))]))))
+           :children (into [] (map (fn [id] ^{:key id} [item-view id]) @items))]))))
 
 (defn artwork-view
   "Display artwork"

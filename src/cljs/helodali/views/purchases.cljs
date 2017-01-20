@@ -28,21 +28,21 @@
         dealer-contact (if (empty? (:dealer purchase))
                          (r/atom nil)
                          (subscribe [:item-by-uuid :contacts (:dealer purchase)]))]
-    [(fn []
+    (fn []
       [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
         :children [[label :width "15ch" :label (safe-date-string (:date purchase))]
-                   [hyperlink :class "semibold" :style {:width (str (max 18 (:title widths)) "ch")} :label (trunc (:title @artwork) (:title widths))
+                   [hyperlink :style {:width (str (max 18 (:title widths)) "ch")} :label (trunc (:title @artwork) (:title widths))
                               :on-click #(route-single-item :artwork uuid)]
                    (if (not (nil? @buyer-contact))
-                     [hyperlink :class "semibold" :style {:width (str (max 18 (:buyer widths)) "ch")} :label (trunc (:name @buyer-contact) (:buyer widths))
+                     [hyperlink :style {:width (str (max 18 (:buyer widths)) "ch")} :label (trunc (:name @buyer-contact) (:buyer widths))
                                 :on-click #(route-single-item :contacts (:uuid @buyer-contact))]
                      [label :width (str (max 18 (:buyer widths)) "ch") :label ""])
                    (if (not (nil? @agent-contact))
-                     [hyperlink :class "semibold" :style {:width (str (max 18 (:agent widths)) "ch")} :label (trunc (:name @agent-contact) (:agent widths))
+                     [hyperlink :style {:width (str (max 18 (:agent widths)) "ch")} :label (trunc (:name @agent-contact) (:agent widths))
                                 :on-click #(route-single-item :contacts (:uuid @agent-contact))]
                      [label :width (str (max 18 (:agent widths)) "ch") :label ""])
                    (if (not (nil? @dealer-contact))
-                     [hyperlink :class "semibold" :style {:width (str (max 18 (:dealer widths)) "ch")} :label (trunc (:name @dealer-contact) (:dealer widths))
+                     [hyperlink :style {:width (str (max 18 (:dealer widths)) "ch")} :label (trunc (:name @dealer-contact) (:dealer widths))
                                 :on-click #(route-single-item :contacts (:uuid @dealer-contact))]
                      [label :width (str (max 18 (:dealer widths)) "ch") :label ""])
                    [label :width "8ch" :label (:price purchase)]
@@ -52,7 +52,7 @@
                      [label :width "18ch" :label ""])
                    (if (:donated purchase)
                      [box :width "8ch" :align :center :justify :center :child [md-icon-button :md-icon-name "zmdi zmdi-check mdc-text-green"]]
-                     [label :width "8ch" :label ""])]])]))
+                     [label :width "8ch" :label ""])]])))
 
 (defn list-view
   "Display list of items, one per line"
@@ -62,53 +62,54 @@
     (fn []
       (let [widths {:buyer 30 :agent 24 :dealer 24 :title 30}
             header [h-box :align :center :justify :start :width "100%"
-                      :children [[hyperlink :class "bold uppercase" :style {:width "15ch"}
+                      :children [[hyperlink :class "uppercase" :style {:width "15ch"}
                                     :label "Date" :tooltip "Sort by Date"
                                     :on-click #(if (= (first @sort-key) :date)
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases] [:date true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width (str (max 18 (:title widths)) "ch")}
+                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:title widths)) "ch")}
                                     :label "Title" :tooltip "Sort by Title"
                                     :on-click #(if (= (first @sort-key) :title)
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases] [:title true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width (str (max 18 (:buyer widths)) "ch")}
+                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:buyer widths)) "ch")}
                                     :label "Buyer" :tooltip "Sort by Buyer"
                                     :on-click #(if (= (first @sort-key) :buyer-name)
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases] [:buyer-name true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width (str (max 18 (:agent widths)) "ch")}
+                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:agent widths)) "ch")}
                                     :label "Agent" :tooltip "Sort by Agent"
                                     :on-click #(if (= (first @sort-key) :agent-name)
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases] [:agent-name true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width (str (max 18 (:dealer widths)) "ch")}
+                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:dealer widths)) "ch")}
                                     :label "Dealer" :tooltip "Sort by Dealer"
                                     :on-click #(if (= (first @sort-key) :dealer-name)
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases] [:dealer-name true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "8ch"}
+                                 [hyperlink :class "uppercase" :style {:width "8ch"}
                                     :label "Price" :tooltip "Sort by Price"
                                     :on-click #(if (= (first @sort-key) :price)
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases] [:price true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "10ch"}
+                                 [hyperlink :class "uppercase" :style {:width "10ch"}
                                     :label "Comm %" :tooltip "Sort by Commission Percent"
                                     :on-click #(if (= (first @sort-key) :total-commission-percent)
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases] [:total-commission-percent true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "18ch"}
+                                 [hyperlink :class "uppercase" :style {:width "18ch"}
                                     :label "Commissioned?" :tooltip "Sort by Commissioned?"
                                     :on-click #(if (= (first @sort-key) :commissioned)
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases] [:commissioned true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "8ch"}
+                                 [hyperlink :class "uppercase" :style {:width "8ch"}
                                     :label "Donated?" :tooltip "Sort by Donated?"
                                     :on-click #(if (= (first @sort-key) :donated)
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases] [:donated true]]))]]]]
         [v-box :gap "4px" :align :center :justify :start
-           :children (into [header] (map (partial item-list-view widths) @items (cycle [true false])))]))))
+           :children (into [header] (mapv (fn [idx item bg] ^{:key (str (:uuid item) "-" idx)} [item-list-view widths item bg])
+                                          (range (count @items)) @items (cycle [true false])))]))))
 
 (defn view-selection
   "Purchases view does not have any selection controls"

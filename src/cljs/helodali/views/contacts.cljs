@@ -31,7 +31,7 @@
         notes (subscribe [:item-key :contacts id :notes])
         editing (subscribe [:item-key :contacts id :editing])
         display-type (subscribe [:app-key :display-type])]
-    [(fn []
+    (fn []
       (let [view-control [h-box :gap "12px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
                            :children [[row-button :md-icon-name "zmdi zmdi-edit"
                                         :mouse-over-row? true :tooltip "Edit this item" :tooltip-position :right-center
@@ -115,7 +115,7 @@
         [v-box :gap "10px" :align :start :justify :start ;:style {:border "dashed 1px red"}
                :children (into (if @editing edit view) (if (= @display-type :new-item)
                                                            [create-control]
-                                                           (if @editing [save-control] [view-control])))]))]))
+                                                           (if @editing [save-control] [view-control])))]))))
 
 (defn item-list-view
   "Display item properties in single line - no image display. The 'widths' map contains the string
@@ -134,7 +134,7 @@
         url (subscribe [:item-key :contacts id :url])
         instagram (subscribe [:item-key :contacts id :instagram])
         facebook (subscribe [:item-key :contacts id :facebook])]
-    [(fn []
+    (fn []
       [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
         :children [[hyperlink :class "semibold" :style {:width (str (max 18 (get widths :name)) "ch")} :label (trunc @cn (get widths :name))
                        :on-click #(route-single-item :contacts @uuid)]
@@ -151,7 +151,7 @@
                                    :on-click #(dispatch [:copy-item :contacts id :name])]
                                  [row-button :md-icon-name "zmdi zmdi-delete"
                                    :mouse-over-row? true :tooltip "Delete this item"
-                                   :on-click #(dispatch [:delete-item :contacts id])]]]]])]))
+                                   :on-click #(dispatch [:delete-item :contacts id])]]]]])))
 
 (defn list-view
   "Display list of items, one per line"
@@ -202,7 +202,7 @@
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts] [:facebook true]]))]]]]
         [v-box :gap "4px" :align :center :justify :start
-           :children (into [header] (map (partial item-list-view widths) @items (cycle [true false])))]))))
+           :children (into [header] (mapv (fn [id bg] ^{:key id} [item-list-view widths id bg]) @items (cycle [true false])))]))))
 
 (defn view-selection
   "The row of view selection controls: list new-item"
@@ -222,7 +222,7 @@
     (fn []
       (when (not (empty? @item-path))
         [v-box :gap "10px" :margin "40px" ;:style {:flex-flow "row wrap"}
-           :children [(item-view id)]]))))
+           :children [[item-view id]]]))))
 
 (defn new-item-view
   []
@@ -231,7 +231,7 @@
     (fn []
       (when (not (empty? @item-path))
         [v-box :gap "10px" :margin "40px" :align :center :justify :start
-           :children [(item-view id)]]))))
+           :children [[item-view id]]]))))
 
 (defn contacts-view
   "Display contacts"

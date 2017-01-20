@@ -12,7 +12,7 @@
               [helodali.views.search-results :refer [search-results-view]]
               [cljs.pprint :refer [pprint]]
               [cljsjs.auth0-lock]
-              [reagent.core  :as r]
+              [reagent.core :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
               [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button
                                               input-text input-textarea single-dropdown selection-list]]))

@@ -33,7 +33,7 @@
         showing-document-info? (r/atom false)
         display-type (subscribe [:app-key :display-type])
         image-size "80px"]
-    [(fn []
+    (fn []
       (let [view-control [h-box :gap "12px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
                              :children [[row-button :md-icon-name "zmdi zmdi-edit"
                                           :mouse-over-row? true :tooltip "Edit this item" :tooltip-position :right-center
@@ -148,7 +148,7 @@
             :children (into edit [create-control])]
           [h-box :gap "32px" :align :start :justify :start :padding "20px" :style {:flex-flow "row wrap"}
             ; :children (into [lhs] (conj (if @editing edit view) (if @editing [save-control] [view-control])))
-            :children (into [lhs] [rhs])])))]))
+            :children (into [lhs] [rhs])])))))
 
 (defn item-list-view
   "Display item properties in single line. The 'widths' map contains the string
@@ -162,7 +162,7 @@
         size (subscribe [:item-key :documents id :size])
         created (subscribe [:item-key :documents id :created])
         last-modified (subscribe [:item-key :documents id :last-modified])]
-    [(fn []
+    (fn []
       (let [lm (or @last-modified @created)]
         [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
           :children [[hyperlink :class "semibold" :style {:width (str (max 14 (:title widths)) "ch")} :label (trunc (safe-string @title "(no title)") (:title widths))
@@ -177,7 +177,7 @@
                                        :on-click #(dispatch [:copy-item :documents id :title])]
                                     [row-button :md-icon-name "zmdi zmdi-delete"
                                        :mouse-over-row? true :tooltip "Delete this item"
-                                       :on-click #(dispatch [:delete-document-item :documents id])]]]]]))]))
+                                       :on-click #(dispatch [:delete-document-item :documents id])]]]]]))))
 
 (defn list-view
   "Display list of items, one per line"
@@ -211,7 +211,7 @@
                                                                          (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
                                                                          (dispatch [:set-local-item-val [:sort-keys :documents] [:size false]]))]]]]
         [v-box :gap "4px" :align :center :justify :start
-           :children (into [header] (map (partial item-list-view widths) @items (cycle [true false])))]))))
+           :children (into [header] (mapv (fn [id bg] ^{:key id} [item-list-view widths id bg]) @items (cycle [true false])))]))))
 
 (defn view-selection
   "The row of view selection controls: list new-item"
@@ -231,7 +231,7 @@
     (fn []
       (when (not (empty? @item-path))
         [v-box :gap "10px" :margin "40px" ;:style {:flex-flow "row wrap"}
-           :children [(item-view id)]]))))
+           :children [[item-view id]]]))))
 
 (defn new-item-view
   []
@@ -241,7 +241,7 @@
       (pprint (str "document 0: " @item-path))
       (when (not (empty? @item-path))
         [v-box :gap "10px" :margin "40px" :align :center :justify :start
-           :children [(item-view id)]]))))
+           :children [[item-view id]]]))))
 
 (defn documents-view
   "Display documents"

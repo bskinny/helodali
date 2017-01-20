@@ -185,8 +185,10 @@
             press (filter #(not (empty? (:match %))) (map #(search-acc :press pattern % :title) (vals (get db :press))))
             profile (filter #(not (empty? (:match %))) (list (search-acc :profile pattern (get db :profile) :name)))
             matches (concat artwork contacts exhibitions press profile)]
-        (pprint (str "All matches: " matches))
-        matches))))
+        (if (= kw :match) ;; Handle the sorting on 'Match' column differently than the others
+          (let [reverse (if reverse? -1 1)]
+            (sort #(* reverse (compare (first (:match %1)) (first (:match %2)))) matches))
+          (sort #(sort-by-key-then-created kw reverse? %1 %2) matches))))))
 
 ;; Subscribe to items as a list of maps. We must filter out the placeholder which has id == 0.
 (reg-sub

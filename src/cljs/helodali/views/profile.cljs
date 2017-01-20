@@ -15,7 +15,7 @@
   (let [bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
         year (:year m)
         val (:val m)]
-    [(fn []
+   [(fn []
       [h-box :gap "6px" :justify :start :align :center :width "100%"
          :style {:background bg-color :border-radius "4px"}
          :children [[label :label (str year)]
@@ -28,7 +28,7 @@
         val-path (conj profile-path-to idx :val)
         year (subscribe [:by-path year-path])
         val (subscribe [:by-path val-path])]
-    [(fn []
+    (fn []
       [v-box :gap "10px" :justify :start :align :start :padding "10px"
          :style {:background bg-color :border "1px solid lightgray" :border-radius "4px"} :width "100%"
          :children [[h-box :gap "6px" :align :center :justify :between :align-self :stretch
@@ -41,7 +41,7 @@
                     [h-box :gap "8px" :align :center :justify :between
                         :children [[:span.uppercase.light-grey label-string]
                                    [input-text :model (str @val) :placeholder "" :width "420px" :style {:border "none"}
-                                      :on-change #(dispatch [:set-local-item-val val-path %])]]]]])]))
+                                      :on-change #(dispatch [:set-local-item-val val-path %])]]]]])))
 
 (defn item-view
   "Display the profile"
@@ -100,22 +100,26 @@
                     [h-box :gap "12px" :align :start :justify :start :padding "8px 0px"
                             :children [[label :width "20ch" :class "uppercase light-grey" :label "Degrees"]
                                        [v-box :gap "8px" :align :start :justify :start
-                                          :children (into [] (map display-year-and-label-view @degrees (cycle [true false])))]]])
+                                          :children (into [] (mapv (fn [idx degree bg] ^{:key (str "degree-" idx)} [display-year-and-label-view degree bg])
+                                                                   (range (count @degrees)) @degrees (cycle [true false])))]]])
                   (when (or (not (empty? @awards-and-grants)))
                     [h-box :gap "12px" :align :start :justify :start :padding "8px 0px"
                             :children [[label :width "20ch" :class "uppercase light-grey" :label "Awards & Grants"]
                                        [v-box :gap "8px" :align :start :justify :start
-                                          :children (into [] (map display-year-and-label-view @awards-and-grants (cycle [true false])))]]])
+                                          :children (into [] (mapv (fn [idx awards-and-grant bg] ^{:key (str "awards-and-grant-" idx)} [display-year-and-label-view awards-and-grant bg])
+                                                                   (range (count @awards-and-grants)) @awards-and-grants (cycle [true false])))]]])
                   (when (or (not (empty? @residencies)))
                     [h-box :gap "12px" :align :start :justify :start :padding "8px 0px"
                             :children [[label :width "20ch" :class "uppercase light-grey" :label "Residencies"]
                                        [v-box :gap "8px" :align :start :justify :start
-                                          :children (into [] (map display-year-and-label-view @residencies (cycle [true false])))]]])
+                                          :children (into [] (mapv (fn [idx residency bg] ^{:key (str "residency-" idx)} [display-year-and-label-view residency bg])
+                                                                   (range (count @residencies)) @residencies (cycle [true false])))]]])
                   (when (or (not (empty? @lectures-and-talks)))
                     [h-box :gap "12px" :align :start :justify :start :padding "8px 0px"
                             :children [[label :width "20ch" :class "uppercase light-grey" :label "Lectures & Talks"]
                                        [v-box :gap "8px" :align :start :justify :start
-                                          :children (into [] (map display-year-and-label-view @lectures-and-talks (cycle [true false])))]]])]
+                                          :children (into [] (mapv (fn [idx lecture-and-talk bg] ^{:key (str "lecture-and-talk-" idx)} [display-year-and-label-view lecture-and-talk bg])
+                                                                   (range (count @lectures-and-talks)) @lectures-and-talks (cycle [true false])))]]])]
                    ;; TODO: Add collections
             edit [[h-box :gap "8px" :align :center :justify :between
                     :children [[:span.uppercase.bold "Name"]
@@ -152,7 +156,8 @@
                                               [:span "Degrees"]]]
                                  (when (not (empty? @degrees))
                                    [v-box :gap "16px" :align :start :justify :start :align-self :stretch
-                                      :children (into [] (map (partial display-year-and-label-edit "Degree" [:profile :degrees]) (range (count @degrees)) (cycle [true false])))])]]
+                                      :children (into [] (mapv (fn [idx bg] ^{:key (str "degree-" idx)} [display-year-and-label-edit "Degree" [:profile :degrees] idx bg])
+                                                               (range (count @degrees)) (cycle [true false])))])]]
                   [v-box :gap "6px" :align :start :justify :start :align-self :stretch
                       :children [[h-box :gap "6px" :align :center :justify :start
                                    :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Add Award or Grant"
@@ -160,7 +165,8 @@
                                               [:span "Awards & Grants"]]]
                                  (when (not (empty? @awards-and-grants))
                                    [v-box :gap "16px" :align :start :justify :start :align-self :stretch
-                                      :children (into [] (map (partial display-year-and-label-edit "Award or Grant" [:profile :awards-and-grants]) (range (count @awards-and-grants)) (cycle [true false])))])]]
+                                      :children (into [] (mapv (fn [idx bg] ^{:key (str "award-or-grant-" idx)} [display-year-and-label-edit "Award or Grant" [:profile :awards-and-grants] idx bg])
+                                                               (range (count @awards-and-grants)) (cycle [true false])))])]]
                   [v-box :gap "6px" :align :start :justify :start :align-self :stretch
                       :children [[h-box :gap "6px" :align :center :justify :start
                                    :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Residencies"
@@ -168,7 +174,8 @@
                                               [:span "Residencies"]]]
                                  (when (not (empty? @residencies))
                                    [v-box :gap "16px" :align :start :justify :start :align-self :stretch
-                                      :children (into [] (map (partial display-year-and-label-edit "Residency" [:profile :residencies]) (range (count @residencies)) (cycle [true false])))])]]
+                                      :children (into [] (mapv (fn [idx bg] ^{:key (str "residency-" idx)} [display-year-and-label-edit "Residency" [:profile :residencies] idx bg])
+                                                               (range (count @residencies)) (cycle [true false])))])]]
                   [v-box :gap "6px" :align :start :justify :start :align-self :stretch
                       :children [[h-box :gap "6px" :align :center :justify :start
                                    :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Lectures & Talks"
@@ -176,7 +183,8 @@
                                               [:span "Lectures & Talks"]]]
                                  (when (not (empty? @lectures-and-talks))
                                    [v-box :gap "16px" :align :start :justify :start :align-self :stretch
-                                      :children (into [] (map (partial display-year-and-label-edit "Lecture or Talk" [:profile :lectures-and-talks]) (range (count @lectures-and-talks)) (cycle [true false])))])]]]]
+                                      :children (into [] (mapv (fn [idx bg] ^{:key (str "lecture-or-talk-" idx)} [display-year-and-label-edit "Lecture or Talk" [:profile :lectures-and-talks] idx bg])
+                                                               (range (count @lectures-and-talks)) (cycle [true false])))])]]]]
         [v-box :gap "10px" :align :start :justify :start ;:style {:border "dashed 1px red"}
                :children (concat [header] (if @editing edit view) [(if @editing save-control view-control)])]))))
 
