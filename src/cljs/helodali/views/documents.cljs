@@ -1,12 +1,11 @@
 (ns helodali.views.documents
-    (:require [helodali.db :as db]
-              [helodali.routes :refer [route-single-item route-new-item]]
+    (:require [helodali.routes :refer [route-single-item route-new-item]]
               [helodali.misc :refer [trunc compute-bg-color convert-map-to-options max-string-length expired?
                                      sort-by-datetime sort-by-key-then-created uuid-label-list-to-options
                                      safe-date-string safe-string]]
               [cljs.pprint :refer [pprint]]
+              [reagent.core :as r]
               [cljs-time.format :refer [unparse formatters]]
-              [reagent.core  :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
               [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button hyperlink
                                               input-text input-textarea single-dropdown selection-list
@@ -165,7 +164,7 @@
     (fn []
       (let [lm (or @last-modified @created)]
         [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
-          :children [[hyperlink :class "semibold" :style {:width (str (max 14 (:title widths)) "ch")} :label (trunc (safe-string @title "(no title)") (:title widths))
+          :children [[hyperlink :style {:width (str (max 14 (:title widths)) "ch")} :label (trunc (safe-string @title "(no title)") (:title widths))
                          :on-click #(route-single-item :documents @uuid)]
                      [label :width (str (max 14 (:filename widths)) "ch") :label (safe-string @filename "(no file attached)")]
                      [label :width "15ch" :label (safe-date-string @created)]
@@ -190,23 +189,23 @@
       (let [widths {:filename (+ 4 (max-string-length @filenames 80))
                     :title (+ 4 (max-string-length @titles 80))}
             header [h-box :align :center :justify :start :width "100%"
-                      :children [[hyperlink :class "bold uppercase" :style {:width (str (max 14 (:title widths)) "ch")} :label "Title"
+                      :children [[hyperlink :class "uppercase" :style {:width (str (max 14 (:title widths)) "ch")} :label "Title"
                                     :tooltip "Sort by Title" :on-click #(if (= (first @sort-key) :title)
                                                                           (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
                                                                           (dispatch [:set-local-item-val [:sort-keys :documents] [:title true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width (str (max 14 (:filename widths)) "ch")} :label "Filename"
+                                 [hyperlink :class "uppercase" :style {:width (str (max 14 (:filename widths)) "ch")} :label "Filename"
                                     :tooltip "Sort by Filename" :on-click #(if (= (first @sort-key) :filename)
                                                                               (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
                                                                               (dispatch [:set-local-item-val [:sort-keys :documents] [:filename true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "15ch"} :label "Created"
+                                 [hyperlink :class "uppercase" :style {:width "15ch"} :label "Created"
                                      :tooltip "Sort by Date Created" :on-click #(if (= (first @sort-key) :created)
                                                                                   (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
                                                                                   (dispatch [:set-local-item-val [:sort-keys :documents] [:created false]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "15ch"} :label "Modified"
+                                 [hyperlink :class "uppercase" :style {:width "15ch"} :label "Modified"
                                      :tooltip "Sort by Date Last Modified" :on-click #(if (= (first @sort-key) :last-modified)
                                                                                         (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
                                                                                         (dispatch [:set-local-item-val [:sort-keys :documents] [:last-modified true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "8ch"} :label "Size"
+                                 [hyperlink :class "uppercase" :style {:width "8ch"} :label "Size"
                                     :tooltip "Sort by Size" :on-click #(if (= (first @sort-key) :size)
                                                                          (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
                                                                          (dispatch [:set-local-item-val [:sort-keys :documents] [:size false]]))]]]]

@@ -4,7 +4,6 @@
               [helodali.misc :refer [trunc compute-bg-color max-string-length url-to-href safe-date-string
                                      sort-by-datetime sort-by-key-then-created uuid-label-list-to-options]]
               [cljs.pprint :refer [pprint]]
-              [reagent.core  :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
               [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button hyperlink
                                               input-text input-textarea single-dropdown selection-list
@@ -157,7 +156,7 @@
         notes (subscribe [:item-key :press id :notes])]
     (fn []
       [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
-        :children [[hyperlink :class "semibold" :style {:width (str (max 18 (get widths :title)) "ch")} :label (trunc @title (get widths :title))
+        :children [[hyperlink :style {:width (str (max 18 (get widths :title)) "ch")} :label (trunc @title (get widths :title))
                        :on-click #(route-single-item :press @uuid)]
                    [label :width (str (max 18 (:publication widths)) "ch") :label (trunc @publication (:publication widths))]
                    [label :width "15ch" :label (safe-date-string @publication-date)]
@@ -188,27 +187,27 @@
                     :publication (+ 4 (max-string-length @publications 40))
                     :url (+ 4 (max-string-length @urls 40))}
             header [h-box :align :center :justify :start :width "100%"
-                      :children [[hyperlink :class "bold uppercase" :style {:width (str (max 18 (:title widths)) "ch")}
+                      :children [[hyperlink :class "uppercase" :style {:width (str (max 18 (:title widths)) "ch")}
                                     :label "Title" :tooltip "Sort by Title"
                                     :on-click #(if (= (first @sort-key) :title)
                                                  (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :press] [:title true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width (str (max 18 (:publication widths)) "ch")}
+                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:publication widths)) "ch")}
                                     :label "Publication" :tooltip "Sort by Publication"
                                     :on-click #(if (= (first @sort-key) :publication)
                                                  (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :press] [:publication true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "15ch"}
+                                 [hyperlink :class "uppercase" :style {:width "15ch"}
                                     :label "Date" :tooltip "Sort by Date"
                                     :on-click #(if (= (first @sort-key) :publication-date)
                                                  (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :press] [:publication-date true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width (str (max 18 (:url widths)) "ch")}
+                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:url widths)) "ch")}
                                     :label "url" :tooltip "Sort by URL"
                                     :on-click #(if (= (first @sort-key) :url)
                                                  (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :press] [:url true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "16ch"}
+                                 [hyperlink :class "uppercase" :style {:width "16ch"}
                                     :label "Included in CV" :tooltip "Sort by Included in CV?"
                                     :on-click #(if (= (first @sort-key) :include-in-cv)
                                                  (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])

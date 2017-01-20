@@ -26,7 +26,7 @@
                    [label :width "12ch" :label (str @list-price)]]])))
 
 (defn referred-artwork-list-view
-  "Display list of artwork referring to this exhibition, one per line"
+  "Display list of referring artwork, one per line, with reference decided by provided filter-fx."
   [filter-fx]
   (let [sort-key (subscribe [:by-path [:sort-keys :referred-artwork]])
         items (subscribe [:filtered-items-keys-sorted-by-key filter-fx :artwork :referred-artwork sort-by-key-then-created])]
