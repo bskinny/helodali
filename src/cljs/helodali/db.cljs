@@ -188,7 +188,7 @@
    :userinfo nil ;; The userinfo map returned by Auth0
    :sort-keys {:artwork [:year false]  ;; true/false for forward/reverse sorting
                :contacts [:name true]
-               :contacts-referred-artwork [:year false]
+               :referred-artwork [:year false]
                :exhibitions [:name true]
                :documents [:title true]
                :purchases [:date false]

@@ -1,9 +1,8 @@
 (ns helodali.views.contacts
-    (:require [helodali.db :as db]
+    (:require [helodali.views.referred-artwork :refer [referred-artwork-list-view]]
               [helodali.routes :refer [route-single-item route-new-item]]
               [helodali.misc :refer [trunc compute-bg-color max-string-length url-to-href sort-by-key-then-created]]
               [cljs.pprint :refer [pprint]]
-              [reagent.core :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
               [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button hyperlink
                                               input-text input-textarea single-dropdown selection-list
@@ -15,6 +14,11 @@
                    {:id :agent :label "Agent"}
                    {:id :gallery :label "Gallery"}
                    {:id :institution :label "Institution"}])
+
+(defn contact-referenced-in-artwork?
+  "Filter function to determine if given contact is referred to in given artwork item, namely the purchases."
+  [contact-uuid item]
+  (not (empty? (filter #(or (= contact-uuid (:buyer %)) (= contact-uuid (:dealer %)) (= contact-uuid (:agent %))) (:purchases item)))))
 
 (defn item-view
   "Display an item"
@@ -70,6 +74,7 @@
                     [v-box :gap "4px" :align :start :justify :start :max-width "480px"
                             :children [[:span.uppercase.light-grey "notes"]
                                        [:span @notes]]])]
+            view-box [v-box :gap "10px" :align :start :justify :start :children view]
             create-control [h-box :gap "30px" :align :center
                               :children [[button :label "Create" :class "btn-default"
                                            :on-click #(dispatch [:create-from-placeholder :contacts])]
@@ -111,11 +116,15 @@
                       :rows 4 :on-change #(dispatch [:set-local-item-val [:contacts id :address] %])]
                   [:span.uppercase.light-grey "Notes"]
                   [input-textarea :model (str @notes) :width "360px"
-                      :rows 4 :on-change #(dispatch [:set-local-item-val [:contacts id :notes] %])]]]
-        [v-box :gap "10px" :align :start :justify :start ;:style {:border "dashed 1px red"}
-               :children (into (if @editing edit view) (if (= @display-type :new-item)
-                                                           [create-control]
-                                                           (if @editing [save-control] [view-control])))]))))
+                      :rows 4 :on-change #(dispatch [:set-local-item-val [:contacts id :notes] %])]]
+            edit-box [v-box :gap "10px" :align :start :justify :start :children edit]]
+        [v-box :gap "10px" :align :center :justify :start ;:style {:border "dashed 1px red"}
+               :children (concat (if @editing [edit-box] [view-box])
+                                 (if (= @display-type :new-item)
+                                   [create-control]
+                                   (if @editing [save-control] [view-control]))
+                                 (when (not @editing)
+                                   [[referred-artwork-list-view (partial contact-referenced-in-artwork? @uuid)]]))]))))
 
 (defn item-list-view
   "Display item properties in single line - no image display. The 'widths' map contains the string
