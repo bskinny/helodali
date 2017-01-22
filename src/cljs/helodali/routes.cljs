@@ -32,6 +32,10 @@
 (defroute search "/search/:pattern" [pattern]
   (dispatch [:display-search-results pattern]))
 
+;; Display static html
+(defroute static "/tremendous/:page" [page]
+  (dispatch [:display-static-html page]))
+
 ;; Catch all
 (defroute "*" []
   (pprint "CATCH ALL, Setting route to artwork")
@@ -60,3 +64,7 @@
 (defn route-search
   [search-pattern]
   (route search {:pattern search-pattern}))
+
+(defn route-static-html
+  [page]
+  (route static {:page page}))

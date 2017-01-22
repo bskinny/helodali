@@ -161,7 +161,8 @@
 (s/def ::csrf-token (s/nilable string?))
 (s/def ::single-item-uuid (s/nilable string?))
 (s/def ::search-pattern (s/nilable string?))
-(s/def ::view #{:artwork :contacts :exhibitions :documents :purchases :press :profile :search-results})
+(s/def ::view #{:artwork :contacts :exhibitions :documents :purchases :press :profile :search-results :account :static-page})
+(s/def ::static-page (s/nilable string?))
 (s/def ::display-type #{:contact-sheet :single-item :new-item :list :row :large-contact-sheet})
 (s/def ::contacts (s/and
                      (s/map-of ::id ::contact)

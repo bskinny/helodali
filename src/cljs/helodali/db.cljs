@@ -171,6 +171,7 @@
    :contacts (sorted-map)
    :press (sorted-map)
    :view :artwork ;; Can be :artwork :contacts :exhibitions :documents :purchases :profile :search-results
+   :static-page nil
    :display-type :contact-sheet ;; Can be :new-item :contact-sheet :row :list :single-item :large-contact-sheet
    :single-item-uuid nil ;; Used to defined which entity is being viewed in detail
    :message nil

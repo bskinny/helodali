@@ -176,7 +176,7 @@
         kind (subscribe [:item-key :exhibitions id :kind])]
     (fn []
       [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
-        :children [[hyperlink :class "semibold" :style {:width (str (max 18 (get widths :name)) "ch")} :label (trunc @cn (get widths :name))
+        :children [[hyperlink :style {:width (str (max 18 (get widths :name)) "ch")} :label (trunc @cn (get widths :name))
                        :on-click #(route-single-item :exhibitions @uuid)]
                    [label :width "12ch" :class "all-small-caps" :label (clojure.string/replace (name @kind) #"-" " ")]
                    [label :width (str (max 18 (:location widths)) "ch") :label (trunc @location (:location widths))]
@@ -205,32 +205,32 @@
                     :location (+ 4 (max-string-length @locations 80))
                     :url (+ 4 (max-string-length @urls 40))}
             header [h-box :align :center :justify :start :width "100%"
-                      :children [[hyperlink :class "bold uppercase" :style {:width (str (max 18 (:name widths)) "ch")}
+                      :children [[hyperlink :class "uppercase" :style {:width (str (max 18 (:name widths)) "ch")}
                                     :label "Exhibition" :tooltip "Sort by Exhibition"
                                     :on-click #(if (= (first @sort-key) :name)
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:name true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "12ch"}
+                                 [hyperlink :class "uppercase" :style {:width "12ch"}
                                     :label "Kind" :tooltip "Sort by Kind"
                                     :on-click #(if (= (first @sort-key) :kind)
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:kind true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width (str (max 18 (:location widths)) "ch")}
+                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:location widths)) "ch")}
                                     :label "Location" :tooltip "Sort by Location"
                                     :on-click #(if (= (first @sort-key) :location)
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:location true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "15ch"}
+                                 [hyperlink :class "uppercase" :style {:width "15ch"}
                                     :label "Begin" :tooltip "Sort by Begin Date"
                                     :on-click #(if (= (first @sort-key) :begin-date)
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:begin-date true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "15ch"}
+                                 [hyperlink :class "uppercase" :style {:width "15ch"}
                                     :label "End" :tooltip "Sort by End Date"
                                     :on-click #(if (= (first @sort-key) :end-date)
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:end-date true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width (str (max 18 (:url widths)) "ch")}
+                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:url widths)) "ch")}
                                     :label "url" :tooltip "Sort by URL"
                                     :on-click #(if (= (first @sort-key) :url)
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])

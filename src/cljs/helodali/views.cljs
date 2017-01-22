@@ -1,7 +1,6 @@
 (ns helodali.views
-    (:require [helodali.db :as db]
-              [helodali.misc :refer [expired?]]
-              [helodali.routes :refer [route route-profile route-search]]
+    (:require [helodali.misc :refer [expired?]]
+              [helodali.routes :refer [route route-profile route-search route-static-html]]
               [helodali.views.artwork :refer [artwork-view]]
               [helodali.views.contacts :refer [contacts-view]]
               [helodali.views.press :refer [press-view]]
@@ -14,7 +13,7 @@
               [cljsjs.auth0-lock]
               [reagent.core :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
-              [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button
+              [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button hyperlink
                                               input-text input-textarea single-dropdown selection-list]]))
 
 (defn title []
@@ -84,6 +83,19 @@
                                                     :on-click #(reset! showing-more? true)]
                                    :popover  [more-popover-body showing-more?]]]]]])))
 
+(defn static-page
+  []
+  (let [page (subscribe [:app-key :static-page])]
+    [:iframe {:src (str "/static/" @page) :frameBorder "0" :scrolling "yes" :height "800px"}]))
+
+(defn footer
+  []
+  (let [showing-privacy? (r/atom false)]
+    [h-box :width "100%" :class "header" :height "100px" :gap "40px" :align :center :justify :center
+              :children [[re-com/hyperlink-href :class "uppercase"
+                            :label "Contact" :href "mailto:support@helodali.com"]
+                         [hyperlink :class "uppercase" :label "privacy"
+                            :on-click #(route-static-html "privacy.html")]]]))
 (defn show-spinner
   []
   [v-box :gap "0px" :width "100%" :height "100%" :margin "0"
@@ -96,6 +108,14 @@
          :align :center :justify :center ;:style {:border "dashed 1px red"}
      :children [[md-icon-button :md-icon-name "zmdi zmdi-run" :size :larger
                      :on-click #(.show lock)]]])
+
+(defn- our-title [] [re-com/title :level :level1 :label "helodali"])
+
+(defn- login-button
+  [lock]
+  [md-icon-button :md-icon-name "zmdi zmdi-brush" :size :larger
+       :on-click #(.show lock (clj->js {:initialScreen "login"
+                                        :rememberLastLogin true}))])
 
 (defn- handle-authenticated
   "Auth0 has authenticated the user. The auth-result contains accessToken, idToken and idTokenPayload"
@@ -142,41 +162,52 @@
        ;;
        ;; UI states
        ;;
-       (pprint (str "Main Panel: authenticated?=" @authenticated? ", access-token=" @access-token ", initialized?=" @initialized?))
-       (cond ;; Note: the clauses below are formatted oddly because of parinfer and the desire not to let the code run as wide as this comment.
+       (cond ;; Note: some of the clauses below are formatted oddly because of parinfer and the desire not to let the code run as wide as this comment.
          @sit-and-spin (show-spinner)
 
-         (and (not @authenticated?) (empty? @access-token))
-         ;; Display login widget
+         (and (not @authenticated?) (empty? @access-token) (not= @view :static-page))
+         ;; Display login widget front and center
          [v-box :gap "20px" :width "100%" :height "100%" :margin "0" :class "login-page"
-                :align :center :justify :center ;:style {:border "dashed 1px red"}
-            :children [[re-com/title :level :level1 :label "helodali"]
-                       [md-icon-button :md-icon-name "zmdi zmdi-brush" :size :larger
-                            :on-click #(.show lock (clj->js {:initialScreen "login"
-                                                             :rememberLastLogin true}))]]]
+                :align :center :justify :between
+            :children [[h-box :size "0 0 auto" :width "100%" :align :center :justify :around :class "header" ; :style {:border "dashed 1px red"}
+                          :children [(our-title) (login-button lock)]]
+                       [gap :size "1px"]
+                       ; [v-box
+                       ;   :children [(our-title) (login-button lock)]]
+                       [footer]]]
+
+         (and (not @authenticated?) (empty? @access-token) (= @view :static-page))
+         ;; Display static html with login header
+         [v-box :gap "20px" :width "100%" :height "100%" :margin "0" :class "login-page"
+                :justify :between ;:style {:border "dashed 1px red"}
+            :children [[h-box :align :center :justify :around :children [(our-title) (login-button lock)]]
+                       [box :size "auto" :style {:border "dashed 1px red"} :child [static-page]]
+                       [footer]]]
+
 
          (and @authenticated? @initialized?)
          ;; Finally, display the app
-         [v-box :gap "0px" :width "100%" :margin "0" ; :style {:border "dashed 1px red"}
-            :children [[header]
-                       [re-com/line :size "1px" :color "#fdfdfd"]
-                       (if (not (empty? @msg))
-                         [box :width "50%" :align-self :center
-                            :child [re-com/alert-box :alert-type :warning :closeable? true :body @msg
-                                       :on-close #(dispatch [:set-local-item-val [:message] ""])]])
-                       [re-com/gap :size "18px"]
-                       (condp = @view
-                         :artwork [artwork-view]
-                         :contacts [contacts-view]
-                         :press [press-view]
-                         :profile [profile-view]
-                         :account [box :width "50%" :align-self :center
-                                     :child [re-com/alert-box :alert-type :warning :closeable? true :body "The account page is still being developed"]]
-                         :purchases [purchases-view]
-                         :documents [documents-view]
-                         :exhibitions [exhibitions-view]
-                         :search-results [search-results-view]
-                         [box :width "50%" :align-self :center
-                            :child [re-com/alert-box :alert-type :warning :closeable? true :body (str "Unexpected value for :view of " @view)]])]]
+         [v-box :gap "0px" :width "100%" :margin "0" :justify :between ; :style {:border "dashed 1px red"}
+            :children [[v-box
+                         :children [[header]
+                                    (if (not (empty? @msg))
+                                      [box :width "50%" :align-self :center
+                                         :child [re-com/alert-box :alert-type :warning :closeable? true :body @msg
+                                                    :on-close #(dispatch [:set-local-item-val [:message] ""])]])
+                                    [re-com/gap :size "18px"]
+                                    (condp = @view
+                                      :artwork [artwork-view]
+                                      :contacts [contacts-view]
+                                      :press [press-view]
+                                      :profile [profile-view]
+                                      :account [box :width "50%" :align-self :center
+                                                  :child [re-com/alert-box :alert-type :warning :closeable? true :body "The account page is still being developed"]]
+                                      :purchases [purchases-view]
+                                      :documents [documents-view]
+                                      :exhibitions [exhibitions-view]
+                                      :search-results [search-results-view]
+                                      [box :width "50%" :align-self :center
+                                         :child [re-com/alert-box :alert-type :warning :closeable? true :body (str "Unexpected value for :view of " @view)]])]]
+                       [footer]]]
 
          :else (show-spinner))))))

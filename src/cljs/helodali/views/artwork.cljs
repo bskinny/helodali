@@ -448,9 +448,9 @@
                                                                          :anchor [md-icon-button :md-icon-name "zmdi zmdi-info"
                                                                                      :emphasise? true :tooltip "Original image information"
                                                                                      :on-click #(swap! showing-primary-image-info? not)]
-                                                                         :popover [popover-content-wrapper :width "250px" :close-button? true :title "Original Image"
+                                                                         :popover [popover-content-wrapper :width "360px" :close-button? true :title "Original Image"
                                                                                      :body [v-box :gap "4px" :align :start
-                                                                                              :children [[:span (:filename image)]
+                                                                                              :children [[:span (str "Filename: " (trunc (:filename image) 40))]
                                                                                                          [:span (str (quot (:size md) 1024) " KB")]
                                                                                                          [:span (str (:width md) " x " (:height md))]
                                                                                                          [:span (str "Format: " (:format md))]

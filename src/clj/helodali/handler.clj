@@ -26,6 +26,10 @@
     (-> (resource-response "index.html" {:root "public"})
        (content-type "text/html")))
 
+  (GET "/static/:page" [page]
+    (-> (resource-response page {:root "public/static"})
+       (content-type "text/html")))
+
   (GET "/csrf-token" [] (response {:csrf-token *anti-forgery-token*}))
 
   (POST "/update-profile" [uuid path val access-token :as req]

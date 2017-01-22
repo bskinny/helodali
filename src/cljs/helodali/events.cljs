@@ -547,6 +547,14 @@
         (assoc :view type)))))
 
 (reg-event-db
+  :display-static-html
+  manual-check-spec
+  (fn [db [page]]
+    (-> db
+       (assoc :view :static-page)
+       (assoc :static-page page))))
+
+(reg-event-db
   :display-search-results
   manual-check-spec
   (fn [db [search-pattern]]

@@ -1,6 +1,5 @@
 (ns helodali.views.press
-    (:require [helodali.db :as db]
-              [helodali.routes :refer [route-single-item route-new-item]]
+    (:require [helodali.routes :refer [route-single-item route-new-item]]
               [helodali.misc :refer [trunc compute-bg-color max-string-length url-to-href safe-date-string
                                      sort-by-datetime sort-by-key-then-created uuid-label-list-to-options]]
               [cljs.pprint :refer [pprint]]
