@@ -144,10 +144,9 @@
 (s/def ::residencies (s/* ::year-and-string))
 (s/def ::lectures-and-talks (s/* ::year-and-string))
 (s/def ::collections (s/* string?))
-(s/def ::profile (s/keys :req-un [::uuid ::name]
-                         :opt-un [::birth-year ::birth-place ::currently-resides ::email ::phone
-                                  ::url ::degrees ::awards-and-grants ::residencies ::lectures-and-talks
-                                  ::collections ::photo]))
+(s/def ::profile (s/nilable (s/keys :opt-un [::uuid ::name ::birth-year ::birth-place ::currently-resides ::email ::phone
+                                             ::url ::degrees ::awards-and-grants ::residencies ::lectures-and-talks
+                                             ::collections ::photo])))
 
 ;; Top-level db
 (s/def ::authenticated? boolean?)
@@ -155,14 +154,14 @@
 (s/def ::access-token (s/nilable string?))
 (s/def ::id-token (s/nilable string?))
 (s/def ::delegation-token (s/nilable (s/keys :opt-un []))) ;; From Auth0, no need to spec the contents of this map
-(s/def ::delegation-token-expiration ::time)
+(s/def ::delegation-token-expiration (s/nilable ::time))
 (s/def ::delegation-token-retrieval-underway boolean?)
 (s/def ::userinfo (s/nilable (s/keys :opt-un []))) ;; From Auth0, no need to spec the contents of this map
 (s/def ::csrf-token (s/nilable string?))
 (s/def ::single-item-uuid (s/nilable string?))
 (s/def ::search-pattern (s/nilable string?))
-(s/def ::view #{:artwork :contacts :exhibitions :documents :purchases :press :profile :search-results :account :static-page})
-(s/def ::static-page (s/nilable string?))
+(s/def ::view #{:show-login :artwork :contacts :exhibitions :documents :purchases :press :profile :search-results :account :static-page})
+(s/def ::static-page (s/nilable #{:privacy-policy}))
 (s/def ::display-type #{:contact-sheet :single-item :new-item :list :row :large-contact-sheet})
 (s/def ::contacts (s/and
                      (s/map-of ::id ::contact)

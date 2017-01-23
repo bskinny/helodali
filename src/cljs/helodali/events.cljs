@@ -552,7 +552,7 @@
   (fn [db [page]]
     (-> db
        (assoc :view :static-page)
-       (assoc :static-page page))))
+       (assoc :static-page (keyword page)))))
 
 (reg-event-db
   :display-search-results
