@@ -264,7 +264,7 @@
                                      [:span (str "List Price: $" @list-price)]
                                      (when (not (= 0 @expenses)) [:span (str "Expenses: $" @expenses)])]]
             view [[v-box :gap "6px" :align :start :justify :start :padding "8px" ;:max-width "300px"
-                       :children [[re-com/title :label (title-string @title) :level :level3]
+                       :children [[re-com/box :max-width "360px" :child [:p.bold (title-string @title)]]
                                   ;; The placement of view-basics depends on an existence of description
                                   (if (empty? @description)
                                     view-basics
@@ -597,9 +597,9 @@
         styles (subscribe [:items-vals :artwork :style])
         mediums (subscribe [:items-vals :artwork :medium])]
     (fn []
-      (let [widths {:title (+ 4 (max-string-length @titles 80))
-                    :style (+ (max-string-length (map name @types) 80) (max-string-length (map #(str " | " (clojure.string/join ", " (map name %))) @styles) 60))
-                    :medium (+ 4 (max-string-length @mediums 30))}]
+      (let [widths {:title (+ 4 (max-string-length @titles 50))
+                    :style (+ (max-string-length (map name @types) 40) (max-string-length (map #(str " | " (clojure.string/join ", " (map name %))) @styles) 60))
+                    :medium (+ 4 (max-string-length @mediums 20))}]
         [v-box :gap "4px" :align :center :justify :start
            :children (into [] (mapv (fn [id bg] ^{:key id} [item-row-view widths id bg]) @items (cycle [true false])))]))))
 
@@ -611,8 +611,8 @@
         titles (subscribe [:items-vals :artwork :title])
         mediums (subscribe [:items-vals :artwork :medium])]
     (fn []
-      (let [widths {:title (+ 4 (max-string-length @titles 80))
-                    :medium (+ 4 (max-string-length @mediums 30))}
+      (let [widths {:title (+ 4 (max-string-length @titles 50))
+                    :medium (+ 4 (max-string-length @mediums 20))}
             header [h-box :align :center :justify :start :width "100%"
                       :children [[hyperlink :class "uppercase" :style {:width (str (max 14 (:title widths)) "ch")} :label "Artwork Title"
                                     :tooltip "Sort by Title" :on-click #(if (= (first @sort-key) :title)
@@ -664,6 +664,8 @@
                                   :on-click #(dispatch [:set-local-item-val [:display-type] :list])]
                   [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
                                   :on-click #(route-new-item :artwork)]]]))
+                  ; [md-icon-button :md-icon-name "zmdi zmdi-instagram mdc-text-grey"
+                  ;                 :on-click #(route-new-item :artwork)]]]))
 
 (defn single-item-view
   []
