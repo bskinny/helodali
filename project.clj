@@ -22,6 +22,7 @@
                  [ring-middleware-format "0.7.0"]
                  [ring "1.5.0"]
                  [clj-http "2.3.0"]
+                 [hickory "0.7.0"]
                  [cheshire "5.6.3"]
                  [secretary "1.2.3"]
                  [slingshot "0.12.2"]
