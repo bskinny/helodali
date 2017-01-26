@@ -101,6 +101,15 @@
                          :opt-un [::email ::phone ::url ::address ::notes ::instagram ::facebook
                                   ::associated-documents]))
 
+;; instagram imported items
+; (s/def ::author-first-name (s/nilable string?))
+; (s/def ::author-last-name (s/nilable string?))
+; (s/def ::publication (s/nilable string?))
+; (s/def ::volume (s/nilable string?))
+; (s/def ::page-numbers (s/nilable string?))  ;; e.g. 55-60
+; (s/def ::publication-date (s/nilable ::date))
+(s/def ::instagram-media-ref (s/keys :opt-un [::created]))
+
 ;; Press
 ;; Can be used as input to CV like so:
 ;; Coupland, Douglas: “Why I Love This Artwork”, Canadian Art Magazine, vol. 12, February 2011, p. 55-60
@@ -162,7 +171,7 @@
 (s/def ::search-pattern (s/nilable string?))
 (s/def ::view #{:show-login :artwork :contacts :exhibitions :documents :purchases :press :profile :search-results :account :static-page})
 (s/def ::static-page (s/nilable #{:privacy-policy}))
-(s/def ::display-type #{:contact-sheet :single-item :new-item :list :row :large-contact-sheet})
+(s/def ::display-type #{:contact-sheet :single-item :new-item :list :row :instagram :large-contact-sheet})
 (s/def ::contacts (s/and
                      (s/map-of ::id ::contact)
                      #(instance? PersistentTreeMap %)))
@@ -175,9 +184,12 @@
 (s/def ::press (s/and
                   (s/map-of ::id ::press-ref)
                   #(instance? PersistentTreeMap %)))
+(s/def ::instagram-media (s/nilable (s/and
+                                       (s/map-of ::id ::instagram-media-ref)
+                                       #(instance? PersistentTreeMap %))))
 (s/def ::message (s/nilable string?))
 (s/def ::db (s/keys :req-un [::view ::display-type ::single-item-uuid ::artwork ::contacts ::exhibitions
                              ::press ::profile ::authenticated? ::initialized? ::access-token ::id-token
                              ::delegation-token ::delegation-token-expiration ::delegation-token-retrieval-underway
                              ::userinfo ::search-pattern ::documents]
-                    :opt-un [::message]))
+                    :opt-un [::message ::instagram-media]))

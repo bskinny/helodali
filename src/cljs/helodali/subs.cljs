@@ -18,7 +18,10 @@
 (reg-sub
   :items-keys
   (fn [db [_ type]]
-    (filter (partial < 0) (keys (get db type))))) ;; filter out placeholder entry with id == 0
+    (let [items (get db type)]
+      (if (nil? items)
+        nil ;; Case where we want nil to represent an unpopulated items map (e.g. :instagram-media)
+        (filter (partial < 0) (keys items)))))) ;; filter out placeholder entry with id == 0
 
 ;; Return list of ids in sorted order, using :created as the tie-breaker
 (reg-sub
@@ -207,7 +210,6 @@
 (reg-sub
   :item-key
   (fn [db [_ type id k]]
-    ; (pprint (str "reg-sub :artwork-key: " id " " k))
     (get-in db [type id k])))
 
 ;; Subscribe to an element of the database by path, e.g. [:artwork id :purchases 2 :price]

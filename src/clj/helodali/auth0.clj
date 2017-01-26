@@ -16,19 +16,6 @@
 
 (def base-url "https://helodali.auth0.com/")
 
-(defn access-token
-  "Given a non-Auth0 oauth2 access token issued by Auth0, hit the authorize endpoint to validate
-   authentication and retrieve an openid claims map"
-  [access-token connection]
-  (let [params {:client_id "UNQ9LKBRomyn7hLPKKJmdK2mI7RNphGs"
-                :access_token access-token
-                :connection connection  ; TODO: Fix this
-                :scope "openid name email"}
-        response (-> (http/post (str base-url "oauth/access_token")
-                                (merge options {:body (generate-string params)}))
-                   (:body))]
-     response))
-
 (defn get-userinfo
   "Given an oauth2 access token issued by Auth0, hit the userinfo endpoint to retrieve an
    openid claims map"
@@ -42,7 +29,3 @@
                      (pprint (str (:throwable &throw-context) "unexpected error"))
                      (throw+)))]
      (:body userinfo)))
-
-; (pprint (access-token "6UK8VCTAUG2Ll0b1"))
-; (def ui (get-userinfo "doesnotexist"))
-; (pprint ui)

@@ -7,6 +7,7 @@
                            remove-vector-element into-sorted-map trunc]]
     [helodali.routes :refer [route]]
     [cljs-time.core :as ct]
+    [cljs-time.coerce :refer [from-long]]
     [cljs.reader]
     [cljs.pprint :refer [pprint]]
     [reagent.core :as r]
@@ -184,7 +185,9 @@
           exhibitions (->> (:exhibitions result)
                         (fixer :created)
                         (fixer :begin-date)
-                        (fixer :end-date))]
+                        (fixer :end-date))
+          instagram-media (if (:instagram-media result)  ;; Convert the unix time :created to cljs-time objects
+                            (apply vector (map #(assoc % :created (from-long (get % :created))) (:instagram-media result))))]
       {:db (-> db
               (assoc :artwork (-> (map #(merge (helodali.db/default-artwork) %) artwork)
                                   (apply-artwork-signed-urls local-store-signed-urls)
@@ -197,6 +200,7 @@
               (assoc :press (into-sorted-map (map #(merge (helodali.db/default-press) %) press)))
               (assoc :profile (:profile result))
               (assoc :userinfo (:userinfo result))
+              (assoc :instagram-media (and instagram-media (into-sorted-map instagram-media)))
               (assoc :initialized? true))})))
 
 ;; Update top-level app-db keys if supplied predicate evaluates true
@@ -392,6 +396,33 @@
           :profile (update-profile-fx new-db item-path changes)
           (update-fx new-db item-path changes))))))
 
+;; Retrieve Instagram media
+(reg-event-fx
+  :refresh-instagram
+  manual-check-spec
+  (fn [{:keys [db]} _]
+    {:http-xhrio {:method          :post
+                  :uri             "/refresh-instagram"
+                  :params          {:uref (:uuid (:profile db)) :access-token (:access-token db)}
+                  :headers         {:x-csrf-token (:csrf-token db)}
+                  :timeout         5000
+                  :format          (ajax/transit-request-format {})
+                  :response-format (ajax/transit-response-format {:keywords? true})
+                  :on-success      [:update-instagram-media]
+                  :on-failure      [:bad-result {} false]}
+     :db (-> db
+             (assoc :display-type :instagram))}))
+
+;; Update :instagram-media of app-db.
+(reg-event-db
+  :update-instagram-media
+  manual-check-spec
+  (fn [db [result]]
+    (let [instagram-media (if (:instagram-media result)  ;; Convert the unix time :created to cljs-time objects
+                            (apply vector (map #(assoc % :created (from-long (get % :created))) (:instagram-media result))))]
+     (assoc db :instagram-media (and instagram-media (into-sorted-map instagram-media))))))
+
+
 ;; POST /validate-token request and set authenticated?=true if successful, also
 ;; storing the retrieved id-token
 (reg-event-fx
@@ -407,7 +438,7 @@
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
                   :on-success      [:update-db-from-result #(= (:access-token %) (:access-token db))]  ;; Apply update if the access-token has not been changed in the meantime
-                  :on-failure      [:bad-result {:access-token nil :id-token nil}]}}))
+                  :on-failure      [:bad-result {:access-token nil :id-token nil} false]}}))
 
 ;; POST /login request and retrieve :profile
 (reg-event-fx
@@ -455,7 +486,6 @@
   :setup-aws-delegation
   interceptors
   (fn [db [credentials]]
-    (pprint (str "credentials: " credentials))
     (let [aws-creds (js/AWS.Credentials. (get credentials "AccessKeyId")
                                          (get credentials "SecretAccessKey")
                                          (get credentials "SessionToken"))
@@ -771,10 +801,10 @@
   manual-check-spec
   (fn [{:keys [db]} [merge-this retry-fx result]]
     (pprint (str "bad-result: " result))
-    (if (= 403 (:status result))
+    (if (and (= 403 (:status result)) retry-fx)
       ;; Refetch the csrf-token and retry the operation
       (merge (csrf-token-request)
-             {:dispatch [:retry-request retry-fx]})
+             {:dispatch-later [{:ms 800 :dispatch [:retry-request retry-fx]}]})
       ;; else update the message to alert the user of the trouble
       ;; TODO: Need to back out change made to local app-db
       (let [db (merge db merge-this)]

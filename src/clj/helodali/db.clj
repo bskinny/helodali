@@ -67,6 +67,12 @@
           [openid-item {}]
           [openid-item (coerce-item :profile profile)])))))
 
+(defn get-account
+  "Get the user's account item."
+  [uuid]
+  (let [account (far/get-item co :accounts {:uuid uuid})]
+    account))
+
 (defn query-by-uref
   "Query on items and clean results"
   [table uref]
@@ -96,30 +102,25 @@
     false
     (let [[openid-item profile] (get-profile-by-sub (:sub userinfo))
           uref (:uuid profile)]
-      (pprint (str "valid-user?: " profile))
       (if (and (not (empty? openid-item)) (not (empty? profile)))
         true
         false))))
 
 (defn cache-access-token
   [access-token userinfo]
-  (pprint (str "cache-access-token: " access-token " and sub: " (:sub userinfo)))
   (let [openid-item (far/get-item co :openid {:sub (:sub userinfo)})
-        _ (pprint (str "openid-item: " openid-item))
         uref (:uref openid-item)]
     (when uref
       (if-let [session (far/get-item co :sessions {:uref uref :token access-token})]
-        (pprint (str "Session exists: " session))
         (let [time-stamp (unparse (formatters :date-time) (now))]
           (far/put-item co :sessions {:uref uref :token access-token :ts time-stamp}))))))
 
 (defn delete-access-token
   [access-token uref]
-  (pprint (str "delete-access-token: " access-token " and uuid: " uref))
+  (pprint (str "delete-access-token for uuid: " uref))
   (let [session (far/get-item co :sessions {:uref uref :token access-token})]
     (if session
       (do
-        (pprint (str "Deleting session: " session))
         (far/delete-item co :sessions {:uref uref :token access-token})))))
 
 (defn valid-session?
@@ -143,7 +144,6 @@
     {}
     (let [[openid-item profile] (get-profile-by-sub (:sub userinfo))
           uref (:uuid profile)]
-      (pprint (str "Profile: " profile))
       (when (not (empty? openid-item))
         (sync-userinfo userinfo openid-item))
       {:artwork (query-by-uref :artwork uref)
@@ -361,7 +361,7 @@
        :throughput {:read 2 :write 2} ; Read & write capacity (units/sec)
        :block? true})
     (far/create-table co :openid
-      [:sub :s]  ; Hash key is the OpenID 'sub' claim (subject identifier, e.g. "google-oauth2|105303869357768353564")
+      [:sub :s]  ; Hash key is the OpenID 'sub' claim (subject identifier, e.g. "google-oauth2|1234")
       {:throughput {:read 2 :write 2} ; Read & write capacity (units/sec)
        :block? true
        :gsindexes [{:name "email-index"
@@ -370,9 +370,9 @@
                     :throughput {:read 2 :write 2}}]})
     (far/put-item co :accounts (assoc demo/account :created (unparse (formatters :date) (:created demo/account))))
     (far/put-item co :profiles (assoc demo/profile :created (unparse (formatters :date) (:created demo/profile))))
-    (far/put-item co :openid {:uref (:uuid demo/profile) :sub "google-oauth2|105303869357768353564" :email "brian.williams@mayalane.com"})
-    (far/put-item co :openid {:uref (:uuid demo/profile) :sub "facebook|10208314583117362" :email "brian@mayalane.com"})
-    (far/put-item co :openid {:uref "doesnotexist" :sub "facebook|1234" :email "brian@mayalane.com"})
+    (far/put-item co :openid {:uref (:uuid demo/profile) :sub "google-oauth2|1234" :email "brian.williams@mayalane.com"})
+    (far/put-item co :openid {:uref (:uuid demo/profile) :sub "facebook|1234" :email "brian@mayalane.com"})
+    (far/put-item co :openid {:uref "doesnotexist" :sub "facebook|4321" :email "brian@mayalane.com"})
     (doall (put-items :contacts contacts))
     (doall (put-items :exhibitions exhibitions))
     (doall (put-items :artwork artwork))
@@ -418,14 +418,12 @@
 (defn- rename-images
   "Execute a copy/delete to rename the object keys in the given images list"
   [uref old-sub new-sub item]
-  (pprint "In rename-images")
   (let [rename-keys (fn [idx image]
                       (let [old-key (:key image)
                             new-key (clojure.string/replace-first (:key image) old-sub new-sub)]
                         (when (not= new-key old-key)
                           ;; Rename the objects in both helodali-images and helodali-raw-images buckets
                           (do
-                            (pprint (str "Renaming image " old-key " to " new-key))
                             (when (rename-s3-object "helodali-raw-images" old-key new-key)
                               (when (rename-s3-object "helodali-images" old-key new-key)
                                 (update-item :artwork uref (:uuid item) [:images idx :key] new-key)))))))]

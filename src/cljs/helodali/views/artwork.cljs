@@ -87,7 +87,6 @@
         dealer-contact (if (empty? (:dealer purchase))
                          (r/atom nil)
                          (subscribe [:item-by-uuid :contacts (:dealer purchase)]))]
-    (pprint (str "purchase: " purchase))
     (fn []
       [v-box :gap "4px" :justify :start :align :start :padding "10px" :width "100%"
          :style {:background bg-color :border-radius "4px"}
@@ -652,20 +651,25 @@
 (defn view-selection
   "The row of view selection controls: contact-sheet row list"
   []
-  (fn []
-    [h-box :gap "18px" :align :center :justify :center
-       :children [;[md-icon-button :md-icon-name "zmdi zmdi-view-dashboard mdc-text-grey"
-                  ;     :on-click #(dispatch [:set-local-item-val [:display-type] :large-contact-sheet])
-                  [md-icon-button :md-icon-name "zmdi zmdi-apps mdc-text-grey"
-                       :on-click #(dispatch [:set-local-item-val [:display-type] :contact-sheet])]
-                  [md-icon-button :md-icon-name "zmdi zmdi-view-list mdc-text-grey"
-                                  :on-click #(dispatch [:set-local-item-val [:display-type] :row])]
-                  [md-icon-button :md-icon-name "zmdi zmdi-view-headline mdc-text-grey"
-                                  :on-click #(dispatch [:set-local-item-val [:display-type] :list])]
-                  [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
-                                  :on-click #(route-new-item :artwork)]]]))
-                  ; [md-icon-button :md-icon-name "zmdi zmdi-instagram mdc-text-grey"
-                  ;                 :on-click #(route-new-item :artwork)]]]))
+  (let [instagram-media (subscribe [:items-keys :instagram-media])
+        uuid (subscribe [:by-path [:profile :uuid]])]
+    (fn []
+      [h-box :gap "18px" :align :center :justify :center
+         :children [;[md-icon-button :md-icon-name "zmdi zmdi-view-dashboard mdc-text-grey"
+                    ;     :on-click #(dispatch [:set-local-item-val [:display-type] :large-contact-sheet])
+                    [md-icon-button :md-icon-name "zmdi zmdi-apps mdc-text-grey"
+                         :on-click #(dispatch [:set-local-item-val [:display-type] :contact-sheet])]
+                    [md-icon-button :md-icon-name "zmdi zmdi-view-list mdc-text-grey"
+                                    :on-click #(dispatch [:set-local-item-val [:display-type] :row])]
+                    [md-icon-button :md-icon-name "zmdi zmdi-view-headline mdc-text-grey"
+                                    :on-click #(dispatch [:set-local-item-val [:display-type] :list])]
+                    [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
+                                    :on-click #(route-new-item :artwork)]
+                    [md-icon-button :md-icon-name "zmdi zmdi-instagram mdc-text-grey"
+                                    :on-click #(if @instagram-media
+                                                 (dispatch [:refresh-instagram])
+                                                 (set! (.-location js/document) (str "https://api.instagram.com/oauth/authorize/?client_id=cbfda8d4f3c445af9dbf79dd90f03b90&redirect_uri="
+                                                                                     (.-origin (.-location js/document)) "/instagram/oauth/callback&response_type=code&state=" @uuid)))]]])))
 
 (defn single-item-view
   []
@@ -685,6 +689,33 @@
       (when (not (empty? @item-path))
         [v-box :gap "10px" :margin "40px" :align :center :justify :start
            :children [[item-view id]]]))))
+
+(defn instagram-item-view
+  "Display an Instagram media item"
+  [id]
+  (let [media-id (subscribe [:item-key :instagram-media id :id])
+        caption (subscribe [:item-key :instagram-media id :caption])
+        thumb-url (subscribe [:item-key :instagram-media id :thumb-url])
+        image-size "240px"]  ;; The thumb is the instragram 'low resolution image' and 320px, while the normal resolution is 640.
+    (fn []
+      [v-box :gap "2px" :padding "20px" :width image-size :align :center :justify :start ;:height "100%"
+          :children [[box :max-width image-size :max-height image-size
+                       :child [:img {:src @thumb-url :class "fit-cover" :width image-size :height image-size}]]
+                     [:span (or @caption "(no caption)")]]])))
+
+(defn instagram-view
+  "Display contact sheet of items imported from Instagrem"
+  []
+  (let [items (subscribe [:items-keys :instagram-media])]
+    (fn []
+      ;; Dispatch a refresh of instagram media if items is nil. Note that empty items, {}, means the instagram
+      ;; media has been fetched and is empty.
+      (if (nil? @items)
+        [h-box :gap "10px" :margin "40px" :align :start :justify :start :children [[re-com/throbber]]]
+        (if (empty? @items)
+          [label :label "There is no media in your Instagram account."]
+          [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
+             :children (into [] (map (fn [id] ^{:key id} [instagram-item-view id]) @items))])))))
 
 (defn artwork-contact-sheet
   "Display contact sheet of items"
@@ -708,4 +739,5 @@
                       :row [row-view]
                       :single-item [single-item-view]
                       :new-item [new-item-view]
+                      :instagram [instagram-view]
                       [:span (str "Unexpected display-type of " @display-type)])]])))

@@ -9,6 +9,8 @@ Helodali is a SPA style webapp using [re-frame](https://github.com/Day8/re-frame
 ### Run application:
 Define the following environment variables before proceeding: AWS_DYNAMODB_ACCESS_KEY, AWS_DYNAMODB_SECRET_KEY and AWS_DYNAMODB_ENDPOINT.
 
+For Instagram integration, also define HD_INSTAGRAM_CLIENT_ID, HD_INSTAGRAM_CLIENT_SECRET and HD_INSTAGRAM_REDIRECT_URI.
+
 ```
 lein clean
 rlwrap lein figwheel
@@ -35,4 +37,3 @@ lein with-profile uberjar ring uberwar
 ```
 
 That should compile the clojurescript code first, and then create the war file.
-

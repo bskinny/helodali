@@ -5,6 +5,7 @@
             [helodali.db :refer [initialize-db update-item create-item delete-item refresh-image-data
                                  update-user-table valid-user? refresh-item-path cache-access-token
                                  valid-session? delete-access-token create-user-if-necessary]]
+            [helodali.instagram :refer [refresh-instagram process-instagram-auth]]
             [helodali.auth0 :as auth0]
             [ring.util.response :refer [content-type response resource-response file-response redirect]]
             [ring.middleware.reload :refer [wrap-reload]]
@@ -31,6 +32,22 @@
        (content-type "text/html")))
 
   (GET "/csrf-token" [] (response {:csrf-token *anti-forgery-token*}))
+
+  (POST "/refresh-instagram" [uref access-token :as req]
+    (pprint (str "refresh-instagram with uref: " uref))
+    (if (valid-session? uref access-token)
+      (let [resp (refresh-instagram uref)]
+        ;; refresh-instagram returns either a map of items or a map containing
+        ;; an authorization-url which we need to redirect the client to.
+        ; (if (:authorization-url resp)
+        ;   (redirect (:authorization-url resp))
+        (response resp))
+      {:status 400   ;; else return error
+       :body {:reason (str "Invalid session for " uref " and given access token")}}))
+
+  (GET "/instagram/oauth/callback" [code state :as req]
+    (process-instagram-auth code state)
+    (redirect "/"))
 
   (POST "/update-profile" [uuid path val access-token :as req]
     (pprint (str "update-profile uuid/path/val: " uuid "/" path "/" val))
@@ -59,7 +76,6 @@
 
   (POST "/validate-token" [access-token :as req]
     (let [userinfo (auth0/get-userinfo access-token)]
-      (pprint (str "/validate-token access-token result: " userinfo))
       (if (nil? userinfo)
         (response {:authenticated? false :access-token nil :id-token nil :delegation-token nil})
         ;; Let the client's cached id-token be used and cache this access-token
@@ -76,10 +92,12 @@
         (do
           (create-user-if-necessary userinfo)
           (cache-access-token access-token userinfo)
-          (response (initialize-db userinfo))))))
+          (let [db (initialize-db userinfo)
+                uref (get-in db [:profile :uuid])]
+            (response (merge db (refresh-instagram uref))))))))
 
   (POST "/logout" [access-token uref :as req]
-    (pprint (str "logout access-token/uuid: " access-token "/" uref))
+    (pprint (str "logout " uref))
     (process-request uref access-token #(delete-access-token access-token uref)))
 
   ;; Redirect any client side routes to "/".

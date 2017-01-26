@@ -170,9 +170,10 @@
    :exhibitions (sorted-map)
    :contacts (sorted-map)
    :press (sorted-map)
+   :instagram-media nil ;; This should be nil valued at time of login
    :view :artwork
    :static-page nil
-   :display-type :contact-sheet ;; Can be :new-item :contact-sheet :row :list :single-item :large-contact-sheet
+   :display-type :contact-sheet ;; Can be :new-item :contact-sheet :row :list :single-item :instagram :large-contact-sheet
    :single-item-uuid nil ;; Used to defined which entity is being viewed in detail
    :message nil
    :search-pattern nil

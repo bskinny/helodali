@@ -63,8 +63,9 @@
       (uuid/uuid-string)))
 
 (defn into-sorted-map
-  [m]
-  (into (sorted-map) (map (fn [k v] {(+ 1 k) v}) (range (count m)) m)))
+  "Convert list into sorted-map keyed with integers starting at 1."
+  [l]
+  (into (sorted-map) (map (fn [k v] {(+ 1 k) v}) (range (count l)) l)))
 
 (defn max-string-length
   "Find max string length in the list of strings and return the max if it is less
