@@ -169,7 +169,7 @@
                     [h-box :gap "8px" :align :center
                        :children [[h-box :gap "4px" :align :center
                                     :children [[:span.input-label "Price "]
-                                               [input-text :width "80px" :model (str @price) :style {:border-radius "4px"}
+                                               [input-text :width "80px" :model (str @price) :style {:border-radius "4px"} :validation-regex #"^\d*$"
                                                    :attr {:max-length 12} :on-change #(dispatch [:set-local-item-val [:artwork id :purchases idx :price] (js/Number %)])]]]
                                   [h-box :gap "4px" :align :center
                                     :children [[:span.input-label "Total commission percentage given to agents and dealers "]
@@ -305,7 +305,8 @@
                                  :children [[h-box :gap "4px" :align :center
                                               :children [[:span.uppercase.light-grey "year"]
                                                          [input-text :width "60px" :model (str @year) :placeholder "2016" :style {:border "none"}
-                                                             :attr {:max-length 4} :on-change #(dispatch [:set-local-item-val [:artwork id :year] (js/Number %)])]]]
+                                                             :attr {:max-length 4} :validation-regex #"^\d*$" ;; validation: only numbers allowed
+                                                             :on-change #(dispatch [:set-local-item-val [:artwork id :year] (js/Number %)])]]]
                                             [single-dropdown :choices status-options :width "118px" :model @status
                                                     :on-change #(dispatch [:set-local-item-val [:artwork id :status] %])]]]
                                [h-box :gap "4px" :align :center
@@ -327,11 +328,11 @@
                                [h-box :gap "10px" :align :center :justify :start
                                  :children [[h-box :gap "4px" :align :center
                                               :children [[:span.uppercase.light-grey "list price"]
-                                                         [input-text :width "80px" :model (str @list-price) :style {:border "none"}
+                                                         [input-text :width "80px" :model (str @list-price) :style {:border "none"} :validation-regex #"^\d*$"
                                                              :attr {:max-length 12} :on-change #(dispatch [:set-local-item-val [:artwork id :list-price] (js/Number %)])]]]
                                             [h-box :gap "4px" :align :center
                                               :children [[:span.uppercase.light-grey "expenses"]
-                                                         [input-text :width "70px" :model (str @expenses) :style {:border "none"}
+                                                         [input-text :width "70px" :model (str @expenses) :style {:border "none"} :validation-regex #"^\d*$"
                                                              :attr {:max-length 12} :on-change #(dispatch [:set-local-item-val [:artwork id :expenses] (js/Number %)])]]]]]]]
                   [h-box :gap "6px" :align :center
                      :children [[:span.uppercase.light-grey "style"]
@@ -371,6 +372,8 @@
   [id]
   (let [uuid (subscribe [:item-key :artwork id :uuid])
         title (subscribe [:item-key :artwork id :title])
+        year (subscribe [:item-key :artwork id :year])
+        dimensions (subscribe [:item-key :artwork id :dimensions])
         images (subscribe [:item-key :artwork id :images])
         expanded (subscribe [:item-key :artwork id :expanded])
         container-style (if @expanded {:background-color "#fff"} {})
@@ -481,7 +484,9 @@
                                                                                   :href (:signed-raw-url image)
                                                                                   :download ""}]]]])]]
                                     (when (and @expanded (or (not @editing) (not single-item))) controls)
-                                    (when (not @expanded) [:span (title-string @title)])]]
+                                    (when (not @expanded) [v-box :gap "2px" :align :start :justify :start
+                                                               :children [[:span.semibold (title-string @title)]
+                                                                          [:span (str @year (when @dimensions (str " - " @dimensions)))]]])]]
                        (when @expanded [item-properties-panel id])]])))))
 
 (defn item-row-view
@@ -596,7 +601,7 @@
         styles (subscribe [:items-vals :artwork :style])
         mediums (subscribe [:items-vals :artwork :medium])]
     (fn []
-      (let [widths {:title (+ 4 (max-string-length @titles 50))
+      (let [widths {:title (+ 4 (max-string-length @titles 40))
                     :style (+ (max-string-length (map name @types) 40) (max-string-length (map #(str " | " (clojure.string/join ", " (map name %))) @styles) 60))
                     :medium (+ 4 (max-string-length @mediums 20))}]
         [v-box :gap "4px" :align :center :justify :start
@@ -610,8 +615,8 @@
         titles (subscribe [:items-vals :artwork :title])
         mediums (subscribe [:items-vals :artwork :medium])]
     (fn []
-      (let [widths {:title (+ 4 (max-string-length @titles 50))
-                    :medium (+ 4 (max-string-length @mediums 20))}
+      (let [widths {:title (+ 4 (max-string-length @titles 40))
+                    :medium (+ 4 (max-string-length @mediums 16))}
             header [h-box :align :center :justify :start :width "100%"
                       :children [[hyperlink :class "uppercase" :style {:width (str (max 14 (:title widths)) "ch")} :label "Artwork Title"
                                     :tooltip "Sort by Title" :on-click #(if (= (first @sort-key) :title)
@@ -657,15 +662,15 @@
       [h-box :gap "18px" :align :center :justify :center
          :children [;[md-icon-button :md-icon-name "zmdi zmdi-view-dashboard mdc-text-grey"
                     ;     :on-click #(dispatch [:set-local-item-val [:display-type] :large-contact-sheet])
-                    [md-icon-button :md-icon-name "zmdi zmdi-apps mdc-text-grey"
+                    [md-icon-button :md-icon-name "zmdi zmdi-apps mdc-text-grey" :tooltip "Contact Sheet"
                          :on-click #(dispatch [:set-local-item-val [:display-type] :contact-sheet])]
-                    [md-icon-button :md-icon-name "zmdi zmdi-view-list mdc-text-grey"
+                    [md-icon-button :md-icon-name "zmdi zmdi-view-list mdc-text-grey" :tooltip "Row View"
                                     :on-click #(dispatch [:set-local-item-val [:display-type] :row])]
-                    [md-icon-button :md-icon-name "zmdi zmdi-view-headline mdc-text-grey"
+                    [md-icon-button :md-icon-name "zmdi zmdi-view-headline mdc-text-grey" :tooltip "List View"
                                     :on-click #(dispatch [:set-local-item-val [:display-type] :list])]
-                    [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
+                    [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey" :tooltip "Create New Item"
                                     :on-click #(route-new-item :artwork)]
-                    [md-icon-button :md-icon-name "zmdi zmdi-instagram mdc-text-grey"
+                    [md-icon-button :md-icon-name "zmdi zmdi-instagram mdc-text-grey" :tooltip "Instagram Media"
                                     :on-click #(if @instagram-media
                                                  (dispatch [:refresh-instagram])
                                                  (set! (.-location js/document) (str "https://api.instagram.com/oauth/authorize/?client_id=cbfda8d4f3c445af9dbf79dd90f03b90&redirect_uri="
@@ -731,7 +736,7 @@
   []
   (let [display-type (subscribe [:app-key :display-type])]
     (fn []
-      [v-box :gap "16px" :align :center :justify :center
+      [v-box :gap "16px" :align :center :justify :start
          :children [[view-selection]
                     (condp = @display-type
                       :contact-sheet [artwork-contact-sheet]

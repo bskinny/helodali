@@ -244,9 +244,9 @@
   []
   (fn []
     [h-box :gap "18px" :align :center :justify :center
-       :children [[md-icon-button :md-icon-name "zmdi zmdi-view-headline mdc-text-grey"
+       :children [[md-icon-button :md-icon-name "zmdi zmdi-view-headline mdc-text-grey" :tooltip "List View"
                                   :on-click #(dispatch [:set-local-item-val [:display-type] :list])]
-                  [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
+                  [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey" :tooltip "Create New Exhibition"
                                   :on-click #(route-new-item :exhibitions)]]]))
 
 (defn single-item-view

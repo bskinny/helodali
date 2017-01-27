@@ -1,12 +1,12 @@
 (ns helodali.db
   (:require [cljs-uuid-utils.core :as uuid]
-            [cljs-time.core :refer [now days ago date-time]]
+            [cljs-time.core :refer [now year days ago date-time]]
             [helodali.demodata :as demo]
             [helodali.misc :refer [into-sorted-map generate-uuid]]))
 
 (defn default-year-val-map
   []
-  {:year (cljs-time.core/year (now))
+  {:year (year (now))
    :val nil})
 
 (defn default-exhibition
@@ -106,7 +106,7 @@
    :images [] ;; One or more high resolution images (optional)
    :style #{} ;; Enumeration of styles taken from wpadc.org. E.g. :abstract :assemblage. Full list at bottom.
    :type :mixed-media ;; Single-valued enumeration describing category of piece, such as painting, sculpture. See 'media' map defined at bottom.
-   :year 2016 ;; year piece was created
+   :year (year (now)) ;; year piece was created
    :medium nil ;; free-form and provided by user. Examples include "oil on panel"
    :dimensions nil ;; User provided. Can be "h x w x d inches" or "variable" or "21 minutes"
    :editions 0 ;; Useful for prints
