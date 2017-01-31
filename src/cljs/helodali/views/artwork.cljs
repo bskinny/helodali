@@ -706,10 +706,12 @@
         processing (subscribe [:item-key :instagram-media id :processing])
         image-size "240px"]  ;; The thumb is the instragram 'low resolution image' and 320px, while the normal resolution is 640.
     (fn []
-      (pprint (str "artwork-uuid: " @artwork-uuid))
       (let [sync? (if @artwork-uuid
                     (subscribe [:item-attribute-by-uuid :artwork @artwork-uuid :sync-with-instagram?])
-                    (r/atom false))]
+                    (r/atom false))
+            title (if @artwork-uuid
+                    (subscribe [:item-attribute-by-uuid :artwork @artwork-uuid :title])
+                    (r/atom "(no title)"))]
         [v-box :gap "2px" :padding "20px" :width image-size :align :center :justify :start ;:height "100%"
             :children [[box :max-width image-size :max-height image-size
                          :child [:img {:src @thumb-url :class "fit-cover" :width image-size :height image-size}]]
@@ -718,7 +720,8 @@
                                    :on-change #(dispatch [:create-from-instagram id])]
                          (if @processing
                            [re-com/throbber]
-                           [label :label "In Sync with Artwork"]))
+                           [hyperlink :style {:width "14ch"} :label (trunc (title-string @title) 14)
+                                      :on-click #(route-single-item :artwork @artwork-uuid)]))
                        [:span (or @caption "(no caption)")]]]))))
 
 (defn instagram-view
