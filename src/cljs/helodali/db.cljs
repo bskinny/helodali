@@ -139,7 +139,9 @@
    :current-location nil ; If not sold, where the item is currently located: This could be a person's name or "Studio", whatever the user decides.
 
    ;; Social Media
-   ; :instagram {:posted "<date>" :description nil :comments [{:user "@username" :comment nil}] :likes 0}
+   :instagram-media-ref nil
+   :sync-with-instagram? false
+
    ; :facebook {:posted "<date>" :description nil :comments [{:user "@username" :comment nil}] :likes 0}
 
    ;; Square

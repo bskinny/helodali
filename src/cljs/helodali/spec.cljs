@@ -1,7 +1,7 @@
 (ns helodali.spec
   (:require [cljs.spec :as s]))
 
-;; clojure.spec definitions of the application db
+;; clojure.spec definitions of the application db.
 
 ;; Common types
 (s/def ::id int?)
@@ -19,12 +19,23 @@
 (s/def ::ref (s/nilable ::uuid)) ;; Used to reference an item, certain situations require allowing nil
 (s/def ::associated-documents (s/nilable (s/* ::uuid)))
 (s/def ::associated-press (s/nilable (s/* ::uuid)))
+(s/def ::processing boolean?)
+
+;; Instagram items
+(s/def ::instagram-id (s/nilable string?))
+(s/def ::artwork-uuid (s/nilable ::uuid))
+(s/def ::caption (s/nilable string?))
+(s/def ::likes int?)
+(s/def ::media-type (s/nilable keyword?))
+(s/def ::image-url (s/nilable string?))
+(s/def ::thumb-url (s/nilable string?))
+(s/def ::instagram-media-ref (s/nilable (s/keys :opt-un [::instagram-id ::artwork-uuid ::caption ::likes ::media-type
+                                                         ::image-url ::thumb-url ::created ::processing])))
 
 ;; Artwork
 (s/def ::year (s/and int? #(> % 1000)))
 (s/def ::key (s/nilable string?))
 (s/def ::filename (s/nilable string?))
-(s/def ::processing boolean?)
 (s/def ::signed-thumb-url (s/nilable string?))
 (s/def ::signed-thumb-url-expiration-time (s/nilable #(instance? goog.date.Date %)))
 (s/def ::signed-raw-url (s/nilable string?))
@@ -76,10 +87,12 @@
 (s/def ::style (s/* ::styles))
 (s/def ::list-price int?)
 (s/def ::current-location (s/nilable string?))
+(s/def ::sync-with-instagram boolean?)
 (s/def ::artwork-item (s/keys :req-un [::uuid ::title ::editing ::year ::images ::medium ::created
                                        ::type ::dimensions ::series ::status]
                               :opt-un [::description ::editions ::condition ::style ::associated-documents ::purchases
-                                       ::list-price ::current-location ::expanded ::editing ::exhibition-history]))
+                                       ::list-price ::current-location ::expanded ::editing ::exhibition-history
+                                       ::instagram-media-ref ::sync-with-instagram?]))
 (s/def ::artwork (s/and                              ;; should use the :kind kw to s/map-of (not supported yet)
                    (s/map-of ::id ::artwork-item)       ;; in this map, each todo is keyed by its :id
                    #(instance? PersistentTreeMap %)))    ;; is a sorted-map (not just a map)
@@ -100,15 +113,6 @@
 (s/def ::contact (s/keys :req-un [::uuid ::name ::role ::created]
                          :opt-un [::email ::phone ::url ::address ::notes ::instagram ::facebook
                                   ::associated-documents]))
-
-;; instagram imported items
-; (s/def ::author-first-name (s/nilable string?))
-; (s/def ::author-last-name (s/nilable string?))
-; (s/def ::publication (s/nilable string?))
-; (s/def ::volume (s/nilable string?))
-; (s/def ::page-numbers (s/nilable string?))  ;; e.g. 55-60
-; (s/def ::publication-date (s/nilable ::date))
-(s/def ::instagram-media-ref (s/keys :opt-un [::created]))
 
 ;; Press
 ;; Can be used as input to CV like so:
@@ -165,7 +169,7 @@
 (s/def ::delegation-token (s/nilable (s/keys :opt-un []))) ;; From Auth0, no need to spec the contents of this map
 (s/def ::delegation-token-expiration (s/nilable ::time))
 (s/def ::delegation-token-retrieval-underway boolean?)
-(s/def ::userinfo (s/nilable (s/keys :opt-un []))) ;; From Auth0, no need to spec the contents of this map
+(s/def ::userinfo (s/nilable (s/keys :opt-un [::sub]))) ;; From Auth0, no need to spec the complete contents of this map
 (s/def ::csrf-token (s/nilable string?))
 (s/def ::single-item-uuid (s/nilable string?))
 (s/def ::search-pattern (s/nilable string?))

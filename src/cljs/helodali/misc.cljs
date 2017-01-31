@@ -94,6 +94,14 @@
     default
     s))
 
+(defn search-item-by-key-value
+  "Similar to find-item-by-key-value but does not throw an exception: returns nil when not found."
+  [items kw val]
+  (let [item (into {} (filter #(= val (get (second %) kw)) items))]
+    (cond
+      (= 0 (count (keys item))) nil
+      :else (first (keys item)))))
+
 (defn sort-by-datetime
   "Used as a comparator to sort, comparing two datetime key values and
    falling back to :created time of the item. If the input maps do not

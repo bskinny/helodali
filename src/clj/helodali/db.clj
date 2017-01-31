@@ -1,9 +1,10 @@
 (ns helodali.db
   (:require [taoensso.faraday :as far]
             [clj-uuid :as uuid]
-            [clj-time.core :refer [now days ago]]
+            [clj-time.core :refer [now year days ago]]
             [clj-time.format :refer [parse unparse formatters]]
             [aws.sdk.s3 :as s3]
+            [clojure.java.io :as io]
             [helodali.demodata :as demo]
             [helodali.common :refer [coerce-int fix-date keywordize-vals]]
             [clojure.pprint :refer [pprint]]))
@@ -24,19 +25,23 @@
   [table m]
   (condp = table
     :artwork (-> (assoc m :style (set (map keyword (:style m))))
-               (assoc :purchases (apply vector (map #(coerce-int % [:price :total-commission-percent]) (:purchases m))))
-               (assoc :images (apply vector (map #(assoc % :metadata (coerce-int (:metadata %) [:density :size :width :height])) (:images m))))
-               (keywordize-vals [:type :status])
-               (coerce-int [:expenses :list-price :year :editions]))
+                 (assoc :purchases (apply vector (map #(coerce-int % [:price :total-commission-percent]) (:purchases m))))
+                 (assoc :images (apply vector (map #(assoc % :metadata (coerce-int (:metadata %) [:density :size :width :height])) (:images m))))
+                 (keywordize-vals [:type :status])
+                 (coerce-int [:expenses :list-price :year :editions])
+                 (assoc :instagram-media-ref (and (:instagram-media-ref m)
+                                                  (-> (:instagram-media-ref m)
+                                                      (coerce-int [:likes])
+                                                      (assoc :media-type (keyword (:media-type (:instagram-media-ref m))))))))
     :contacts (keywordize-vals m [:role])
     :exhibitions (keywordize-vals m [:kind])
     :documents (coerce-int m [:size])
     :profile (-> m
-               (coerce-int [:birth-year])
-               (assoc :degrees (apply vector (map #(coerce-int % [:year]) (:degrees m))))
-               (assoc :awards-and-grants (apply vector (map #(coerce-int % [:year]) (:awards-and-grants m))))
-               (assoc :lectures-and-talks (apply vector (map #(coerce-int % [:year]) (:lectures-and-talks m))))
-               (assoc :residencies (apply vector (map #(coerce-int % [:year]) (:residencies m)))))
+                 (coerce-int [:birth-year])
+                 (assoc :degrees (apply vector (map #(coerce-int % [:year]) (:degrees m))))
+                 (assoc :awards-and-grants (apply vector (map #(coerce-int % [:year]) (:awards-and-grants m))))
+                 (assoc :lectures-and-talks (apply vector (map #(coerce-int % [:year]) (:lectures-and-talks m))))
+                 (assoc :residencies (apply vector (map #(coerce-int % [:year]) (:residencies m)))))
     m))
 
 (defn create-user-if-necessary
@@ -75,11 +80,13 @@
 
 (defn query-by-uref
   "Query on items and clean results"
-  [table uref]
-  (map (partial coerce-item table) (far/query co table {:uref [:eq uref]})))
+  ([table uref]
+   (query-by-uref table uref {}))
+  ([table uref opts]
+   (map (partial coerce-item table) (far/query co table {:uref [:eq uref]} opts))))
 
 (defn- sync-userinfo
-   "Update our openid item in the database if the given userinfo map disagrees"
+  "Update our openid item in the database if the given userinfo map disagrees"
   [userinfo openid-item]
   (let [sub (:sub openid-item)]      ;; TODO: combine these operations into one write
     (if (not= (:email openid-item) (:email userinfo))
@@ -111,9 +118,8 @@
   (let [openid-item (far/get-item co :openid {:sub (:sub userinfo)})
         uref (:uref openid-item)]
     (when uref
-      (if-let [session (far/get-item co :sessions {:uref uref :token access-token})]
-        (let [time-stamp (unparse (formatters :date-time) (now))]
-          (far/put-item co :sessions {:uref uref :token access-token :ts time-stamp}))))))
+      (let [time-stamp (unparse (formatters :date-time) (now))]
+        (far/put-item co :sessions {:uref uref :token access-token :sub (:sub userinfo) :ts time-stamp})))))
 
 (defn delete-access-token
   [access-token uref]
@@ -306,6 +312,40 @@
     (pprint (str "creating cleaned item: " item))
     (far/put-item co table item)))
 
+(defn create-artwork-from-instragram
+   "Build an artwork item from the given instagram media, copy the image from instagram to our S3
+    bucket and return updates to both :artwork and :instagram-media portions of the client's app-db."
+  [uref sub media]
+  (let [cred (dissoc co :endpoint)
+        artwork-uuid (str (uuid/v1))
+        image-uuid (str (uuid/v1))
+        item {:uref uref
+              :uuid artwork-uuid
+              :created (:created media)
+              :description (:caption media)
+              :year (year (now))
+              :status :for-sale
+              :type :mixed-media
+              :series false
+              :list-price 0
+              :expenses 0
+              :editions 0
+              :sync-with-instagram? true
+              :instagram-media-ref media}
+        url (java.net.URL. (:image-url media))
+        filename (-> (.getPath url)
+                    (clojure.string/split #"/")
+                    (last))
+        object-key (str sub "/" artwork-uuid "/" image-uuid "/" filename)
+        item (walk-cleaner item)]
+    (with-open [ig-is (io/input-stream url)]
+      ;; Create the database item and copy the image to S3
+      (far/put-item co :artwork item)
+      (s3/put-object cred "helodali-raw-images" object-key ig-is)
+      ;; Return an updated version of the :instagram-media-ref item as well as the new :artwork item
+      {:artwork [[artwork-uuid [nil (assoc item :images [{:uuid image-uuid :processing true}])]]]
+       :instagram-media [[(:instagram-id media) [nil (assoc media :artwork-uuid artwork-uuid)]]]})))
+
 (defn delete-item
   [table uref uuid]
   (far/delete-item co table {:uref uref :uuid uuid}))
@@ -393,6 +433,7 @@
 ; (pprint (update-profile brianw [:degrees] nil))
 ; (delete-item :artwork brianw "a5ef27a1-7814-4e37-addc-25c5e54b6d29")
 ; (pprint (update-item :artwork brianw "b8d80fe3-aeb5-11e6-a116-c83ff47bbdcb" [:status] :not-for-sale))
+
 
 ;; These functions interact with DynamoDB as well as S3 objects
 (defn rename-s3-object

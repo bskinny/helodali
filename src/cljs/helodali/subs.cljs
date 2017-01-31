@@ -226,6 +226,13 @@
       (get-in db [type id]))))
 
 (reg-sub
+  :item-attribute-by-uuid
+  (fn [db [_ type uuid kw]]
+    ;; Find the item by uuid and return the item map
+    (let [id (find-item-by-key-value (get db type) :uuid uuid)]
+      (get-in db [type id kw]))))
+
+(reg-sub
   :item-path-by-uuid
   (fn [db [_ type uuid]]
     ;; Find the item by uuid and return the path to the item

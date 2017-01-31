@@ -4,7 +4,8 @@
             [clojure.pprint :refer [pprint]]
             [helodali.db :refer [initialize-db update-item create-item delete-item refresh-image-data
                                  update-user-table valid-user? refresh-item-path cache-access-token
-                                 valid-session? delete-access-token create-user-if-necessary]]
+                                 valid-session? delete-access-token create-user-if-necessary
+                                 create-artwork-from-instragram]]
             [helodali.instagram :refer [refresh-instagram process-instagram-auth]]
             [helodali.auth0 :as auth0]
             [ring.util.response :refer [content-type response resource-response file-response redirect]]
@@ -44,6 +45,10 @@
         (response resp))
       {:status 400   ;; else return error
        :body {:reason (str "Invalid session for " uref " and given access token")}}))
+
+  (POST "/create-from-instagram" [uref sub access-token media :as req]
+    (pprint (str "create-from-instagram media: " media))
+    (process-request uref access-token #(create-artwork-from-instragram uref sub media)))
 
   (GET "/instagram/oauth/callback" [code state :as req]
     (process-instagram-auth code state)

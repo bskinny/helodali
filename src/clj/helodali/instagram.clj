@@ -8,7 +8,7 @@
             [clj-time.core :refer [now days ago]]
             [clj-time.format :refer [parse unparse formatters]]
             [helodali.common :refer [coerce-int fix-date keywordize-vals]]
-            [helodali.db :refer [get-account update-user-table]])
+            [helodali.db :refer [get-account query-by-uref update-user-table]])
   (:import (javax.crypto Mac)
            (javax.crypto.spec SecretKeySpec)))
 
@@ -19,7 +19,7 @@
 
 (def options {:timeout 2000  ;; ms
               ; :debug true :debug-body true
-              :as :auto})  ;; Try to automatically coerce the output based on the content-type
+              :as :auto})
 
 (def base-url "https://api.instagram.com")
 
@@ -43,14 +43,26 @@
         bytes (.doFinal mac (.getBytes sign-this))]
     (apply str (map #(format "%x" %) bytes))))
 
+(defn- by-instagram-id
+  "Convert list of maps like ({:uuid \"123\" :instagram-media-ref {:instagram-id ...}} ...) to a map keyed by
+   instagram-id with the artwork uuid as value."
+  [l]
+  (reduce (fn [a b]
+             (if (:instagram-media-ref b)
+               (into a {(:instagram-id (:instagram-media-ref b)) (:uuid b)})
+               a))
+          {} l))
+
 (defn- convert-to-item
-  "Build a helodali item representing the instagram media item"
-  [ig]
+  "Build a helodali item representing the instagram media item. Also look for an associated artwork
+   item in the DB."
+  [user-artwork-lookup ig]
   {:tags (:tags ig)
    :caption (:text (:caption ig))
    :likes (:count (:likes ig))
-   :id (:id ig)
-   :type (keyword (:type ig))
+   :instagram-id (:id ig)
+   :artwork-uuid (get user-artwork-lookup (:id ig))
+   :media-type (keyword (:type ig))
    :image-url (:url (:standard_resolution (:images ig)))
    :thumb-url (:url (:thumbnail (:images ig)))
    :created (:created_time ig)})
@@ -58,7 +70,7 @@
 (defn get-recent-media
   "Return recent media for 'self'
    https://www.instagram.com/developer/endpoints/users/#get_users_media_recent_self"
-  [access-token]
+  [uref access-token]
   (let [endpoint "/users/self/media/recent"
         params-string (create-params-string {:access_token access-token})
         sig (sign-request endpoint params-string)
@@ -70,15 +82,19 @@
                  (throw+)))]
     (if (not= 200 (:code (:meta resp)))
       (pprint (str "Error fetching media: " resp)) ;; Likely will not get here due to try/catch
-      (let [media (:data resp)]
-        (map convert-to-item media)))))
+      (let [media (:data resp)
+            user-artwork (query-by-uref :artwork uref {:proj-expr "#uuid, #instagramMediaRef"
+                                                       :expr-attr-names {"#uuid" "uuid" "#instagramMediaRef" "instagram-media-ref"}})
+            user-artwork-lookup (by-instagram-id user-artwork)]
+        (pprint (str "user-artwork-lookup: " user-artwork-lookup))
+        (map (partial convert-to-item user-artwork-lookup) media)))))
 
 (defn refresh-instagram
   "Pull media from Instagram and populate the :instagram portion of the client's app-db"
   [uref]
   (let [account (get-account uref)]
     (if (and account (:instagram-access-token account))
-      {:instagram-media (get-recent-media (:instagram-access-token account))}
+      {:instagram-media (get-recent-media uref (:instagram-access-token account))}
       {})))
 
 (defn request-access-token

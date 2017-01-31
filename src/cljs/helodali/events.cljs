@@ -4,7 +4,7 @@
     [helodali.common :refer [coerce-int empty-string-to-nil fix-date parse-date unparse-date unparse-datetime]]
     [helodali.spec :as hs] ;; Keep this here even though we refer to the namespace directly below
     [helodali.misc :refer [expired? generate-uuid find-element-by-key-value find-item-by-key-value
-                           remove-vector-element into-sorted-map trunc]]
+                           remove-vector-element into-sorted-map trunc search-item-by-key-value]]
     [helodali.routes :refer [route]]
     [cljs-time.core :as ct]
     [cljs-time.coerce :refer [from-long]]
@@ -165,42 +165,50 @@
                             (assoc item :images (apply vector images))))]
        (map #(update-images %) artwork))))
 
+(defn- fix-response
+  "Comb through a response from the server and fix problematic formats such as dates"
+  [resp]
+  (let [fixer (partial fix-date :parse)]
+    (-> resp
+        (assoc :artwork (->> (:artwork resp)
+                             (fixer :created)
+                             (map #(assoc % :instagram-media-ref (and (:instagram-media-ref %)
+                                                                      (first (fixer :created [(:instagram-media-ref %)])))))
+                             (map #(assoc % :purchases (fixer :date (:purchases %))))))
+        (assoc :press (->> (:press resp)
+                           (fixer :created)
+                           (fixer :publication-date)))
+        (assoc :contacts (->> (:contacts resp)
+                              (fixer :created)))
+        (assoc :documents (->> (:documents resp)
+                               (fixer :created)
+                               (fixer :last-modified)))
+        (assoc :exhibitions (->> (:exhibitions resp)
+                                 (fixer :created)
+                                 (fixer :begin-date)
+                                 (fixer :end-date)))
+        (assoc :instagram-media (if (:instagram-media resp)  ;; Convert the unix time :created to cljs-time objects
+                                  (apply vector (map #(assoc % :created (from-long (get % :created))) (:instagram-media resp))))))))
+
 (reg-event-fx
   :initialize-db-from-result
   [(inject-cofx :local-store-signed-urls)]
   (fn [{:keys [db local-store-signed-urls]} [_ result]]
     ;; Some values in the items need coercion back to DateTime and keyword syntaxes.
-    (let [fixer (partial fix-date :parse)
-          artwork (->> (:artwork result)
-                      (fixer :created)
-                      (map #(assoc % :purchases (fixer :date (:purchases %)))))
-          press (->> (:press result)
-                   (fixer :created)
-                   (fixer :publication-date))
-          contacts (->> (:contacts result)
-                     (fixer :created))
-          documents (->> (:documents result)
-                       (fixer :created)
-                       (fixer :last-modified))
-          exhibitions (->> (:exhibitions result)
-                        (fixer :created)
-                        (fixer :begin-date)
-                        (fixer :end-date))
-          instagram-media (if (:instagram-media result)  ;; Convert the unix time :created to cljs-time objects
-                            (apply vector (map #(assoc % :created (from-long (get % :created))) (:instagram-media result))))]
+    (let [resp (fix-response result)]
       {:db (-> db
-              (assoc :artwork (-> (map #(merge (helodali.db/default-artwork) %) artwork)
+              (assoc :artwork (-> (map #(merge (helodali.db/default-artwork) %) (:artwork resp))
                                   (apply-artwork-signed-urls local-store-signed-urls)
                                   (into-sorted-map)))
-              (assoc :exhibitions (into-sorted-map (map #(merge (helodali.db/default-exhibition) %) exhibitions)))
-              (assoc :documents (-> (map #(merge (helodali.db/default-document) %) documents)
+              (assoc :exhibitions (into-sorted-map (map #(merge (helodali.db/default-exhibition) %) (:exhibitions resp))))
+              (assoc :documents (-> (map #(merge (helodali.db/default-document) %) (:documents resp))
                                     (apply-document-signed-urls local-store-signed-urls)
                                     (into-sorted-map)))
-              (assoc :contacts (into-sorted-map (map #(merge (helodali.db/default-contact) %) contacts)))
-              (assoc :press (into-sorted-map (map #(merge (helodali.db/default-press) %) press)))
-              (assoc :profile (:profile result))
-              (assoc :userinfo (:userinfo result))
-              (assoc :instagram-media (and instagram-media (into-sorted-map instagram-media)))
+              (assoc :contacts (into-sorted-map (map #(merge (helodali.db/default-contact) %) (:contacts resp))))
+              (assoc :press (into-sorted-map (map #(merge (helodali.db/default-press) %) (:press resp))))
+              (assoc :profile (:profile resp))
+              (assoc :userinfo (:userinfo resp))
+              (assoc :instagram-media (and (:instagram-media resp) (into-sorted-map (:instagram-media resp))))
               (assoc :initialized? true))})))
 
 ;; Update top-level app-db keys if supplied predicate evaluates true
@@ -211,15 +219,6 @@
     (if (predicate-fx db)
       (merge db result)
       db)))
-
-;; Update the app-db locally (i.e. do not propogate change to server)
-;; path is a vector pointing into :profile or items, e.g. :artwork, :contacts, etc. E.g.
-;; [:artwork 16 :purchases 0 :price] or [:exhibitions 3 :location]
-(reg-event-db
-  :set-local-item-val
-  interceptors
-  (fn [db [path val]]
-    (assoc-in db path val)))
 
 (defn- cleaner
   [in]
@@ -332,6 +331,24 @@
                              :on-success      [:noop]
                              :on-failure      [:bad-result {} retry-fx]}}))))
 
+;; Update the app-db locally (i.e. do not propogate change to server)
+;; path is a vector pointing into :profile or items, e.g. :artwork, :contacts, etc. E.g.
+;; [:artwork 16 :purchases 0 :price] or [:exhibitions 3 :location]
+(reg-event-db
+  :set-local-item-val
+  interceptors
+  (fn [db [path val]]
+    (assoc-in db path val)))
+
+;; Update the app-db locally and send change to database immediately.
+;; path is a vector pointing into :profile or items, e.g. :artwork, :contacts, etc. E.g.
+;; [:artwork 16 :purchases 0 :price] or [:exhibitions 3 :location]
+; (reg-event-db
+;   :set-item-val    ;; This event handler may not be needed
+;   interceptors
+;   (fn [db [path val]]
+;     (update-fx (assoc-in db path val) path val)))
+
 ;; Switch to edit mode for given item. Stash the current app-db to undo changes
 ;; that are canceled. 'item-path' is a path to item such as [:press 2]
 ;; This can also be called with [:profile] as the item-path.
@@ -396,6 +413,65 @@
           :profile (update-profile-fx new-db item-path changes)
           (update-fx new-db item-path changes))))))
 
+;; Create an artwork item from an Instagram post in our :instagram-media map.
+;; This means we include an :instagram-media-ref map in the artwork item, set the artwork's
+;; :sync-with-instagram to true and finally copy the high res image from instagram to our
+;; S3 bucket for processing. We'll let our sever handle the changes to S3.
+(reg-event-fx
+  :create-from-instagram
+  manual-check-spec
+  (fn [{:keys [db]} [id]]
+    (let [ig (get-in db [:instagram-media id])
+          media (-> ig
+                   (assoc-in [:created] (safe-unparse-date (:created ig))))]
+      {:http-xhrio {:method          :post
+                    :uri             "/create-from-instagram"
+                    :params          {:uref (:uuid (:profile db)) :access-token (:access-token db)
+                                      :sub (:sub (:userinfo db)) :media media}
+                    :headers         {:x-csrf-token (:csrf-token db)}
+                    :timeout         5000
+                    :format          (ajax/transit-request-format {})
+                    :response-format (ajax/transit-response-format {:keywords? true})
+                    :on-success      [:update-items]
+                    :on-failure      [:bad-result {} false]}
+       :db (assoc-in db [:instagram-media id :processing] true)})))
+
+;; Update items under :artwork, :instagram-media, etc. The incoming data is a map keyed by item type
+;; with values a list of changes. A change is structured as [<uuid of item> [path value]] where
+;; path is a vector that points into the item or can be nil to represent a whole-item overwrite.
+(reg-event-db
+  :update-items
+  interceptors
+  (fn [db [result]]
+    (let [apply-item-update (fn [type db change]
+                               ;; 'change' looks like [<uuid of item> [path-within-item value]]
+                               ;; Find the item in the app-db, :instagram-media-ref do not have a
+                               ;; a uuid key, instead a instagram-id.
+                               (let [kw (condp = type
+                                           :instagram-media :instagram-id
+                                           :uuid)
+                                     ;; TODO: Catch exception if item not found
+                                     [path val] (second change)
+                                     id (search-item-by-key-value (get db type) kw (first change))] ;; id will be nil if item does not exist
+                                 (if (nil? path)
+                                   ;; Either a new item or an overwrite of existing
+                                   (let [fixed (fix-response {type [val]})
+                                         new-item (merge (helodali.db/defaults-for-type type) (first (get fixed type)))]
+                                     (if (nil? id)
+                                       ;; new item
+                                       (let [id (next-id (get db type))]
+                                         (assoc-in db [type id] new-item))
+                                       ;; overwrite existing item
+                                       (assoc-in db [type id] new-item)))
+                                   ;; Assoc into existing item
+                                   (let [item (assoc (get-in db [type id]) path val)
+                                         fixed (fix-response {type [item]})]
+                                     (assoc-in db [type id] fixed)))))
+          apply-item-updates (fn [db type l]
+                               ;; Process the list of items being updated for the item type
+                               (reduce (partial apply-item-update type) db l))]
+      (reduce-kv apply-item-updates db result))))
+
 ;; Retrieve Instagram media
 (reg-event-fx
   :refresh-instagram
@@ -420,7 +496,7 @@
   (fn [db [result]]
     (let [instagram-media (if (:instagram-media result)  ;; Convert the unix time :created to cljs-time objects
                             (apply vector (map #(assoc % :created (from-long (get % :created))) (:instagram-media result))))]
-     (assoc db :instagram-media (and instagram-media (into-sorted-map instagram-media))))))
+      (assoc db :instagram-media (and instagram-media (into-sorted-map instagram-media))))))
 
 
 ;; POST /validate-token request and set authenticated?=true if successful, also
@@ -894,8 +970,8 @@
   manual-check-spec
   (fn [{:keys [db]} [path-to-image result]]
     ;; If the 'result' map is empty, then we are still waiting on image processing and will
-    ;; try again after a delay.
-    (if (empty? result)
+    ;; try again after a delay. But make sure the item still exists in our app-db (in case it was deleted).
+    (if (and (empty? result) (get-in db [(first path-to-image) (second path-to-image)]))
       {:dispatch-later [{:ms 1000 :dispatch [:refresh-image path-to-image]}]}
       ;; else merge the map into the artwork and unset :processing
       (let [image (-> (get-in db path-to-image)
