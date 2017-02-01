@@ -413,7 +413,8 @@
             expiration (:signed-thumb-url-expiration-time image)
             url (cond
                   (:processing image) "/image-assets/ajax-loader.gif"
-                  (and (not (nil? expiration)) (not (expired? expiration))) @signed-thumb-url
+                  ; (and (not (nil? expiration)) (not (expired? expiration))) @signed-thumb-url
+                  (not (nil? expiration)) @signed-thumb-url
                   :else "/image-assets/thumb-stub.png")
             object-fit (cond
                           (:processing image) "fit-none"
@@ -422,7 +423,7 @@
         ;; Perform some dispatching if the artwork is not in sync with S3 and database
         (if (:processing image)
           (dispatch [:refresh-image [:artwork id :images 0]])
-          (when (and have-delegation-token? (not (nil? image)) (or (nil? url) (expired? expiration)))
+          (when (and have-delegation-token? (not (nil? image)) (nil? @signed-thumb-url)) ;(or (nil? url) (expired? expiration)))
             (dispatch [:get-signed-url [:artwork id :images 0] "helodali-images" (:key image) :signed-thumb-url :signed-thumb-url-expiration-time])))
         (when (and (:key image) have-delegation-token? (expired? (:signed-raw-url-expiration-time image)))
           (dispatch [:get-signed-url [:artwork id :images 0] "helodali-raw-images" (:key image) :signed-raw-url :signed-raw-url-expiration-time]))
