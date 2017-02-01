@@ -472,31 +472,37 @@
                                (reduce (partial apply-item-update type) db l))]
       (reduce-kv apply-item-updates db result))))
 
-;; Retrieve Instagram media
+;; Retrieve Instagram media. The max-id parameter can be nil or :last, which denotes the last media item
+;; in our sorted-map.
 (reg-event-fx
   :refresh-instagram
   manual-check-spec
-  (fn [{:keys [db]} _]
-    {:http-xhrio {:method          :post
-                  :uri             "/refresh-instagram"
-                  :params          {:uref (:uuid (:profile db)) :access-token (:access-token db)}
-                  :headers         {:x-csrf-token (:csrf-token db)}
-                  :timeout         5000
-                  :format          (ajax/transit-request-format {})
-                  :response-format (ajax/transit-response-format {:keywords? true})
-                  :on-success      [:update-instagram-media]
-                  :on-failure      [:bad-result {} false]}
-     :db (-> db
-             (assoc :display-type :instagram))}))
+  (fn [{:keys [db]} [max-id]]
+    (let [last-id (last (keys (:instagram-media db)))
+          max-id-val (and max-id last-id (get-in db [:instagram-media last-id :instagram-id]))]
+      {:http-xhrio {:method          :post
+                    :uri             "/refresh-instagram"
+                    :params          {:uref (:uuid (:profile db)) :access-token (:access-token db)
+                                      :max-id max-id-val}
+                    :headers         {:x-csrf-token (:csrf-token db)}
+                    :timeout         5000
+                    :format          (ajax/transit-request-format {})
+                    :response-format (ajax/transit-response-format {:keywords? true})
+                    :on-success      [:update-instagram-media max-id]
+                    :on-failure      [:bad-result {} false]}
+       :db (-> db
+               (assoc :display-type :instagram))})))
 
-;; Update :instagram-media of app-db.
+;; Update :instagram-media of app-db: either overwrite all if max-id is nil or append to existing otherwise.
 (reg-event-db
   :update-instagram-media
   manual-check-spec
-  (fn [db [result]]
+  (fn [db [max-id result]]
     (let [instagram-media (if (:instagram-media result)  ;; Convert the unix time :created to cljs-time objects
                             (apply vector (map #(assoc % :created (from-long (get % :created))) (:instagram-media result))))]
-      (assoc db :instagram-media (and instagram-media (into-sorted-map instagram-media))))))
+      (if max-id
+        (assoc db :instagram-media (into-sorted-map (concat (vals (:instagram-media db)) instagram-media)))
+        (assoc db :instagram-media (and instagram-media (into-sorted-map instagram-media)))))))
 
 
 ;; POST /validate-token request and set authenticated?=true if successful, also
@@ -976,7 +982,7 @@
       ;; else merge the map into the artwork and unset :processing
       (let [image (-> (get-in db path-to-image)
                      (merge result)
-                     (walk-cleaner)
+                     (dissoc :signed-raw-url-expiration-time :signed-thumb-url-expiration-time)
                      (coerce-int [:density :size :width :height])
                      (dissoc :processing))]
         {:db (-> db

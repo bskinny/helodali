@@ -2,7 +2,7 @@
     (:require-macros [reagent.ratom :refer [reaction]])
     (:require [re-frame.core :as re-frame :refer [reg-sub]]
               [helodali.misc :refer [find-item-by-key-value sort-by-datetime-only sort-by-key-then-created
-                                     fetch-item-by-key-value]]
+                                     fetch-item-by-key-value search-item-by-key-value]]
               [cljs.pprint :refer [pprint]]))
 
 (reg-sub
@@ -211,6 +211,20 @@
   :item-key
   (fn [db [_ type id k]]
     (get-in db [type id k])))
+
+;; A subscription to a :uuid (or similar) value which refers to another item in
+;; app-db. If the reference is invalid (item no longer exists) then return a nil value.
+(reg-sub
+  :item-key-valid-ref
+  (fn [db [_ type id k ref-type]]
+    (let [ref (get-in db [type id k])
+          ref-kw (condp = ref-type
+                   :instagram-media :instagram-id
+                   :uuid)
+          id (search-item-by-key-value (get db ref-type) ref-kw ref)]
+      (if id
+        ref
+        nil))))
 
 ;; Subscribe to an element of the database by path, e.g. [:artwork id :purchases 2 :price]
 (reg-sub

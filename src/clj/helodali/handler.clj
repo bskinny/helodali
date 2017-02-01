@@ -34,17 +34,9 @@
 
   (GET "/csrf-token" [] (response {:csrf-token *anti-forgery-token*}))
 
-  (POST "/refresh-instagram" [uref access-token :as req]
-    (pprint (str "refresh-instagram with uref: " uref))
-    (if (valid-session? uref access-token)
-      (let [resp (refresh-instagram uref)]
-        ;; refresh-instagram returns either a map of items or a map containing
-        ;; an authorization-url which we need to redirect the client to.
-        ; (if (:authorization-url resp)
-        ;   (redirect (:authorization-url resp))
-        (response resp))
-      {:status 400   ;; else return error
-       :body {:reason (str "Invalid session for " uref " and given access token")}}))
+  (POST "/refresh-instagram" [uref access-token max-id :as req]
+    (pprint (str "refresh-instagram with uref/max-id: " uref "/" max-id))
+    (process-request uref access-token #(refresh-instagram uref max-id)))
 
   (POST "/create-from-instagram" [uref sub access-token media :as req]
     (pprint (str "create-from-instagram media: " media))
@@ -99,7 +91,7 @@
           (cache-access-token access-token userinfo)
           (let [db (initialize-db userinfo)
                 uref (get-in db [:profile :uuid])]
-            (response (merge db (refresh-instagram uref))))))))
+            (response (merge db (refresh-instagram uref nil))))))))
 
   (POST "/logout" [access-token uref :as req]
     (pprint (str "logout " uref))

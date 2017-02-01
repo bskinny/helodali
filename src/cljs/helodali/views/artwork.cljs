@@ -1,6 +1,6 @@
 (ns helodali.views.artwork
     (:require [helodali.db :as db]
-              [helodali.routes :refer [route-single-item route-new-item]]
+              [helodali.routes :refer [route-view-display route-single-item route-new-item]]
               [helodali.misc :refer [trunc compute-bg-color convert-map-to-options max-string-length expired?
                                      sort-by-datetime sort-by-key-then-created uuid-label-list-to-options
                                      remove-vector-element title-string]]
@@ -11,7 +11,8 @@
               [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button hyperlink
                                               input-text input-textarea single-dropdown selection-list
                                               button datepicker-dropdown checkbox popover-tooltip
-                                              popover-anchor-wrapper popover-content-wrapper handler-fn]])
+                                              popover-anchor-wrapper popover-content-wrapper handler-fn
+                                              md-circle-icon-button]])
     (:import goog.date.UtcDateTime))
 
 
@@ -663,16 +664,16 @@
          :children [;[md-icon-button :md-icon-name "zmdi zmdi-view-dashboard mdc-text-grey"
                     ;     :on-click #(dispatch [:set-local-item-val [:display-type] :large-contact-sheet])
                     [md-icon-button :md-icon-name "zmdi zmdi-apps mdc-text-grey" :tooltip "Contact Sheet"
-                         :on-click #(dispatch [:set-local-item-val [:display-type] :contact-sheet])]
+                                    :on-click #(route-view-display :artwork :contact-sheet)]
                     [md-icon-button :md-icon-name "zmdi zmdi-view-list mdc-text-grey" :tooltip "Row View"
-                                    :on-click #(dispatch [:set-local-item-val [:display-type] :row])]
+                                    :on-click #(route-view-display :artwork :row)]
                     [md-icon-button :md-icon-name "zmdi zmdi-view-headline mdc-text-grey" :tooltip "List View"
-                                    :on-click #(dispatch [:set-local-item-val [:display-type] :list])]
+                                    :on-click #(route-view-display :artwork :list)]
                     [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey" :tooltip "Create New Item"
                                     :on-click #(route-new-item :artwork)]
                     [md-icon-button :md-icon-name "zmdi zmdi-instagram mdc-text-grey" :tooltip "Instagram Media"
                                     :on-click #(if @instagram-media
-                                                 (dispatch [:refresh-instagram])
+                                                 (dispatch [:refresh-instagram nil])
                                                  (set! (.-location js/document) (str "https://api.instagram.com/oauth/authorize/?client_id=cbfda8d4f3c445af9dbf79dd90f03b90&redirect_uri="
                                                                                      (.-origin (.-location js/document)) "/instagram/oauth/callback&response_type=code&state=" @uuid)))]]])))
 
@@ -699,28 +700,25 @@
   "Display an Instagram media item"
   [id]
   (let [instagram-id (subscribe [:item-key :instagram-media id :instagram-id])
-        artwork-uuid (subscribe [:item-key :instagram-media id :artwork-uuid])
+        artwork-uuid (subscribe [:item-key-valid-ref :instagram-media id :artwork-uuid :artwork])
         caption (subscribe [:item-key :instagram-media id :caption])
         image-url (subscribe [:item-key :instagram-media id :image-url])
         thumb-url (subscribe [:item-key :instagram-media id :thumb-url])
         processing (subscribe [:item-key :instagram-media id :processing])
         image-size "240px"]  ;; The thumb is the instragram 'low resolution image' and 320px, while the normal resolution is 640.
     (fn []
-      (let [sync? (if @artwork-uuid
-                    (subscribe [:item-attribute-by-uuid :artwork @artwork-uuid :sync-with-instagram?])
-                    (r/atom false))
-            title (if @artwork-uuid
+      (let [title (if @artwork-uuid
                     (subscribe [:item-attribute-by-uuid :artwork @artwork-uuid :title])
                     (r/atom "(no title)"))]
-        [v-box :gap "2px" :padding "20px" :width image-size :align :center :justify :start ;:height "100%"
+        [v-box :gap "6px" :padding "20px" :width image-size :align :center :justify :start ;:height "100%"
             :children [[box :max-width image-size :max-height image-size
                          :child [:img {:src @thumb-url :class "fit-cover" :width image-size :height image-size}]]
                        (if (nil? @artwork-uuid)
-                         [checkbox :model @sync? :label "Add to artwork"
-                                   :on-change #(dispatch [:create-from-instagram id])]
+                         [md-circle-icon-button :md-icon-name "zmdi-plus" :tooltip "Import to artwork"
+                                   :emphasise? true :size :smaller :on-click #(dispatch [:create-from-instagram id])]
                          (if @processing
                            [re-com/throbber]
-                           [hyperlink :style {:width "14ch"} :label (trunc (title-string @title) 14)
+                           [hyperlink :label (trunc (title-string @title) 30)
                                       :on-click #(route-single-item :artwork @artwork-uuid)]))
                        [:span (or @caption "(no caption)")]]]))))
 
@@ -732,11 +730,15 @@
       ;; Dispatch a refresh of instagram media if items is nil. Note that empty items, {}, means the instagram
       ;; media has been fetched and is empty.
       (if (nil? @items)
-        [h-box :gap "10px" :margin "40px" :align :start :justify :start :children [[re-com/throbber]]]
+        [h-box :gap "20px" :margin "40px" :align :start :justify :start :children [[re-com/throbber]]]
         (if (empty? @items)
           [label :label "There is no media in your Instagram account."]
-          [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
-             :children (into [] (map (fn [id] ^{:key id} [instagram-item-view id]) @items))])))))
+          (let [load-more-buton [[box :align-self :center :justify :center :width "240px"
+                                    :child [md-circle-icon-button :md-icon-name "zmdi-more" :size :larger
+                                              :on-click #(dispatch [:refresh-instagram :last])]]]]
+            [h-box :gap "20px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
+               :children (concat (apply vector (map (fn [id] ^{:key id} [instagram-item-view id]) @items))
+                                 load-more-buton)]))))))
 
 (defn artwork-contact-sheet
   "Display contact sheet of items"

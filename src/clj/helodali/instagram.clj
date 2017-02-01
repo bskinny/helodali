@@ -18,7 +18,7 @@
    :redirect-uri (get (System/getenv) "HD_INSTAGRAM_REDIRECT_URI")})
 
 (def options {:timeout 2000  ;; ms
-              ; :debug true :debug-body true
+              :debug true :debug-body true
               :as :auto})
 
 (def base-url "https://api.instagram.com")
@@ -70,9 +70,10 @@
 (defn get-recent-media
   "Return recent media for 'self'
    https://www.instagram.com/developer/endpoints/users/#get_users_media_recent_self"
-  [uref access-token]
+  [uref max-id access-token]
   (let [endpoint "/users/self/media/recent"
-        params-string (create-params-string {:access_token access-token})
+        params-string (create-params-string (merge {:access_token access-token :count 10}
+                                                   (if max-id {:max_id max-id})))
         sig (sign-request endpoint params-string)
         resp (try+
                (-> (http/get (str base-url "/v1" endpoint "?" params-string "&sig=" sig) options)
@@ -90,11 +91,12 @@
         (map (partial convert-to-item user-artwork-lookup) media)))))
 
 (defn refresh-instagram
-  "Pull media from Instagram and populate the :instagram portion of the client's app-db"
-  [uref]
+  "Pull media from Instagram and populate the :instagram portion of the client's app-db. If
+   max-id is not nil, the app is loading more media."
+  [uref max-id]
   (let [account (get-account uref)]
     (if (and account (:instagram-access-token account))
-      {:instagram-media (get-recent-media uref (:instagram-access-token account))}
+      {:instagram-media (get-recent-media uref max-id (:instagram-access-token account))}
       {})))
 
 (defn request-access-token

@@ -18,7 +18,7 @@
 
 ;; Display specific view for type, e.g. /view/artwork/list
 (defroute view-display "/view/:type/:display" [type display]
-  (dispatch [:change-view (keyword type) display]))
+  (dispatch [:change-view (keyword type) (keyword display)]))
 
 ;; Display single item of given type, e.g. /view/artwork/id/<uuid>
 (defroute view-single-item "/view/:type/id/:uuid" [type uuid]
@@ -44,6 +44,10 @@
       (pprint (str "Invalid route request: " route-name ", " params)))
     (accountant/navigate! path)
     (accountant/dispatch-current!)))
+
+(defn route-view-display
+  [type display]
+  (route view-display {:type (name type) :display (name display)}))
 
 (defn route-profile
   []
