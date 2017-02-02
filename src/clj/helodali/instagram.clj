@@ -13,9 +13,12 @@
            (javax.crypto.spec SecretKeySpec)))
 
 (def client
-  {:id (get (System/getenv) "HD_INSTAGRAM_CLIENT_ID")
-   :secret (get (System/getenv) "HD_INSTAGRAM_CLIENT_SECRET")
-   :redirect-uri (get (System/getenv) "HD_INSTAGRAM_REDIRECT_URI")})
+  {:id (or (System/getenv "HD_INSTAGRAM_CLIENT_ID")
+           (System/getProperty "HD_INSTAGRAM_CLIENT_ID"))
+   :secret (or (System/getenv "HD_INSTAGRAM_CLIENT_SECRET")
+               (System/getProperty "HD_INSTAGRAM_CLIENT_SECRET"))
+   :redirect-uri (or (System/getenv "HD_INSTAGRAM_REDIRECT_URI")
+                     (System/getProperty "HD_INSTAGRAM_REDIRECT_URI"))})
 
 (def options {:timeout 2000  ;; ms
               :debug true :debug-body true
