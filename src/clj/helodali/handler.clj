@@ -28,6 +28,8 @@
     (-> (resource-response "index.html" {:root "public"})
        (content-type "text/html")))
 
+  (GET "/health" [] "<html><body><h1>healthy</h1></body></html>")
+
   (GET "/static/:page" [page]
     (-> (resource-response page {:root "public/static"})
        (content-type "text/html")))
