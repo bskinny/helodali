@@ -78,8 +78,8 @@
 
 (defn- assoc-uuid-purchases
   ;; Given a uuid and list of purchase maps, produce a vector of maps keyed by artwork uuid
-  ;; like so: [{:uuid uuid :purchase <purchase-map>}} ...] and add the artwork title to the
-  ;; purchase map to allow sorting on title form the :search-purchases subscription.
+  ;; like so: [{:uuid uuid :purchase <purchase-map>}} ...]. The purchase map includes the
+  ;; artwork title to allow sorting on title form the :search-purchases subscription.
   [db uuid title l]
   (apply vector (map (fn [m]
                         (let [buyer-contact (if (nil? (:buyer m))

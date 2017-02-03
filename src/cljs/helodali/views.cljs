@@ -173,7 +173,7 @@
 
          (and @authenticated? @initialized?)
          ;; Finally, display the app
-         [v-box :gap "0px" :width "100%" :margin "0" :justify :between ; :style {:border "dashed 1px red"}
+         [v-box :gap "0px" :margin "0px" :justify :between :width "100%" ; :style {:border "dashed 1px red"}
             :children [[v-box
                          :children [[header]
                                     (if (not (empty? @msg))

@@ -28,31 +28,30 @@
         dealer-contact (if (empty? (:dealer purchase))
                          (r/atom nil)
                          (subscribe [:item-by-uuid :contacts (:dealer purchase)]))]
-    (fn []
-      [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
-        :children [[label :width "15ch" :label (safe-date-string (:date purchase))]
-                   [hyperlink :style {:width (str (max 18 (:title widths)) "ch")} :label (trunc (:title @artwork) (:title widths))
-                              :on-click #(route-single-item :artwork uuid)]
-                   (if (not (nil? @buyer-contact))
-                     [hyperlink :style {:width (str (max 18 (:buyer widths)) "ch")} :label (trunc (:name @buyer-contact) (:buyer widths))
-                                :on-click #(route-single-item :contacts (:uuid @buyer-contact))]
-                     [label :width (str (max 18 (:buyer widths)) "ch") :label ""])
-                   (if (not (nil? @agent-contact))
-                     [hyperlink :style {:width (str (max 18 (:agent widths)) "ch")} :label (trunc (:name @agent-contact) (:agent widths))
-                                :on-click #(route-single-item :contacts (:uuid @agent-contact))]
-                     [label :width (str (max 18 (:agent widths)) "ch") :label ""])
-                   (if (not (nil? @dealer-contact))
-                     [hyperlink :style {:width (str (max 18 (:dealer widths)) "ch")} :label (trunc (:name @dealer-contact) (:dealer widths))
-                                :on-click #(route-single-item :contacts (:uuid @dealer-contact))]
-                     [label :width (str (max 18 (:dealer widths)) "ch") :label ""])
-                   [label :width "8ch" :label (:price purchase)]
-                   [label :width "10ch" :label (:total-commission-percent purchase)]
-                   (if (:commissioned purchase)
-                     [box :width "18ch" :align :center :justify :center :child [md-icon-button :md-icon-name "zmdi zmdi-check mdc-text-green"]]
-                     [label :width "18ch" :label ""])
-                   (if (:donated purchase)
-                     [box :width "8ch" :align :center :justify :center :child [md-icon-button :md-icon-name "zmdi zmdi-check mdc-text-green"]]
-                     [label :width "8ch" :label ""])]])))
+    [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
+      :children [[label :width "15ch" :label (safe-date-string (:date purchase))]
+                 [hyperlink :style {:width (str (max 18 (:title widths)) "ch")} :label (trunc (:title @artwork) (:title widths))
+                            :on-click #(route-single-item :artwork uuid)]
+                 (if (not (nil? @buyer-contact))
+                   [hyperlink :style {:width (str (max 18 (:buyer widths)) "ch")} :label (trunc (:name @buyer-contact) (:buyer widths))
+                              :on-click #(route-single-item :contacts (:uuid @buyer-contact))]
+                   [label :width (str (max 18 (:buyer widths)) "ch") :label ""])
+                 (if (not (nil? @agent-contact))
+                   [hyperlink :style {:width (str (max 18 (:agent widths)) "ch")} :label (trunc (:name @agent-contact) (:agent widths))
+                              :on-click #(route-single-item :contacts (:uuid @agent-contact))]
+                   [label :width (str (max 18 (:agent widths)) "ch") :label ""])
+                 (if (not (nil? @dealer-contact))
+                   [hyperlink :style {:width (str (max 18 (:dealer widths)) "ch")} :label (trunc (:name @dealer-contact) (:dealer widths))
+                              :on-click #(route-single-item :contacts (:uuid @dealer-contact))]
+                   [label :width (str (max 18 (:dealer widths)) "ch") :label ""])
+                 [label :width "8ch" :label (:price purchase)]
+                 [label :width "10ch" :label (:total-commission-percent purchase)]]]))
+                   ; (if (:commissioned purchase)
+                   ;   [box :width "18ch" :align :center :justify :center :child [md-icon-button :md-icon-name "zmdi zmdi-check mdc-text-green"]]
+                   ;   [label :width "18ch" :label ""])
+                   ; (if (:donated purchase)
+                   ;   [box :width "8ch" :align :center :justify :center :child [md-icon-button :md-icon-name "zmdi zmdi-check mdc-text-green"]]
+                   ;   [label :width "8ch" :label ""])]])))
 
 (defn list-view
   "Display list of items, one per line"
@@ -60,7 +59,7 @@
   (let [sort-key (subscribe [:by-path [:sort-keys :purchases]])
         items (subscribe [:search-purchases identity])]
     (fn []
-      (let [widths {:buyer 30 :agent 24 :dealer 24 :title 30}
+      (let [widths {:buyer 24 :agent 22 :dealer 22 :title 30}
             header [h-box :align :center :justify :start :width "100%"
                       :children [[hyperlink :class "uppercase" :style {:width "15ch"}
                                     :label "Date" :tooltip "Sort by Date"
@@ -96,19 +95,19 @@
                                     :label "Comm %" :tooltip "Sort by Commission Percent"
                                     :on-click #(if (= (first @sort-key) :total-commission-percent)
                                                  (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
-                                                 (dispatch [:set-local-item-val [:sort-keys :purchases] [:total-commission-percent true]]))]
-                                 [hyperlink :class "uppercase" :style {:width "18ch"}
-                                    :label "Commissioned?" :tooltip "Sort by Commissioned?"
-                                    :on-click #(if (= (first @sort-key) :commissioned)
-                                                 (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
-                                                 (dispatch [:set-local-item-val [:sort-keys :purchases] [:commissioned true]]))]
-                                 [hyperlink :class "uppercase" :style {:width "8ch"}
-                                    :label "Donated?" :tooltip "Sort by Donated?"
-                                    :on-click #(if (= (first @sort-key) :donated)
-                                                 (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
-                                                 (dispatch [:set-local-item-val [:sort-keys :purchases] [:donated true]]))]]]]
+                                                 (dispatch [:set-local-item-val [:sort-keys :purchases] [:total-commission-percent true]]))]]]]
+                                 ; [hyperlink :class "uppercase" :style {:width "18ch"}
+                                 ;    :label "Commissioned?" :tooltip "Sort by Commissioned?"
+                                 ;    :on-click #(if (= (first @sort-key) :commissioned)
+                                 ;                 (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
+                                 ;                 (dispatch [:set-local-item-val [:sort-keys :purchases] [:commissioned true]]))]
+                                 ; [hyperlink :class "uppercase" :style {:width "8ch"}
+                                 ;    :label "Donated?" :tooltip "Sort by Donated?"
+                                 ;    :on-click #(if (= (first @sort-key) :donated)
+                                 ;                 (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
+                                 ;                 (dispatch [:set-local-item-val [:sort-keys :purchases] [:donated true]]))]]]]
         [v-box :gap "4px" :align :center :justify :start
-           :children (into [header] (mapv (fn [idx item bg] ^{:key (str (:uuid item) "-" idx)} [item-list-view widths item bg])
+           :children (into [header] (mapv (fn [idx item bg] ^{:key (str idx "-" (:uuid item))} [item-list-view widths item bg])
                                           (range (count @items)) @items (cycle [true false])))]))))
 
 (defn view-selection
