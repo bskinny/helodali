@@ -1,6 +1,6 @@
 (ns helodali.views.exhibitions
     (:require [helodali.views.referred-artwork :refer [referred-artwork-list-view]]
-              [helodali.routes :refer [route-single-item route-new-item]]
+              [helodali.routes :refer [route-single-item route-new-item route-view-display]]
               [helodali.misc :refer [trunc compute-bg-color max-string-length url-to-href sort-by-datetime
                                      safe-date-string uuid-label-list-to-options sort-by-key-then-created
                                       title-string]]
@@ -245,7 +245,7 @@
   (fn []
     [h-box :gap "18px" :align :center :justify :center
        :children [[md-icon-button :md-icon-name "zmdi zmdi-view-headline mdc-text-grey" :tooltip "List View"
-                                  :on-click #(dispatch [:set-local-item-val [:display-type] :list])]
+                                  :on-click #(route-view-display :exhibitions :list)]
                   [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey" :tooltip "Create New Exhibition"
                                   :on-click #(route-new-item :exhibitions)]]]))
 

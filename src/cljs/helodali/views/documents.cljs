@@ -1,5 +1,5 @@
 (ns helodali.views.documents
-    (:require [helodali.routes :refer [route-single-item route-new-item]]
+    (:require [helodali.routes :refer [route-single-item route-new-item route-view-display]]
               [helodali.misc :refer [trunc compute-bg-color convert-map-to-options max-string-length expired?
                                      sort-by-datetime sort-by-key-then-created uuid-label-list-to-options
                                      safe-date-string safe-string]]
@@ -218,7 +218,7 @@
   (fn []
     [h-box :gap "18px" :align :center :justify :center
        :children [[md-icon-button :md-icon-name "zmdi zmdi-view-headline mdc-text-grey" :tooltip "List View"
-                                  :on-click #(dispatch [:set-local-item-val [:display-type] :list])]
+                                  :on-click #(route-view-display :documents :list)]
                   [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey" :tooltip "Create New Document"
                                   :on-click #(route-new-item :documents)]]]))
 

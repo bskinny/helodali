@@ -1,6 +1,6 @@
 (ns helodali.views.contacts
     (:require [helodali.views.referred-artwork :refer [referred-artwork-list-view]]
-              [helodali.routes :refer [route-single-item route-new-item]]
+              [helodali.routes :refer [route-single-item route-new-item route-view-display]]
               [helodali.misc :refer [trunc compute-bg-color max-string-length url-to-href sort-by-key-then-created]]
               [cljs.pprint :refer [pprint]]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
@@ -219,7 +219,7 @@
   (fn []
     [h-box :gap "18px" :align :center :justify :center
        :children [[md-icon-button :md-icon-name "zmdi zmdi-view-headline mdc-text-grey" :tooltip "List View"
-                                  :on-click #(dispatch [:set-local-item-val [:display-type] :list])]
+                                  :on-click #(route-view-display :contacts :list)]
                   [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey" :tooltip "Create New Contact"
                                   :on-click #(route-new-item :contacts)]]]))
 

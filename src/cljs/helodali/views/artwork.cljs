@@ -1,6 +1,6 @@
 (ns helodali.views.artwork
     (:require [helodali.db :as db]
-              [helodali.routes :refer [route-view-display route-single-item route-new-item]]
+              [helodali.routes :refer [route-view-display route-single-item route-new-item route-instagram-refresh]]
               [helodali.misc :refer [trunc compute-bg-color convert-map-to-options max-string-length expired?
                                      sort-by-datetime sort-by-key-then-created uuid-label-list-to-options
                                      remove-vector-element title-string]]
@@ -674,7 +674,7 @@
                                     :on-click #(route-new-item :artwork)]
                     [md-icon-button :md-icon-name "zmdi zmdi-instagram mdc-text-grey" :tooltip "Instagram Media"
                                     :on-click #(if @instagram-media
-                                                 (dispatch [:refresh-instagram nil])
+                                                 (route-instagram-refresh)
                                                  (set! (.-location js/document) (str "https://api.instagram.com/oauth/authorize/?client_id=cbfda8d4f3c445af9dbf79dd90f03b90&redirect_uri="
                                                                                      (.-origin (.-location js/document)) "/instagram/oauth/callback&response_type=code&state=" @uuid)))]]])))
 

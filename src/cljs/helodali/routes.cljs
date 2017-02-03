@@ -32,6 +32,10 @@
 (defroute search "/search/:pattern" [pattern]
   (dispatch [:display-search-results pattern]))
 
+;; Display instagram media (already authorized wth Instagram)
+(defroute instragram-refresh "/instagram/refresh" [type]
+  (dispatch [:refresh-instagram nil]))
+
 ;; Catch all
 (defroute "*" []
   (pprint "CATCH ALL, Setting route to artwork")
@@ -64,3 +68,7 @@
 (defn route-search
   [search-pattern]
   (route search {:pattern search-pattern}))
+
+(defn route-instagram-refresh
+  []
+  (route instragram-refresh {}))
