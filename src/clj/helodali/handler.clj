@@ -1,5 +1,5 @@
 (ns helodali.handler
-  (:require [compojure.core :refer [GET POST ANY defroutes]]
+  (:require [compojure.core :refer [GET POST HEAD ANY defroutes]]
             [compojure.route :refer [resources]]
             [clojure.pprint :refer [pprint]]
             [helodali.db :refer [initialize-db update-item create-item delete-item refresh-image-data
@@ -28,6 +28,8 @@
     (-> (resource-response "index.html" {:root "public"})
        (content-type "text/html")))
 
+  (HEAD "/" [] "") ;; For default AWS health checks
+
   (GET "/health" [] "<html><body><h1>healthy</h1></body></html>")
 
   (GET "/static/:page" [page]
@@ -47,6 +49,15 @@
   (GET "/instagram/oauth/callback" [code state :as req]
     (process-instagram-auth code state)
     (redirect "/"))
+
+  ;; The Instagram subscription callback for GET requests is used for subscription setup.
+  (GET "/instagram/subscription-handler" [:as req]
+    (pprint (str "REQ: " req))
+    (get (:params req) "hub.challenge"))
+
+  (POST "/instagram/subscription-handler" [:as req]
+    (pprint (str "POST REQ: " req))
+    {:status 200})
 
   (POST "/update-profile" [uuid path val access-token :as req]
     (pprint (str "update-profile uuid/path/val: " uuid "/" path "/" val))
@@ -103,21 +114,28 @@
   (ANY "/view/*" [] (redirect "/"))
   (ANY "/new/*" [] (redirect "/"))
   (ANY "/search/*" [] (redirect "/"))
+  (ANY "/instagram/*" [] (redirect "/"))
 
   ;; Everything else
   (resources "/"))
 
 (def dev-handler (-> #'routes
-                    ; (wrap-defaults (assoc-in site-defaults [:security :anti-forgery] false))
                     (wrap-defaults site-defaults)
                     (wrap-restful-params)
                     (wrap-restful-response)
                     (wrap-reload)))
 
-;; TODO eventually switch from site-defaults to secure-site-defaults
+;; Note: I have not successfully configured secure-site-defaults yet. Even with the :proxy option,
+;; AWS is not happy with the secure site defaults.
 ;; see https://github.com/ring-clojure/ring-defaults/blob/master/src/ring/middleware/defaults.clj
 (def handler (-> #'routes
-                ; (wrap-defaults (assoc-in site-defaults [:security :anti-forgery] false))
                 (wrap-defaults site-defaults)
                 (wrap-restful-params)
                 (wrap-restful-response)))
+
+;; The handler for non-browser clients such as Instagram subscriptions. A separate build target
+;; references this handler.
+(def api-handler (-> #'routes
+                    (wrap-defaults (assoc-in api-defaults [:security :anti-forgery] false))
+                    (wrap-restful-params)
+                    (wrap-restful-response)))

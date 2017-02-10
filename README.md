@@ -29,11 +29,16 @@ lein doo phantom test once
 
 The above command assumes that you have [phantomjs](https://www.npmjs.com/package/phantomjs) installed. However, please note that [doo](https://github.com/bensu/doo) can be configured to run cljs.test in many other JS environments (chrome, ie, safari, opera, slimer, node, rhino, or nashorn).
 
-## Production Build
+## Production Builds
 
+The helodali webapp can be built with the webapp profile like so:
 ```
 lein clean
-lein with-profile uberjar ring uberwar
+lein with-profile webapp ring uberwar
 ```
 
-That should compile the clojurescript code first, and then create the war file.
+Similarly, the helodali API, used by Instagram subscriptions, is built with:
+```
+lein clean
+lein with-profile api ring uberwar
+```

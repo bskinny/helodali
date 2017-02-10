@@ -29,11 +29,9 @@
                  [venantius/accountant "0.1.7"]]
 
   :plugins [[lein-cljsbuild "1.1.5"]
-            [lein-ring "0.10.0"]
+            [lein-ring "0.11.0"]
             [lein-asset-minifier "0.3.1"
                :exclusions [org.clojure/clojure]]]
-
-  :hooks [leiningen.cljsbuild]  ;; This adds cljsbuild when lein does an ordinary compile
 
   :min-lein-version "2.6.1"
 
@@ -44,19 +42,15 @@
   :clean-targets ^{:protect false} ["resources/public/js/compiled" "target"
                                     "test/js"]
 
-  :ring {:handler helodali.handler/handler
-         :uberwar-name "helodali.war"}
-
   :figwheel {:css-dirs ["resources/public/css"]
              :ring-handler helodali.handler/dev-handler}
 
   :profiles
     {:dev
-       {:dependencies [[binaryage/devtools "0.8.3"]]
+       {:hooks [leiningen.cljsbuild]  ;; This adds cljsbuild when lein does an ordinary compile
+        :dependencies [[binaryage/devtools "0.8.3"]]
         :plugins      [[lein-figwheel "0.5.8"]
                        [lein-doo "0.1.7"]]
-
-
         :cljsbuild
           {:builds
             {:app
@@ -69,17 +63,26 @@
                               :source-map-timestamp true
                               :preloads             [devtools.preload]
                               :external-config      {:devtools/config {:features-to-install :all}}}}}}}
-     :uberjar
-        {:cljsbuild
-          {:builds
-            {:app
-             {:source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
-              :jar true
-              :compiler     {:main            helodali.prod
-                             :output-to       "resources/public/js/compiled/app.js"
-                             :optimizations   :advanced
-                             :closure-defines {goog.DEBUG false}
-                             :pretty-print    false}}}}}}
+
+     :webapp    ;; Do not name this profile :uberjar or lein ring uberwar will not work
+       {:hooks [leiningen.cljsbuild]  ;; This adds cljsbuild when lein does an ordinary compile
+        :ring {:handler helodali.handler/handler
+               :uberwar-name "helodali.war"}
+        :cljsbuild
+         {:builds
+           {:app
+            {:source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
+             :jar true
+             :compiler {:main            helodali.prod
+                        :output-to       "resources/public/js/compiled/app.js"
+                        :optimizations   :advanced
+                        :closure-defines {goog.DEBUG false}
+                        :pretty-print    false}}}}}
+
+     :api
+       {:ring {:handler helodali.handler/api-handler
+               :uberwar-name "helodali-api.war"}
+        :cljsbuild {:builds []}}}
 
     ; {:id           "test"
     ;  :source-paths ["src/cljs" "test/cljs" "src/cljc"]
@@ -94,5 +97,3 @@
   :aot [helodali.server]
 
   :uberjar-name "helodali.jar")
-
-  ; :prep-tasks [["cljsbuild" "once" "app"] "compile"])

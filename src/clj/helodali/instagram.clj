@@ -21,7 +21,7 @@
                      (System/getProperty "HD_INSTAGRAM_REDIRECT_URI"))})
 
 (def options {:timeout 2000  ;; ms
-              :debug true :debug-body true
+              ; :debug true :debug-body true
               :as :auto})
 
 (def base-url "https://api.instagram.com")
