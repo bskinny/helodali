@@ -136,6 +136,6 @@
 ;; The handler for non-browser clients such as Instagram subscriptions. A separate build target
 ;; references this handler.
 (def api-handler (-> #'routes
-                    (wrap-defaults (assoc-in api-defaults [:security :anti-forgery] false))
+                    (wrap-defaults api-defaults)
                     (wrap-restful-params)
                     (wrap-restful-response)))

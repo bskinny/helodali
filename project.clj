@@ -45,6 +45,8 @@
   :figwheel {:css-dirs ["resources/public/css"]
              :ring-handler helodali.handler/dev-handler}
 
+  :war-resources-path "war-resources" ;; Used only for packaging .ebextensions at the top level of the war
+
   :profiles
     {:dev
        {:hooks [leiningen.cljsbuild]  ;; This adds cljsbuild when lein does an ordinary compile
@@ -68,6 +70,7 @@
        {:hooks [leiningen.cljsbuild]  ;; This adds cljsbuild when lein does an ordinary compile
         :ring {:handler helodali.handler/handler
                :uberwar-name "helodali.war"}
+               ; :war-exclusions []}  ;; This prevents excluding hidden files (default behavior) - we need .ebextensions
         :cljsbuild
          {:builds
            {:app

@@ -7,7 +7,7 @@ Helodali is a SPA style webapp using [re-frame](https://github.com/Day8/re-frame
 ## Development Mode
 
 ### Run application:
-Define the following environment variables before proceeding: AWS_DYNAMODB_ACCESS_KEY, AWS_DYNAMODB_SECRET_KEY and AWS_DYNAMODB_ENDPOINT.
+Define the following environment variables before proceeding: AWS_ACCESS_KEY, AWS_SECRET_KEY and AWS_DYNAMODB_ENDPOINT.
 
 For Instagram integration, also define HD_INSTAGRAM_CLIENT_ID, HD_INSTAGRAM_CLIENT_SECRET and HD_INSTAGRAM_REDIRECT_URI.
 

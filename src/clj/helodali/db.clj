@@ -13,9 +13,12 @@
 ;; or outside AWS. Within AWS, we assign an IAM role to the ElastocBeanstalk
 ;; instance housing the application.
 (def co
-  {:access-key (get (System/getenv) "AWS_DYNAMODB_ACCESS_KEY")
-   :secret-key (get (System/getenv) "AWS_DYNAMODB_SECRET_KEY")
-   :endpoint   (get (System/getenv) "AWS_DYNAMODB_ENDPOINT")})
+  {:access-key (or (System/getenv "AWS_ACCESS_KEY")
+                   (System/getProperty "AWS_ACCESS_KEY"))
+   :secret-key (or (System/getenv "AWS_SECRET_KEY")
+                   (System/getProperty "AWS_SECRET_KEY"))
+   :endpoint   (or (System/getenv "AWS_DYNAMODB_ENDPOINT")
+                   (System/getProperty "AWS_DYNAMODB_ENDPOINT"))})
 
 (defn- coerce-item
   "This looks for specific cases where we need to convert string
