@@ -161,6 +161,8 @@
        :contacts (query-by-uref :contacts uref)
        :press (query-by-uref :press uref)
        :profile profile
+       :account (-> (get-account uref)
+                    (dissoc :instagram-access-token))
        :userinfo userinfo})))
 
 (defn- undash

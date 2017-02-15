@@ -207,6 +207,7 @@
               (assoc :contacts (into-sorted-map (map #(merge (helodali.db/default-contact) %) (:contacts resp))))
               (assoc :press (into-sorted-map (map #(merge (helodali.db/default-press) %) (:press resp))))
               (assoc :profile (:profile resp))
+              (assoc :account (:account resp))
               (assoc :userinfo (:userinfo resp))
               (assoc :instagram-media (and (:instagram-media resp) (into-sorted-map (:instagram-media resp))))
               (assoc :initialized? true))})))
@@ -405,6 +406,8 @@
                      (and (= type :artwork) (or (:images diffA) (:images diffB))) (assoc :images (:images item))
                      (and (= type :artwork) (or (:purchases diffA) (:purchases diffB))) (assoc :purchases (:purchases item))
                      (and (= type :artwork) (or (:exhibition-history diffA) (:exhibition-history diffB))) (assoc :exhibition-history (:exhibition-history item)))]
+      (pprint (str "diffA: " diffA))
+      (pprint (str "diffB: " diffB))
       (pprint (str "CHANGES: " changes))
       (reset! app-db-undo nil)
       (if (empty? changes)

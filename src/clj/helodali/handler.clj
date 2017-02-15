@@ -45,19 +45,9 @@
   (POST "/create-from-instagram" [uref sub access-token media :as req]
     (pprint (str "create-from-instagram media: " media))
     (process-request uref access-token #(create-artwork-from-instragram uref sub media)))
-
   (GET "/instagram/oauth/callback" [code state :as req]
     (process-instagram-auth code state)
     (redirect "/"))
-
-  ;; The Instagram subscription callback for GET requests is used for subscription setup.
-  (GET "/instagram/subscription-handler" [:as req]
-    (pprint (str "REQ: " req))
-    (get (:params req) "hub.challenge"))
-
-  (POST "/instagram/subscription-handler" [:as req]
-    (pprint (str "POST REQ: " req))
-    {:status 200})
 
   (POST "/update-profile" [uuid path val access-token :as req]
     (pprint (str "update-profile uuid/path/val: " uuid "/" path "/" val))
@@ -119,6 +109,20 @@
   ;; Everything else
   (resources "/"))
 
+(defroutes api-routes
+  (HEAD "/" [] "") ;; For default AWS health checks
+  (GET "/" [] "")
+  (GET "/health" [] "<html><body><h1>healthy</h1></body></html>")
+  ;; The Instagram subscription callback for GET requests is used for subscription setup.
+  (GET "/instagram/subscription-handler" [:as req]
+    (pprint (str "REQ: " req))
+    (get (:params req) "hub.challenge"))
+
+  (POST "/instagram/subscription-handler" [:as req]
+    (pprint (str "POST REQ: " req))
+    {:status 200}))
+
+
 (def dev-handler (-> #'routes
                     (wrap-defaults site-defaults)
                     (wrap-restful-params)
@@ -135,7 +139,7 @@
 
 ;; The handler for non-browser clients such as Instagram subscriptions. A separate build target
 ;; references this handler.
-(def api-handler (-> #'routes
+(def api-handler (-> #'api-routes
                     (wrap-defaults api-defaults)
                     (wrap-restful-params)
                     (wrap-restful-response)))

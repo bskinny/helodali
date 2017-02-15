@@ -54,7 +54,7 @@
         :width "160px" :backdrop-opacity 0.3 :on-cancel #(reset! showing-account-popover? false) :style {:cursor "pointer"}
         :body [v-box
                 :children [[label :label "Artist Profile" :on-click #(select-fn :profile)]
-                           [label :label "Account" :on-click #(select-fn :account)]
+                           ; [label :label "Account" :on-click #(select-fn :account)]
                            [label :label "Logout" :on-click (fn []
                                                                (dispatch [:logout])
                                                                (reset! showing-account-popover? false))]]]])))
@@ -187,8 +187,8 @@
                                       :press [press-view]
                                       :profile [profile-view]
                                       :static-page [static-pages-view]
-                                      :account [box :width "50%" :align-self :center
-                                                  :child [re-com/alert-box :alert-type :warning :closeable? true :body "The account page is still being developed"]]
+                                      ; :account [box :width "50%" :align-self :center
+                                      ;             :child [re-com/alert-box :alert-type :warning :closeable? true :body "The account page is still being developed"]]
                                       :purchases [purchases-view]
                                       :documents [documents-view]
                                       :exhibitions [exhibitions-view]
