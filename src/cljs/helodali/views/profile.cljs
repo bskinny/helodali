@@ -95,7 +95,7 @@
                   (when (not (empty? @url))
                     [h-box :gap "8px" :align :center :justify :start
                             :children [[:span.uppercase.light-grey "url"]
-                                       [re-com/hyperlink-href :label @url :href (url-to-href @url) :target "_blank"]]])
+                                       [re-com/hyperlink-href :label (trunc @url 50) :href (url-to-href @url) :target "_blank"]]])
                   (when (or (not (empty? @degrees)))
                     [h-box :gap "12px" :align :start :justify :start :padding "8px 0px"
                             :children [[label :width "20ch" :class "uppercase light-grey" :label "Degrees"]

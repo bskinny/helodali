@@ -57,7 +57,7 @@
                   (when (not (empty? @url))
                     [h-box :gap "8px" :align :center :justify :start
                             :children [[:span.uppercase.light-grey "url"]
-                                       [re-com/hyperlink-href :label @url :href (url-to-href @url) :target "_blank"]]])
+                                       [re-com/hyperlink-href :label (trunc @url 50) :href (url-to-href @url) :target "_blank"]]])
                   (when (not (empty? @instagram))
                     [h-box :gap "8px" :align :center :justify :start
                             :children [[:span.uppercase.light-grey "instagram"]
