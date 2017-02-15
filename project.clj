@@ -69,8 +69,8 @@
      :webapp    ;; Do not name this profile :uberjar or lein ring uberwar will not work
        {:hooks [leiningen.cljsbuild]  ;; This adds cljsbuild when lein does an ordinary compile
         :ring {:handler helodali.handler/handler
-               :uberwar-name "helodali.war"}
-               ; :war-exclusions []}  ;; This prevents excluding hidden files (default behavior) - we need .ebextensions
+               :uberwar-name "helodali.war"
+               :war-exclusions []}  ;; This prevents excluding hidden files (default behavior) - we need .ebextensions
         :cljsbuild
          {:builds
            {:app
@@ -86,14 +86,6 @@
        {:ring {:handler helodali.handler/api-handler
                :uberwar-name "helodali-api.war"}
         :cljsbuild {:builds []}}}
-
-    ; {:id           "test"
-    ;  :source-paths ["src/cljs" "test/cljs" "src/cljc"]
-    ;  :compiler     {:main          helodali.runner
-    ;                 :output-to     "resources/public/js/compiled/test.js"
-    ;                 :output-dir    "resources/public/js/compiled/test/out"
-    ;                 :optimizations :none}}]}
-
 
   :main helodali.server
 
