@@ -19,7 +19,7 @@
 (s/def ::ref (s/nilable ::uuid)) ;; Used to reference an item, certain situations require allowing nil
 (s/def ::associated-documents (s/nilable (s/* ::uuid)))
 (s/def ::associated-press (s/nilable (s/* ::uuid)))
-(s/def ::processing boolean?)
+(s/def ::processing (s/nilable boolean?))
 
 ;; Instagram items
 (s/def ::instagram-id (s/nilable string?))
