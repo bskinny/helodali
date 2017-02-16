@@ -195,7 +195,7 @@
   [in]
   (cond
     (map? in) (into {} (filter (fn [[k v]]
-                                (if (or (nil? v) (and (coll? v) (empty? v)))
+                                (if (or (nil? v) (and (string? v) (empty? v)) (and (coll? v) (empty? v)))
                                  false
                                  true)) in))
     (vector? in) (apply vector (map filter-out-empty in))
@@ -203,7 +203,7 @@
 
 (defn- walk-cleaner
   "Walk the input and:
-    - dissoc nil, [] and #{} valued keys, ignore non-map input"
+    - dissoc nil, \"\", [] and #{} valued keys, ignore non-map input"
   [in]
   (cond
       (map? in) (clojure.walk/walk (fn [[k v]] [k (filter-out-empty v)]) identity (filter-out-empty in))
