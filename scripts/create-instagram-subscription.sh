@@ -2,7 +2,8 @@
 
 . ~/env-helodali.sh
 
-curl -F "client_id=${HD_INSTAGRAM_CLIENT_ID}" \
+curl -X POST \
+     -F "client_id=${HD_INSTAGRAM_CLIENT_ID}" \
 	   -F "client_secret=${HD_INSTAGRAM_CLIENT_SECRET}" \
 		 -F 'object=user' \
 		 -F 'aspect=media' \
