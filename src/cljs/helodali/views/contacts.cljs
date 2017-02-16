@@ -3,6 +3,7 @@
               [helodali.routes :refer [route-single-item route-new-item route-view-display]]
               [helodali.misc :refer [trunc compute-bg-color max-string-length url-to-href sort-by-key-then-created]]
               [cljs.pprint :refer [pprint]]
+              [reagent.core  :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
               [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button hyperlink
                                               input-text input-textarea single-dropdown selection-list
@@ -171,11 +172,11 @@
         emails (subscribe [:items-vals :contacts :email])
         urls (subscribe [:items-vals :contacts :url])]
     (fn []
-      (let [widths {:name (+ 4 (max-string-length @names 80))
-                    :email (+ 4 (max-string-length @emails 40))
-                    :url (+ 4(max-string-length @urls 40))}
+      (let [widths (r/atom {:name (+ 4 (max-string-length @names 80))
+                            :email (+ 4 (max-string-length @emails 40))
+                            :url (+ 4(max-string-length @urls 40))})
             header [h-box :align :center :justify :start :width "100%"
-                      :children [[hyperlink :class "bold uppercase" :style {:width (str (max 18 (:name widths)) "ch")}
+                      :children [[hyperlink :class "bold uppercase" :style {:width (str (max 18 (:name @widths)) "ch")}
                                      :label "Contact" :tooltip "Sort by Title"
                                      :on-click #(if (= (first @sort-key) :name)
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
@@ -185,7 +186,7 @@
                                      :on-click #(if (= (first @sort-key) :role)
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts] [:role true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width (str (max 18 (:email widths)) "ch")}
+                                 [hyperlink :class "bold uppercase" :style {:width (str (max 18 (:email @widths)) "ch")}
                                      :label "email" :tooltip "Sort by Email"
                                      :on-click #(if (= (first @sort-key) :email)
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
@@ -195,7 +196,7 @@
                                      :on-click #(if (= (first @sort-key) :phone)
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts] [:phone true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width (str (max 18 (:url widths)) "ch")}
+                                 [hyperlink :class "bold uppercase" :style {:width (str (max 18 (:url @widths)) "ch")}
                                      :label "url" :tooltip "Sort by URL"
                                      :on-click #(if (= (first @sort-key) :url)
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
@@ -211,7 +212,7 @@
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts] [:facebook true]]))]]]]
         [v-box :gap "4px" :align :center :justify :start
-           :children (into [header] (mapv (fn [id bg] ^{:key id} [item-list-view widths id bg]) @items (cycle [true false])))]))))
+           :children (into [header] (mapv (fn [id bg] ^{:key (str id "-" (:name @widths))} [item-list-view @widths id bg]) @items (cycle [true false])))]))))
 
 (defn view-selection
   "The row of view selection controls: list new-item"

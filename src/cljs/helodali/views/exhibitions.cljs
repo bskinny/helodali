@@ -5,6 +5,7 @@
                                      safe-date-string uuid-label-list-to-options sort-by-key-then-created
                                       title-string]]
               [cljs.pprint :refer [pprint]]
+              [reagent.core  :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
               [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button hyperlink
                                               input-text input-textarea single-dropdown selection-list
@@ -201,11 +202,11 @@
         locations (subscribe [:items-vals :exhibitions :location])
         urls (subscribe [:items-vals :exhibitions :url])]
     (fn []
-      (let [widths {:name (+ 4 (max-string-length @names 80)) ;; Adding 4 to the length for font width fudging
-                    :location (+ 4 (max-string-length @locations 80))
-                    :url (+ 4 (max-string-length @urls 40))}
+      (let [widths (r/atom {:name (+ 4 (max-string-length @names 80)) ;; Adding 4 to the length for font width fudging
+                            :location (+ 4 (max-string-length @locations 80))
+                            :url (+ 4 (max-string-length @urls 40))})
             header [h-box :align :center :justify :start :width "100%"
-                      :children [[hyperlink :class "uppercase" :style {:width (str (max 18 (:name widths)) "ch")}
+                      :children [[hyperlink :class "uppercase" :style {:width (str (max 18 (:name @widths)) "ch")}
                                     :label "Exhibition" :tooltip "Sort by Exhibition"
                                     :on-click #(if (= (first @sort-key) :name)
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
@@ -215,7 +216,7 @@
                                     :on-click #(if (= (first @sort-key) :kind)
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:kind true]]))]
-                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:location widths)) "ch")}
+                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:location @widths)) "ch")}
                                     :label "Location" :tooltip "Sort by Location"
                                     :on-click #(if (= (first @sort-key) :location)
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
@@ -230,14 +231,14 @@
                                     :on-click #(if (= (first @sort-key) :end-date)
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:end-date true]]))]
-                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:url widths)) "ch")}
+                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:url @widths)) "ch")}
                                     :label "url" :tooltip "Sort by URL"
                                     :on-click #(if (= (first @sort-key) :url)
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:url true]]))]]]]
         [v-box :gap "4px" :align :center :justify :start
            :children (into [header]
-                           (mapv (fn [id bg] ^{:key id} [item-list-view widths id bg]) @ids (cycle [true false])))]))))
+                           (mapv (fn [id bg] ^{:key (str id "-" (:name @widths))} [item-list-view @widths id bg]) @ids (cycle [true false])))]))))
 
 (defn view-selection
   "The row of view selection controls: list new-item"

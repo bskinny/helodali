@@ -3,6 +3,7 @@
               [helodali.misc :refer [trunc compute-bg-color max-string-length url-to-href safe-date-string
                                      sort-by-datetime sort-by-key-then-created uuid-label-list-to-options]]
               [cljs.pprint :refer [pprint]]
+              [reagent.core  :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
               [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button hyperlink
                                               input-text input-textarea single-dropdown selection-list
@@ -182,16 +183,16 @@
         publications (subscribe [:items-vals :press :publication])
         urls (subscribe [:items-vals :press :url])]
     (fn []
-      (let [widths {:title (+ 4 (max-string-length @titles 80))
-                    :publication (+ 4 (max-string-length @publications 40))
-                    :url (+ 4 (max-string-length @urls 40))}
+      (let [widths (r/atom {:title (+ 4 (max-string-length @titles 80))
+                            :publication (+ 4 (max-string-length @publications 40))
+                            :url (+ 4 (max-string-length @urls 40))})
             header [h-box :align :center :justify :start :width "100%"
-                      :children [[hyperlink :class "uppercase" :style {:width (str (max 18 (:title widths)) "ch")}
+                      :children [[hyperlink :class "uppercase" :style {:width (str (max 18 (:title @widths)) "ch")}
                                     :label "Title" :tooltip "Sort by Title"
                                     :on-click #(if (= (first @sort-key) :title)
                                                  (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :press] [:title true]]))]
-                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:publication widths)) "ch")}
+                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:publication @widths)) "ch")}
                                     :label "Publication" :tooltip "Sort by Publication"
                                     :on-click #(if (= (first @sort-key) :publication)
                                                  (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
@@ -201,7 +202,7 @@
                                     :on-click #(if (= (first @sort-key) :publication-date)
                                                  (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :press] [:publication-date true]]))]
-                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:url widths)) "ch")}
+                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:url @widths)) "ch")}
                                     :label "url" :tooltip "Sort by URL"
                                     :on-click #(if (= (first @sort-key) :url)
                                                  (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
@@ -212,7 +213,7 @@
                                                  (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :press] [:include-in-cv true]]))]]]]
         [v-box :gap "4px" :align :center :justify :start
-           :children (into [header] (map (fn [id bg] ^{:key id} [item-list-view widths id bg]) @items (cycle [true false])))]))))
+           :children (into [header] (map (fn [id bg] ^{:key (str id "-" (:title @widths))} [item-list-view @widths id bg]) @items (cycle [true false])))]))))
 
 (defn view-selection
   "The row of view selection controls: list new-item"

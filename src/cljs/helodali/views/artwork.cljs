@@ -603,11 +603,11 @@
         styles (subscribe [:items-vals :artwork :style])
         mediums (subscribe [:items-vals :artwork :medium])]
     (fn []
-      (let [widths {:title (+ 4 (max-string-length @titles 40))
-                    :style (+ (max-string-length (map name @types) 40) (max-string-length (map #(str " | " (clojure.string/join ", " (map name %))) @styles) 60))
-                    :medium (+ 4 (max-string-length @mediums 20))}]
+      (let [widths (r/atom {:title (+ 4 (max-string-length @titles 40))
+                            :style (+ (max-string-length (map name @types) 40) (max-string-length (map #(str " | " (clojure.string/join ", " (map name %))) @styles) 60))
+                            :medium (+ 4 (max-string-length @mediums 20))})]
         [v-box :gap "4px" :align :center :justify :start
-           :children (into [] (mapv (fn [id bg] ^{:key id} [item-row-view widths id bg]) @items (cycle [true false])))]))))
+           :children (into [] (mapv (fn [id bg] ^{:key id} [item-row-view @widths id bg]) @items (cycle [true false])))]))))
 
 (defn list-view
   "Display list of items, one per line"
@@ -617,10 +617,10 @@
         titles (subscribe [:items-vals :artwork :title])
         mediums (subscribe [:items-vals :artwork :medium])]
     (fn []
-      (let [widths {:title (+ 4 (max-string-length @titles 40))
-                    :medium (+ 4 (max-string-length @mediums 16))}
+      (let [widths (r/atom {:title (+ 4 (max-string-length @titles 40))
+                            :medium (+ 4 (max-string-length @mediums 16))})
             header [h-box :align :center :justify :start :width "100%"
-                      :children [[hyperlink :class "uppercase" :style {:width (str (max 14 (:title widths)) "ch")} :label "Artwork Title"
+                      :children [[hyperlink :class "uppercase" :style {:width (str (max 14 (:title @widths)) "ch")} :label "Artwork Title"
                                     :tooltip "Sort by Title" :on-click #(if (= (first @sort-key) :title)
                                                                           (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
                                                                           (dispatch [:set-local-item-val [:sort-keys :artwork] [:title true]]))]
@@ -632,7 +632,7 @@
                                      :tooltip "Sort by Status" :on-click #(if (= (first @sort-key) :status)
                                                                             (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
                                                                             (dispatch [:set-local-item-val [:sort-keys :artwork] [:status true]]))]
-                                 [hyperlink :class "uppercase" :style {:width (str (max 8 (get widths :medium)) "ch")} :label "medium"
+                                 [hyperlink :class "uppercase" :style {:width (str (max 8 (get @widths :medium)) "ch")} :label "medium"
                                     :tooltip "Sort by Medium" :on-click #(if (= (first @sort-key) :medium)
                                                                           (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
                                                                           (dispatch [:set-local-item-val [:sort-keys :artwork] [:medium false]]))]
@@ -653,7 +653,7 @@
                                                                          (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
                                                                          (dispatch [:set-local-item-val [:sort-keys :artwork] [:type false]]))]]]]
         [v-box :gap "4px" :align :center :justify :start :margin "10px"
-           :children (into [header] (mapv (fn [id bg] ^{:key id} [item-list-view widths id bg]) @items (cycle [true false])))]))))
+           :children (into [header] (mapv (fn [id bg] ^{:key id} [item-list-view @widths id bg]) @items (cycle [true false])))]))))
 
 (defn view-selection
   "The row of view selection controls: contact-sheet row list"

@@ -186,14 +186,14 @@
         filenames (subscribe [:items-vals :documents :filename])
         titles (subscribe [:items-vals :documents :title])]
     (fn []
-      (let [widths {:filename (+ 4 (max-string-length @filenames 80))
-                    :title (+ 4 (max-string-length @titles 80))}
+      (let [widths (r/atom {:filename (+ 4 (max-string-length @filenames 80))
+                            :title (+ 4 (max-string-length @titles 80))})
             header [h-box :align :center :justify :start :width "100%"
-                      :children [[hyperlink :class "uppercase" :style {:width (str (max 14 (:title widths)) "ch")} :label "Title"
+                      :children [[hyperlink :class "uppercase" :style {:width (str (max 14 (:title @widths)) "ch")} :label "Title"
                                     :tooltip "Sort by Title" :on-click #(if (= (first @sort-key) :title)
                                                                           (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
                                                                           (dispatch [:set-local-item-val [:sort-keys :documents] [:title true]]))]
-                                 [hyperlink :class "uppercase" :style {:width (str (max 14 (:filename widths)) "ch")} :label "Filename"
+                                 [hyperlink :class "uppercase" :style {:width (str (max 14 (:filename @widths)) "ch")} :label "Filename"
                                     :tooltip "Sort by Filename" :on-click #(if (= (first @sort-key) :filename)
                                                                               (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
                                                                               (dispatch [:set-local-item-val [:sort-keys :documents] [:filename true]]))]
@@ -210,7 +210,7 @@
                                                                          (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
                                                                          (dispatch [:set-local-item-val [:sort-keys :documents] [:size false]]))]]]]
         [v-box :gap "4px" :align :center :justify :start
-           :children (into [header] (mapv (fn [id bg] ^{:key id} [item-list-view widths id bg]) @items (cycle [true false])))]))))
+           :children (into [header] (mapv (fn [id bg] ^{:key (str id "-" (:title @widths))} [item-list-view @widths id bg]) @items (cycle [true false])))]))))
 
 (defn view-selection
   "The row of view selection controls: list new-item"
