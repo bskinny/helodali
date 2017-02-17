@@ -95,7 +95,8 @@
                                         ;                   :on-mouse-out  (handler-fn (reset! showing-download-tooltip? false))
                                         ;                   :href @signed-raw-url
                                         ;                   :download ""}]]]
-                               (when (and @editing (= @display-type :single-item) (not @processing))
+                               (when (or (and @editing (= @display-type :single-item) (not @processing))
+                                         (and (not @editing) (empty? @key) (not @processing)))
                                  [h-box :gap "8px" :align :center :justify :center :style {:background-color "#428bca"}
                                     :children [(when-not (empty? @key)
                                                    [popover-anchor-wrapper
