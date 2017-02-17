@@ -1,7 +1,7 @@
 (ns helodali.views.press
     (:require [helodali.routes :refer [route-single-item route-new-item route-view-display]]
               [helodali.misc :refer [trunc compute-bg-color max-string-length url-to-href safe-date-string
-                                     sort-by-datetime sort-by-key-then-created uuid-label-list-to-options]]
+                                     safe-string sort-by-datetime sort-by-key-then-created uuid-label-list-to-options]]
               [cljs.pprint :refer [pprint]]
               [reagent.core  :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
@@ -19,7 +19,7 @@
          :children [(when (not (nil? (:created @document)))
                       [:span (safe-date-string (:created @document))])
                     (when (not (empty? (:title @document)))
-                      [hyperlink :class "semibold italic" :label (:title @document)
+                      [hyperlink :class "semibold italic" :label (safe-string (:title @document) "(no title)")
                                  :on-click #(route-single-item :documents uuid)])
                     (when (not (empty? (:filename @document)))
                       [:span (:filename @document)])]])))
@@ -62,7 +62,7 @@
                   (when (not (empty? @url))
                     [h-box :gap "8px" :align :center :justify :start
                             :children [[:span.uppercase.light-grey "url"]
-                                       [re-com/hyperlink-href :label (trunc @url 50) :href (url-to-href @url) :target "_blank"]]])
+                                       [re-com/hyperlink-href :label (trunc (str @url) 50) :href (url-to-href @url) :target "_blank"]]])
                   (when (not (empty? @volume))
                     [h-box :gap "8px" :align :center :justify :start
                             :children [[:span.uppercase.light-grey "volume"]
@@ -156,7 +156,7 @@
         notes (subscribe [:item-key :press id :notes])]
     (fn []
       [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
-        :children [[hyperlink :style {:width (str (max 18 (get widths :title)) "ch")} :label (trunc @title (get widths :title))
+        :children [[hyperlink :style {:width (str (max 18 (get widths :title)) "ch")} :label (trunc (safe-string @title "(no title)") (get widths :title))
                        :on-click #(route-single-item :press @uuid)]
                    [label :width (str (max 18 (:publication widths)) "ch") :label (trunc @publication (:publication widths))]
                    [label :width "15ch" :label (safe-date-string @publication-date)]
@@ -183,7 +183,7 @@
         publications (subscribe [:items-vals :press :publication])
         urls (subscribe [:items-vals :press :url])]
     (fn []
-      (let [widths (r/atom {:title (+ 4 (max-string-length @titles 80))
+      (let [widths (r/atom {:title (+ 8 (max-string-length @titles 80))
                             :publication (+ 4 (max-string-length @publications 40))
                             :url (+ 4 (max-string-length @urls 40))})
             header [h-box :align :center :justify :start :width "100%"

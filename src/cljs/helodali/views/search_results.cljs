@@ -2,7 +2,7 @@
     (:require [helodali.db :as db]
               [helodali.routes :refer [route-single-item route-profile]]
               [helodali.misc :refer [trunc compute-bg-color max-string-length url-to-href safe-date-string
-                                     sort-by-datetime]]
+                                     safe-string sort-by-datetime]]
               [cljs.pprint :refer [pprint]]
               [reagent.core  :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]

@@ -1,7 +1,7 @@
 (ns helodali.views.contacts
     (:require [helodali.views.referred-artwork :refer [referred-artwork-list-view]]
               [helodali.routes :refer [route-single-item route-new-item route-view-display]]
-              [helodali.misc :refer [trunc compute-bg-color max-string-length url-to-href sort-by-key-then-created]]
+              [helodali.misc :refer [trunc compute-bg-color max-string-length url-to-href safe-string sort-by-key-then-created]]
               [cljs.pprint :refer [pprint]]
               [reagent.core  :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
@@ -58,7 +58,7 @@
                   (when (not (empty? @url))
                     [h-box :gap "8px" :align :center :justify :start
                             :children [[:span.uppercase.light-grey "url"]
-                                       [re-com/hyperlink-href :label (trunc @url 50) :href (url-to-href @url) :target "_blank"]]])
+                                       [re-com/hyperlink-href :label (trunc (str @url) 50) :href (url-to-href @url) :target "_blank"]]])
                   (when (not (empty? @instagram))
                     [h-box :gap "8px" :align :center :justify :start
                             :children [[:span.uppercase.light-grey "instagram"]
@@ -146,7 +146,7 @@
         facebook (subscribe [:item-key :contacts id :facebook])]
     (fn []
       [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
-        :children [[hyperlink :class "semibold" :style {:width (str (max 18 (get widths :name)) "ch")} :label (trunc @cn (get widths :name))
+        :children [[hyperlink :class "semibold" :style {:width (str (max 18 (get widths :name)) "ch")} :label (trunc (safe-string @cn "(no name)") (get widths :name))
                        :on-click #(route-single-item :contacts @uuid)]
                    [label :width "12ch" :class "all-small-caps" :label (clojure.string/replace (name @role) #"-" " ")]
                    [label :width (str (max 18 (:email widths)) "ch") :label (trunc @email (:email widths))]
@@ -172,7 +172,7 @@
         emails (subscribe [:items-vals :contacts :email])
         urls (subscribe [:items-vals :contacts :url])]
     (fn []
-      (let [widths (r/atom {:name (+ 4 (max-string-length @names 80))
+      (let [widths (r/atom {:name (+ 8 (max-string-length @names 80))
                             :email (+ 4 (max-string-length @emails 40))
                             :url (+ 4(max-string-length @urls 40))})
             header [h-box :align :center :justify :start :width "100%"

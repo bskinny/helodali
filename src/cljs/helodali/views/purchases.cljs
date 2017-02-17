@@ -2,7 +2,7 @@
     (:require [helodali.db :as db]
               [helodali.routes :refer [route-single-item]]
               [helodali.misc :refer [trunc compute-bg-color max-string-length url-to-href safe-date-string
-                                     sort-by-datetime]]
+                                     safe-string sort-by-datetime]]
               [cljs.pprint :refer [pprint]]
               [reagent.core  :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
@@ -30,18 +30,18 @@
                          (subscribe [:item-by-uuid :contacts (:dealer purchase)]))]
     [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
       :children [[label :width "15ch" :label (safe-date-string (:date purchase))]
-                 [hyperlink :style {:width (str (max 18 (:title widths)) "ch")} :label (trunc (:title @artwork) (:title widths))
+                 [hyperlink :style {:width (str (max 18 (:title widths)) "ch")} :label (trunc (safe-string (:title @artwork) "(no title)") (:title widths))
                             :on-click #(route-single-item :artwork uuid)]
                  (if (not (nil? @buyer-contact))
-                   [hyperlink :style {:width (str (max 18 (:buyer widths)) "ch")} :label (trunc (:name @buyer-contact) (:buyer widths))
+                   [hyperlink :style {:width (str (max 18 (:buyer widths)) "ch")} :label (trunc (safe-string (:name @buyer-contact) "(no name)") (:buyer widths))
                               :on-click #(route-single-item :contacts (:uuid @buyer-contact))]
                    [label :width (str (max 18 (:buyer widths)) "ch") :label ""])
                  (if (not (nil? @agent-contact))
-                   [hyperlink :style {:width (str (max 18 (:agent widths)) "ch")} :label (trunc (:name @agent-contact) (:agent widths))
+                   [hyperlink :style {:width (str (max 18 (:agent widths)) "ch")} :label (trunc (safe-string (:name @agent-contact) "(no name)") (:agent widths))
                               :on-click #(route-single-item :contacts (:uuid @agent-contact))]
                    [label :width (str (max 18 (:agent widths)) "ch") :label ""])
                  (if (not (nil? @dealer-contact))
-                   [hyperlink :style {:width (str (max 18 (:dealer widths)) "ch")} :label (trunc (:name @dealer-contact) (:dealer widths))
+                   [hyperlink :style {:width (str (max 18 (:dealer widths)) "ch")} :label (trunc (safe-string (:name @dealer-contact) "(no name)") (:dealer widths))
                               :on-click #(route-single-item :contacts (:uuid @dealer-contact))]
                    [label :width (str (max 18 (:dealer widths)) "ch") :label ""])
                  [label :width "8ch" :label (:price purchase)]

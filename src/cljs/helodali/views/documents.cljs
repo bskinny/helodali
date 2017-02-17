@@ -186,8 +186,8 @@
         filenames (subscribe [:items-vals :documents :filename])
         titles (subscribe [:items-vals :documents :title])]
     (fn []
-      (let [widths (r/atom {:filename (+ 4 (max-string-length @filenames 80))
-                            :title (+ 4 (max-string-length @titles 80))})
+      (let [widths (r/atom {:filename (+ 8 (max-string-length @filenames 80))
+                            :title (+ 8 (max-string-length @titles 80))})
             header [h-box :align :center :justify :start :width "100%"
                       :children [[hyperlink :class "uppercase" :style {:width (str (max 14 (:title @widths)) "ch")} :label "Title"
                                     :tooltip "Sort by Title" :on-click #(if (= (first @sort-key) :title)

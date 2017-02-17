@@ -3,7 +3,7 @@
               [helodali.routes :refer [route-single-item route-new-item route-view-display]]
               [helodali.misc :refer [trunc compute-bg-color max-string-length url-to-href sort-by-datetime
                                      safe-date-string uuid-label-list-to-options sort-by-key-then-created
-                                      title-string]]
+                                     safe-string title-string]]
               [cljs.pprint :refer [pprint]]
               [reagent.core  :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
@@ -26,7 +26,7 @@
          :children [(when (not (nil? (:publication-date @press)))
                       [:span (safe-date-string (:publication-date @press))])
                     (when (not (empty? (:title @press)))
-                      [hyperlink :class "semibold italic" :label (:title @press)
+                      [hyperlink :class "semibold italic" :label (safe-string (:title @press) "(no title)")
                                  :on-click #(route-single-item :press uuid)])
                     (when (not (empty? (:publication @press)))
                       [:span (:publication @press)])]])]))
@@ -41,7 +41,7 @@
          :children [(when (not (nil? (:created @document)))
                       [:span (safe-date-string (:created @document))])
                     (when (not (empty? (:title @document)))
-                      [hyperlink :class "semibold italic" :label (:title @document)
+                      [hyperlink :class "semibold italic" :label (safe-string (:title @document) "(no title)")
                                  :on-click #(route-single-item :documents uuid)])
                     (when (not (empty? (:filename @document)))
                       [:span (:filename @document)])]])]))
@@ -177,7 +177,7 @@
         kind (subscribe [:item-key :exhibitions id :kind])]
     (fn []
       [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
-        :children [[hyperlink :style {:width (str (max 18 (get widths :name)) "ch")} :label (trunc @cn (get widths :name))
+        :children [[hyperlink :style {:width (str (max 18 (get widths :name)) "ch")} :label (trunc (safe-string @cn "(no name)") (get widths :name))
                        :on-click #(route-single-item :exhibitions @uuid)]
                    [label :width "12ch" :class "all-small-caps" :label (clojure.string/replace (name @kind) #"-" " ")]
                    [label :width (str (max 18 (:location widths)) "ch") :label (trunc @location (:location widths))]
