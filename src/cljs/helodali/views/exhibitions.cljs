@@ -109,7 +109,7 @@
                                        [:span @notes]]])]
             create-control [h-box :gap "30px" :align :center
                               :children [[button :label "Create" :class "btn-default"
-                                           :on-click #(dispatch [:create-from-placeholder :exhibitions])]
+                                           :on-click #(dispatch [:create-from-placeholder :exhibitions []])]
                                          [button :label "Cancel" :class "btn-default"
                                            :on-click #(dispatch [:delete-item :exhibitions id])]]]
             save-control [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
@@ -202,7 +202,7 @@
         locations (subscribe [:items-vals :exhibitions :location])
         urls (subscribe [:items-vals :exhibitions :url])]
     (fn []
-      (let [widths (r/atom {:name (+ 4 (max-string-length @names 80)) ;; Adding 4 to the length for font width fudging
+      (let [widths (r/atom {:name (+ 13 (max-string-length @names 80)) ;; Adding 4 to the length for font width fudging
                             :location (+ 4 (max-string-length @locations 80))
                             :url (+ 4 (max-string-length @urls 40))})
             header [h-box :align :center :justify :start :width "100%"

@@ -61,7 +61,7 @@
                                        [:span @notes]]])]
             create-control [h-box :gap "30px" :align :center
                               :children [[button :label "Create" :class "btn-default"
-                                           :on-click #(dispatch [:create-from-placeholder :documents])]
+                                           :on-click #(dispatch [:create-from-placeholder :documents []])]
                                          [button :label "Cancel" :class "btn-default"
                                            :on-click #(dispatch [:delete-item :documents id])]]]
             save-control [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
@@ -188,7 +188,7 @@
         titles (subscribe [:items-vals :documents :title])]
     (fn []
       (let [widths (r/atom {:filename (+ 8 (max-string-length @filenames 80))
-                            :title (+ 8 (max-string-length @titles 80))})
+                            :title (+ 13 (max-string-length @titles 80))}) ;; 13 => leave space for "(no title)"
             header [h-box :align :center :justify :start :width "100%"
                       :children [[hyperlink :class "uppercase" :style {:width (str (max 14 (:title @widths)) "ch")} :label "Title"
                                     :tooltip "Sort by Title" :on-click #(if (= (first @sort-key) :title)

@@ -691,19 +691,29 @@
                     (assoc-in [type id :expanded] true))]
       (assoc new-db :single-item-uuid (get-in new-db [type id :uuid])))))
 
+;; Create item based on contents of placeholder iten (id == 0) but confirm
+;; the existence of values for required fields. If confirmation fails,
+;; add a warning message.
 (reg-event-fx
   :create-from-placeholder
   manual-check-spec
-  (fn [{:keys [db]} [type]]
-    (let [id (next-id (get db type))
-          new-db (-> db
-                    (assoc :display-type :single-item)
-                    (assoc-in [type id] (get-in db [type 0]))
-                    (assoc-in [type id :uref] (get-in db [:profile :uuid]))
-                    (assoc-in [type id :editing] false)
-                    (update-in [type] dissoc 0))]
-      (reset! app-db-undo nil)
-      (create-fx new-db type (get-in new-db [type id])))))
+  (fn [{:keys [db]} [type required-fields]]
+    (let [placeholder (get-in db [type 0])
+          required-values (map #(get placeholder %) required-fields)
+          empty-values (filter #(or (nil? %) (and (string? %) (empty? %))) required-values)]
+      (if-not (empty? empty-values)
+        ;; Return to the editing
+        {:db (assoc db :message (str "The following fields require a value: " (clojure.string/join ", " (map name required-fields))))}
+        ;; Create the item
+        (let [id (next-id (get db type))
+              new-db (-> db
+                        (assoc :display-type :single-item)
+                        (assoc-in [type id] placeholder)
+                        (assoc-in [type id :uref] (get-in db [:profile :uuid]))
+                        (assoc-in [type id :editing] false)
+                        (update-in [type] dissoc 0))]
+          (reset! app-db-undo nil)
+          (create-fx new-db type (get-in new-db [type id])))))))
 
 (defn- reflect-item-deletion
   [db type id]

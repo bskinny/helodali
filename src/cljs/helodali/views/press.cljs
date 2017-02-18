@@ -89,7 +89,7 @@
                                        [:span @notes]]])]
             create-control [h-box :gap "30px" :align :center
                               :children [[button :label "Create" :class "btn-default"
-                                           :on-click #(dispatch [:create-from-placeholder :press])]
+                                           :on-click #(dispatch [:create-from-placeholder :press []])]
                                          [button :label "Cancel" :class "btn-default"
                                            :on-click #(dispatch [:delete-item :press id])]]]
             save-control [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
@@ -183,7 +183,7 @@
         publications (subscribe [:items-vals :press :publication])
         urls (subscribe [:items-vals :press :url])]
     (fn []
-      (let [widths (r/atom {:title (+ 8 (max-string-length @titles 80))
+      (let [widths (r/atom {:title (+ 13 (max-string-length @titles 80))
                             :publication (+ 4 (max-string-length @publications 40))
                             :url (+ 4 (max-string-length @urls 40))})
             header [h-box :align :center :justify :start :width "100%"

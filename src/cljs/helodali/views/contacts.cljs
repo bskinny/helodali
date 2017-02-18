@@ -78,7 +78,7 @@
             view-box [v-box :gap "10px" :align :start :justify :start :children view]
             create-control [h-box :gap "30px" :align :center
                               :children [[button :label "Create" :class "btn-default"
-                                           :on-click #(dispatch [:create-from-placeholder :contacts])]
+                                           :on-click #(dispatch [:create-from-placeholder :contacts [:name]])]
                                          [button :label "Cancel" :class "btn-default"
                                            :on-click #(dispatch [:delete-item :contacts id])]]]
             save-control [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
@@ -172,7 +172,7 @@
         emails (subscribe [:items-vals :contacts :email])
         urls (subscribe [:items-vals :contacts :url])]
     (fn []
-      (let [widths (r/atom {:name (+ 8 (max-string-length @names 80))
+      (let [widths (r/atom {:name (+ 13 (max-string-length @names 80))
                             :email (+ 4 (max-string-length @emails 40))
                             :url (+ 4(max-string-length @urls 40))})
             header [h-box :align :center :justify :start :width "100%"
