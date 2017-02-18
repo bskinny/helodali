@@ -73,7 +73,8 @@
                                        (route-search %))]
                     [h-box :gap "8px" :justify :around
                       :children [[md-icon-button :md-icon-name "zmdi zmdi-collection-image-o" :size :larger
-                                                 :on-click #(route helodali.routes/view {:type (name :artwork)})]
+                                                 :on-click #(do (dispatch [:sweep-and-set :artwork :expanded false])
+                                                                (route helodali.routes/view {:type (name :artwork)}))]
                                  [re-com/popover-anchor-wrapper :showing? showing-account-popover? :position :below-right
                                    :anchor   [md-icon-button :md-icon-name "zmdi zmdi-account-o" :size :larger
                                                     :on-click #(reset! showing-account-popover? true)]

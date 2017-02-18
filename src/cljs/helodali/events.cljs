@@ -651,6 +651,14 @@
                       {:dispatch-n (list [:copy-s3-object "helodali-documents" (get-in db [type source-id]) [type id]])})
         db-changes))))
 
+;; Sweep through items of given type and set given (top-level) kw to value
+(reg-event-db
+  :sweep-and-set
+  manual-check-spec
+  (fn [db [type kw value]]
+    (let [apply-change (fn [new-items id item]
+                         (assoc new-items id (assoc item kw value)))]
+      (assoc db type (reduce-kv apply-change (sorted-map) (get db type))))))
 
 ;; Change view. If 'display' is :default, look up the default view for the item type
 (reg-event-db
