@@ -114,8 +114,14 @@
   (let [result (js->clj auth-result)]
     (dispatch [:authenticated true (get result "accessToken") (get result "idToken")])))
 
+(defn display-message
+  [id msg]
+  [box :width "50%" :align-self :center
+     :child [re-com/alert-box :alert-type :warning :closeable? true :body msg
+                :on-close #(dispatch [:clear-message id])]])
+
 (defn main-panel []
- (let [msg (subscribe [:app-key :message])
+ (let [msgs (subscribe [:app-key :messages])
        view (subscribe [:app-key :view])
        authenticated? (subscribe [:app-key :authenticated?])
        initialized? (subscribe [:app-key :initialized?])
@@ -177,10 +183,9 @@
          [v-box :gap "0px" :margin "0px" :justify :between :width "100%" ; :style {:border "dashed 1px red"}
             :children [[v-box
                          :children [[header]
-                                    (if (not (empty? @msg))
-                                      [box :width "50%" :align-self :center
-                                         :child [re-com/alert-box :alert-type :warning :closeable? true :body @msg
-                                                    :on-close #(dispatch [:set-local-item-val [:message] ""])]])
+                                    (if (not (empty? @msgs))
+                                      [v-box :gap "12px" :justify :start :align :center
+                                          :children (mapv (fn [[id msg]] ^{:key (str id)} [display-message id msg]) @msgs)])
                                     [re-com/gap :size "18px"]
                                     (condp = @view
                                       :artwork [artwork-view]

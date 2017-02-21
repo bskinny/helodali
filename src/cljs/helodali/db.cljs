@@ -161,7 +161,7 @@
    :view :artwork ;; Can be :artwork :contacts :exhibitions :documents :purchases :profile :search-results
    :display-type :contact-sheet ;; Can be :new-item :contact-sheet :row :list :single-item :large-contact-sheet
    :single-item-uuid nil ;; Used to defined which entity is being viewed in detail
-   :message nil
+   :messages {}
    :initialized? true
    :csrf-token nil})
 
@@ -177,7 +177,7 @@
    :static-page nil
    :display-type :contact-sheet ;; Can be :new-item :contact-sheet :row :list :single-item :instagram :large-contact-sheet
    :single-item-uuid nil ;; Used to defined which entity is being viewed in detail
-   :message nil
+   :messages {}
    :search-pattern nil
    :sit-and-spin false ;; A directive to show the spinner on the main page
    :initialized? false

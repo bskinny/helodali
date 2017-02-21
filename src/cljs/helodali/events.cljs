@@ -43,6 +43,14 @@
 (def manual-check-spec [(when ^boolean js/goog.DEBUG debug)
                         trim-v])
 
+(defn- add-message
+  "Add a message to :messages (stack of warnings in the UI). If id is nil, generate
+   a uuid as the id. The :messages value in app-db is a map keyed by labels which
+   provide a means for clearing messages. See the :clear-message event."
+  [db id msg]
+  (let [k (or id (generate-uuid))]
+    (assoc-in db [:messages k] msg)))
+
 (defn- csrf-token-request [on-success]
   {:http-xhrio {:method          :get
                 :uri             "/csrf-token"
@@ -223,7 +231,7 @@
 
 ;; Like above but without the predicate check and with a retry function to dispatch
 (reg-event-fx
-  :update-db-and-retry-with-new-csrf-token
+  :update-csrf-token-and-retry
   manual-check-spec
   (fn [{:keys [db]} [partial-retry-fx result]]
     (let [db (merge db result)] ;; Merge in new csrf-token
@@ -253,7 +261,7 @@
 ;; 'path' with value 'val'. 'path' may point to an item or a specific attribute.
 (defn- update-fx
   [path val is-retry? db]
-  (let [spec-it (check-and-throw :helodali.spec/db db)
+  (let [_ (check-and-throw :helodali.spec/db db)
         type (first path)
         id (second path)
         inside-item-path (rest (rest path))  ;; hop over type and 'id' which only exists on the client app-db
@@ -281,52 +289,48 @@
 ;; Similar to above but restricted to the app-db's :profile, which results to writes against
 ;; the :profiles table on the server. 'path' should be [:profile] or start as such.
 (defn- update-profile-fx
-  ([db path val]
-   (update-profile-fx db path val false))
-  ([db path val is-retry?]
-   (let [ _ (check-and-throw :helodali.spec/db db)
-         inside-profile-path (rest path)
-         retry-fx (or is-retry? #(update-profile-fx db path val true))
-         val (walk-cleaner val)
-         fx (if is-retry? {} {:db db})]
-     (merge fx {:http-xhrio {:method          :post
-                             :uri             "/update-profile"
-                             :params          {:uuid (get-in db [:profile :uuid])
-                                               :path inside-profile-path :val val
-                                               :access-token (:access-token db)}
-                             :headers         {:x-csrf-token (:csrf-token db)}
-                             :timeout         5000
-                             :format          (ajax/transit-request-format {})
-                             :response-format (ajax/transit-response-format {:keywords? true})
-                             :on-success      [:noop]
-                             :on-failure      [:bad-result {} retry-fx]}}))))
+  [path val is-retry? db]
+  (let [_ (check-and-throw :helodali.spec/db db)
+        inside-profile-path (rest path)
+        retry-fx (or is-retry? (partial update-profile-fx path val true))
+        val (walk-cleaner val)
+        fx (if is-retry? {} {:db db})]
+    (merge fx {:http-xhrio {:method          :post
+                            :uri             "/update-profile"
+                            :params          {:uuid (get-in db [:profile :uuid])
+                                              :path inside-profile-path :val val
+                                              :access-token (:access-token db)}
+                            :headers         {:x-csrf-token (:csrf-token db)}
+                            :timeout         5000
+                            :format          (ajax/transit-request-format {})
+                            :response-format (ajax/transit-response-format {:keywords? true})
+                            :on-success      [:noop]
+                            :on-failure      [:bad-result {} retry-fx]}})))
 
 (defn- create-fx
-  ([db table item]
-   (create-fx db table item false))
-  ([db table item is-retry?]
-   (let [spec-it (check-and-throw :helodali.spec/db db)
-         item (-> item
-                 (walk-cleaner)
-                 (assoc :uref (get-in db [:profile :uuid]))
-                 (dissoc :editing :expanded))
-         retry-fx (or is-retry? #(create-fx db table item true))
-         fx (if is-retry? {} {:db db})]
-     (merge fx {:http-xhrio {:method          :post
-                             :uri             "/create-item"
-                             :params          {:table table :item item :access-token (:access-token db)}
-                             :headers         {:x-csrf-token (:csrf-token db)}
-                             :timeout         5000
-                             :format          (ajax/transit-request-format {})
-                             :response-format (ajax/transit-response-format {:keywords? true})
-                             :on-success      [:noop]
-                             :on-failure      [:bad-result {} retry-fx]}}))))
+  [table item is-retry? db]
+  (let [_ (check-and-throw :helodali.spec/db db)
+        item (-> item
+                (walk-cleaner)
+                (assoc :uref (get-in db [:profile :uuid]))
+                (dissoc :editing :expanded))
+        retry-fx (or is-retry? (partial create-fx table item true))
+        fx (if is-retry? {} {:db db})]
+    (merge fx {:http-xhrio {:method          :post
+                            :uri             "/create-item"
+                            :params          {:table table :item item :access-token (:access-token db)}
+                            :headers         {:x-csrf-token (:csrf-token db)}
+                            :timeout         5000
+                            :format          (ajax/transit-request-format {})
+                            :response-format (ajax/transit-response-format {:keywords? true})
+                            :on-success      [:noop]
+                            :on-failure      [:bad-result {} retry-fx]}})))
 
 (defn- delete-fx
   ([db table item]
    (delete-fx db table item false))
   ([db table item is-retry?]
-   (let [spec-it (check-and-throw :helodali.spec/db db)
+   (let [_ (check-and-throw :helodali.spec/db db)
          retry-fx (or is-retry? #(delete-fx db table item true))
          fx (if is-retry? {} {:db db})]
      (merge fx {:http-xhrio {:method          :post
@@ -402,6 +406,7 @@
                      (:signed-raw-url-expiration-time diffA) (dissoc :signed-raw-url-expiration-time) ;; For :documents
                      (:processing diffA) (dissoc :processing) ;; For :documents
                      (:editing diffA) (dissoc :editing)
+                     (:expanded diffA) (dissoc :expanded)
                      (and (= type :profile) (or (:degrees diffA) (:degrees diffB))) (assoc :degrees (:degrees item))
                      (and (= type :profile) (or (:collections diffA) (:collections diffB))) (assoc :collections (:collections item))
                      (and (= type :profile) (or (:lectures-and-talks diffA) (:lectures-and-talks diffB))) (assoc :lectures-and-talks (:lectures-and-talks item))
@@ -420,7 +425,7 @@
       (if (empty? changes)
         {:db new-db} ;; No changes to apply to server
         (condp = type
-          :profile (update-profile-fx new-db item-path changes)
+          :profile (update-profile-fx item-path changes false new-db)
           (update-fx item-path changes false new-db))))))
 
 ;; Create an artwork item from an Instagram post in our :instagram-media map.
@@ -649,7 +654,7 @@
                                                                                               :signed-raw-url nil
                                                                                               :signed-raw-url-expiration-time nil
                                                                                               :processing nil})))
-          db-changes (create-fx new-db type (get-in new-db [type id]))]
+          db-changes (create-fx type (get-in new-db [type id]) false new-db)]
       (condp = type
         :artwork (merge db-changes
                       {:dispatch-n (apply list (map (fn [m] [:copy-s3-within-bucket "helodali-raw-images" m [type id]])
@@ -718,7 +723,7 @@
           empty-values (filter #(or (nil? %) (and (string? %) (empty? %))) required-values)]
       (if-not (empty? empty-values)
         ;; Return to the editing
-        {:db (assoc db :message (str "The following fields require a value: " (clojure.string/join ", " (map name required-fields))))}
+        {:db (add-message db :form-error (str "The following fields require a value: " (clojure.string/join ", " (map name required-fields))))}
         ;; Create the item
         (let [id (next-id (get db type))
               new-db (-> db
@@ -728,7 +733,7 @@
                         (assoc-in [type id :editing] false)
                         (update-in [type] dissoc 0))]
           (reset! app-db-undo nil)
-          (create-fx new-db type (get-in new-db [type id])))))))
+          (create-fx type (get-in new-db [type id]) false new-db))))))
 
 (defn- reflect-item-deletion
   [db type id]
@@ -788,7 +793,7 @@
           refint (referential-integrity-check db type id)
           new-db (if (empty? refint)
                    (reflect-item-deletion db type id)
-                   (assoc db :message refint))]
+                   (add-message db :form-error refint))]
       ;; Submit change to server for all deletes except those to the placeholder item
       (if (or (= 0 id) (not (empty? refint)))
         {:db new-db}
@@ -803,7 +808,7 @@
            refint (referential-integrity-check db type id)
            new-db (if (empty? refint)
                     (reflect-item-deletion db type id)
-                    (assoc db :message refint))]
+                    (add-message db :form-error refint))]
       ;; Submit change to server for all deletes except those to the placeholder item
       (if (or (= 0 id) (not (empty? refint)))
         {:db new-db}
@@ -819,7 +824,7 @@
            refint (referential-integrity-check db type id)
            new-db (if (empty? refint)
                     (reflect-item-deletion db type id)
-                    (assoc db :message refint))]
+                    (add-message db :form-error efint))]
       ;; Submit change to server for all deletes except those to the placeholder item
       (if (or (= 0 id) (not (empty? refint)))
         {:db new-db}
@@ -888,12 +893,6 @@
       (assoc-in [type (find-item-by-key-value (get db type) :uuid uuid) :expanded] true))))
 
 (reg-event-db
-  :set-message
-  interceptors
-  (fn [db [msg]]
-    (assoc db :message msg)))
-
-(reg-event-db
   :noop
   (fn [db _]
     db))
@@ -904,6 +903,12 @@
   (fn [{:keys [db]} [retry-fx]]
     (retry-fx)))
 
+(reg-event-db
+  :clear-message
+  manual-check-spec
+  (fn [{:keys [db]} [id]]
+    (update-in db [:messages] dissoc id)))
+
 (reg-event-fx
   :bad-result
   manual-check-spec
@@ -911,20 +916,15 @@
     (pprint (str "bad-result: " result))
     (if (and (= 403 (:status result)) retry-fx)
       ;; Refetch the csrf-token and retry the operation
-      (merge (csrf-token-request [:update-db-and-retry-with-new-csrf-token retry-fx]))
+      (merge (csrf-token-request [:update-csrf-token-and-retry retry-fx]))
       ;; else update the message to alert the user of the trouble
       ;; TODO: Need to back out change made to local app-db
       (let [db (merge db merge-this)]
         (if (string? result)
-          (assoc db :message result)
+          (add-message db nil result)
           (if (map? result)
-            (assoc db :message (str (:reason (:response result))))
-            (assoc db :message "An error occurred when processing the request")))))))
-
-(reg-event-db
-  :good-image-upload-result
-  (fn [db [_ result]]
-    (assoc db :message result)))
+            (add-message db nil (str (:reason (:response result))))
+            (add-message db nil "An error occurred when processing the request")))))))
 
 ;; This event should be dispatched when an item or path into an item needs to be
 ;; refreshed from the database. We dispatch continually, with a
@@ -1271,5 +1271,5 @@
 ;                     :timeout         5000
 ;                     :format          (ajax/json-request-format)
 ;                     :response-format (ajax/json-response-format {:keywords? true})
-;                     :on-success      [:good-image-upload-result]
+;                     :on-success      [:noop]
 ;                     :on-failure      [:bad-result {} false]}})))
