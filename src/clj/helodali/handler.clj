@@ -8,7 +8,10 @@
                                  create-artwork-from-instragram]]
             [helodali.instagram :refer [refresh-instagram process-instagram-auth]]
             [helodali.auth0 :as auth0]
-            [ring.util.response :refer [content-type response resource-response file-response redirect]]
+            [ring.logger :as logger]
+            [ring.logger.protocols :as logger.protocols]
+            [ring.logger.tools-logging :refer [make-tools-logging-logger]]
+            [ring.util.response :refer [content-type header response resource-response file-response redirect]]
             [ring.middleware.reload :refer [wrap-reload]]
             [ring.middleware.defaults :refer :all]
             [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]
@@ -106,6 +109,11 @@
   (ANY "/search/*" [] (redirect "/"))
   (ANY "/instagram/*" [] (redirect "/"))
 
+  (GET "/js/compiled/:js" [js]
+    (pprint (str "Handling GET for " js))
+    (-> (resource-response js {:root "public/js/compiled"})
+       (header "Cache-Control" "max-age=86400, must-revalidate")))
+
   ;; Everything else
   (resources "/"))
 
@@ -123,15 +131,27 @@
     {:status 200}))
 
 
+(defn- wrap-debug
+  [handler]
+  (fn [request]
+    (pprint (str "REQUEST: " request))
+    (let [resp (handler request)]
+      (pprint (str "RESPONSE: " resp))
+      resp)))
+
 (def dev-handler (-> #'routes
                     (wrap-defaults site-defaults)
                     (wrap-restful-params)
                     (wrap-restful-response)
                     (wrap-reload)))
+                    ; (logger/wrap-with-logger {:logger (let [logger (make-tools-logging-logger)]
+                    ;                                     (reify logger.protocols/Logger
+                    ;                                       (add-extra-middleware [_ handler] handler)
+                    ;                                       (log [_ level throwable message]
+                    ;                                         (println "Level " level ": " message)
+                    ;                                         (logger.protocols/log logger level throwable (format "%s" message)))))})))
 
-;; Note: I have not successfully configured secure-site-defaults yet. Even with the :proxy option,
-;; AWS is not happy with the secure site defaults.
-;; see https://github.com/ring-clojure/ring-defaults/blob/master/src/ring/middleware/defaults.clj
+;; Don't use secure-site-defaults. We are using http->https redirection via .ebextensions
 (def handler (-> #'routes
                 (wrap-defaults site-defaults)
                 (wrap-restful-params)

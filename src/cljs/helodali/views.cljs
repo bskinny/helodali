@@ -188,8 +188,8 @@
                                       :press [press-view]
                                       :profile [profile-view]
                                       :static-page [static-pages-view]
-                                      ; :account [box :width "50%" :align-self :center
-                                      ;             :child [re-com/alert-box :alert-type :warning :closeable? true :body "The account page is still being developed"]]
+                                      :account [box :width "50%" :align-self :center
+                                                  :child [re-com/alert-box :alert-type :warning :closeable? true :body "The account page is still being developed"]]
                                       :purchases [purchases-view]
                                       :documents [documents-view]
                                       :exhibitions [exhibitions-view]

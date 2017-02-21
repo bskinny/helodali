@@ -39,6 +39,7 @@
    That is: sign <endpoint>|param1=value1|param2=value2 where params are placed in sorted order.
    The incoming params-string looks like \"access_token=123&count=10\""
   [endpoint params-string]
+  ;; NOTE: If an exception is thrown on the following line, the client credentials are not defined.
   (let [key-spec (SecretKeySpec. (.getBytes (:secret client)) "HmacSHA256")
         mac (doto (Mac/getInstance "HmacSHA256")
                (.init key-spec))

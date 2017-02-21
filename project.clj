@@ -21,6 +21,7 @@
                  [ring/ring-defaults "0.2.1"]
                  [ring-middleware-format "0.7.0"]
                  [ring "1.5.0"]
+                 [ring-logger "0.7.7"]
                  [clj-http "2.3.0"]
                  [hickory "0.7.0"]
                  [cheshire "5.6.3"]

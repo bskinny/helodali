@@ -43,12 +43,12 @@
 (def manual-check-spec [(when ^boolean js/goog.DEBUG debug)
                         trim-v])
 
-(defn- csrf-token-request []
+(defn- csrf-token-request [on-success]
   {:http-xhrio {:method          :get
                 :uri             "/csrf-token"
                 :timeout         5000
                 :response-format (ajax/json-response-format {:keywords? true})
-                :on-success      [:update-db-from-result (fn [db] true)]
+                :on-success      on-success
                 :on-failure      [:bad-result {} false]}})
 
 (defn- safe-unparse-date
@@ -68,7 +68,7 @@
   [(inject-cofx :local-store-tokens)]
   (fn [{:keys [db local-store-tokens]} _]
     (enable-console-print!)
-    (merge (csrf-token-request)
+    (merge (csrf-token-request [:update-db-from-result (fn [db] true)])
            {:db (-> helodali.db/default-db
                    (assoc :access-token (:access-token local-store-tokens))
                    (assoc :id-token (:id-token local-store-tokens)))})))
@@ -221,6 +221,15 @@
       (merge db result)
       db)))
 
+;; Like above but without the predicate check and with a retry function to dispatch
+(reg-event-fx
+  :update-db-and-retry-with-new-csrf-token
+  manual-check-spec
+  (fn [{:keys [db]} [partial-retry-fx result]]
+    (let [db (merge db result)] ;; Merge in new csrf-token
+      {:db db
+       :dispatch [:retry-request #(partial-retry-fx db)]})))
+
 (defn- cleaner
   [in]
   (-> in
@@ -243,33 +252,31 @@
 ;; Replace the local app-db with what is defined in 'db' and apply changes to server database
 ;; 'path' with value 'val'. 'path' may point to an item or a specific attribute.
 (defn- update-fx
-  ([db path val]
-   (update-fx db path val false))
-  ([db path val is-retry?]
-   (let [spec-it (check-and-throw :helodali.spec/db db)
-         type (first path)
-         id (second path)
-         inside-item-path (rest (rest path))  ;; hop over type and 'id' which only exists on the client app-db
-         val (walk-cleaner val)
-         retry-fx (or is-retry? #(update-fx db path val true))
-         fx (if is-retry? {} {:db db})]
-     ;; Submit change to server for all updates except those to the placeholder item in the client, which
-     ;; does not yet exist on the server. Also skip the update if the update is on an item, as a whole, and
-     ;; the set of changes, val, is empty
-     (if (or (= id 0) (and (empty? inside-item-path) (empty? val)))
-       fx
-       (merge fx {:http-xhrio {:method          :post
-                               :uri             "/update-item"
-                               :params          {:uref (get-in db [type id :uref])
-                                                 :uuid (get-in db [type id :uuid])
-                                                 :table type :path inside-item-path :val val
-                                                 :access-token (:access-token db)}
-                               :headers         {:x-csrf-token (:csrf-token db)}
-                               :timeout         5000
-                               :format          (ajax/transit-request-format {})
-                               :response-format (ajax/transit-response-format {:keywords? true})
-                               :on-success      [:noop]
-                               :on-failure      [:bad-result {} retry-fx]}})))))
+  [path val is-retry? db]
+  (let [spec-it (check-and-throw :helodali.spec/db db)
+        type (first path)
+        id (second path)
+        inside-item-path (rest (rest path))  ;; hop over type and 'id' which only exists on the client app-db
+        val (walk-cleaner val)
+        retry-fx (or is-retry? (partial update-fx path val true))
+        fx (if is-retry? {} {:db db})]
+    ;; Submit change to server for all updates except those to the placeholder item in the client, which
+    ;; does not yet exist on the server. Also skip the update if the update is on an item, as a whole, and
+    ;; the set of changes, val, is empty
+    (if (or (= id 0) (and (empty? inside-item-path) (empty? val)))
+      fx
+      (merge fx {:http-xhrio {:method          :post
+                              :uri             "/update-item"
+                              :params          {:uref (get-in db [type id :uref])
+                                                :uuid (get-in db [type id :uuid])
+                                                :table type :path inside-item-path :val val
+                                                :access-token (:access-token db)}
+                              :headers         {:x-csrf-token (:csrf-token db)}
+                              :timeout         5000
+                              :format          (ajax/transit-request-format {})
+                              :response-format (ajax/transit-response-format {:keywords? true})
+                              :on-success      [:noop]
+                              :on-failure      [:bad-result {} retry-fx]}}))))
 
 ;; Similar to above but restricted to the app-db's :profile, which results to writes against
 ;; the :profiles table on the server. 'path' should be [:profile] or start as such.
@@ -348,7 +355,7 @@
 ;   :set-item-val    ;; This event handler may not be needed
 ;   interceptors
 ;   (fn [db [path val]]
-;     (update-fx (assoc-in db path val) path val)))
+;     (update-fx path val false (assoc-in db path val))))
 
 ;; Switch to edit mode for given item. Stash the current app-db to undo changes
 ;; that are canceled. 'item-path' is a path to item such as [:press 2]
@@ -414,7 +421,7 @@
         {:db new-db} ;; No changes to apply to server
         (condp = type
           :profile (update-profile-fx new-db item-path changes)
-          (update-fx new-db item-path changes))))))
+          (update-fx item-path changes false new-db))))))
 
 ;; Create an artwork item from an Instagram post in our :instagram-media map.
 ;; This means we include an :instagram-media-ref map in the artwork item, set the artwork's
@@ -848,7 +855,7 @@
           dispatches (apply list (map (fn [bucket] [:delete-s3-objects bucket [s3-object]]) buckets))
           val (remove-vector-element (get-in db path) idx)
           new-db (assoc-in db path val)]
-      (merge (update-fx new-db path val)
+      (merge (update-fx path val false new-db)
              {:dispatch-n dispatches}))))
 
 ;; Delete a S3 object from the given item. This involves issuing the S3 delete and
@@ -867,9 +874,7 @@
                  (dissoc :signed-raw-url)
                  (dissoc :signed-raw-url-expiration-time))
           new-db (assoc-in db path-to-item val)]
-      (merge (update-fx new-db path-to-item {:key nil
-                                             :filename nil
-                                             :size 0})
+      (merge (update-fx path-to-item {:key nil :filename nil :size 0} false new-db)
              {:dispatch-n dispatches}))))
 
 (reg-event-db
@@ -906,8 +911,7 @@
     (pprint (str "bad-result: " result))
     (if (and (= 403 (:status result)) retry-fx)
       ;; Refetch the csrf-token and retry the operation
-      (merge (csrf-token-request)
-             {:dispatch-later [{:ms 800 :dispatch [:retry-request retry-fx]}]})
+      (merge (csrf-token-request [:update-db-and-retry-with-new-csrf-token retry-fx]))
       ;; else update the message to alert the user of the trouble
       ;; TODO: Need to back out change made to local app-db
       (let [db (merge db merge-this)]
@@ -1120,7 +1124,7 @@
                   (merge changes)
                   (assoc :processing false))
           new-db (assoc-in db item-path item)]
-      (update-fx new-db item-path changes))))
+      (update-fx item-path changes false new-db))))
 
 ;; Upload an object to the given s3 bucket. The s3 object key ("filename") is composed
 ;; as follows: sub/item-uuid/new-uuid/filename
