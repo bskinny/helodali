@@ -51,6 +51,11 @@
   (let [k (or id (generate-uuid))]
     (assoc-in db [:messages k] msg)))
 
+(defn- clear-message
+   "Remove the message with given id"
+  [db id]
+  (update-in db [:messages] dissoc id))
+
 (defn- csrf-token-request [on-success]
   {:http-xhrio {:method          :get
                 :uri             "/csrf-token"
@@ -731,7 +736,8 @@
                         (assoc-in [type id] placeholder)
                         (assoc-in [type id :uref] (get-in db [:profile :uuid]))
                         (assoc-in [type id :editing] false)
-                        (update-in [type] dissoc 0))]
+                        (update-in [type] dissoc 0)
+                        (clear-message :form-error))]
           (reset! app-db-undo nil)
           (create-fx type (get-in new-db [type id]) false new-db))))))
 
@@ -791,9 +797,11 @@
   (fn [{:keys [db]} [type id]]
     (let [item (get-in db [type id])
           refint (referential-integrity-check db type id)
-          new-db (if (empty? refint)
-                   (reflect-item-deletion db type id)
-                   (add-message db :form-error refint))]
+          new-db (-> (if (empty? refint)
+                       (reflect-item-deletion db type id)
+                       (add-message db :form-error refint))
+                     (clear-message :form-error))]  ;; Clear possible validation error
+
       ;; Submit change to server for all deletes except those to the placeholder item
       (if (or (= 0 id) (not (empty? refint)))
         {:db new-db}
@@ -824,7 +832,7 @@
            refint (referential-integrity-check db type id)
            new-db (if (empty? refint)
                     (reflect-item-deletion db type id)
-                    (add-message db :form-error efint))]
+                    (add-message db :form-error refint))]
       ;; Submit change to server for all deletes except those to the placeholder item
       (if (or (= 0 id) (not (empty? refint)))
         {:db new-db}
@@ -906,8 +914,8 @@
 (reg-event-db
   :clear-message
   manual-check-spec
-  (fn [{:keys [db]} [id]]
-    (update-in db [:messages] dissoc id)))
+  (fn [db [id]]
+    (clear-message db id)))
 
 (reg-event-fx
   :bad-result

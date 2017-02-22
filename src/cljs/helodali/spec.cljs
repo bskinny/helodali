@@ -191,7 +191,7 @@
 (s/def ::instagram-media (s/nilable (s/and
                                        (s/map-of ::id ::instagram-media-ref)
                                        #(instance? PersistentTreeMap %))))
-(s/def ::messages (s/keys :opt-un [:form-error]))  ;; The keys for ::messages are mostly random
+(s/def ::messages (s/keys))  ;; The keys for ::messages are mostly random
 (s/def ::db (s/keys :req-un [::view ::display-type ::single-item-uuid ::artwork ::contacts ::exhibitions
                              ::press ::profile ::authenticated? ::initialized? ::access-token ::id-token
                              ::delegation-token ::delegation-token-expiration ::delegation-token-retrieval-underway
