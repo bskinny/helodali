@@ -634,7 +634,7 @@
   :authenticated
   manual-check-spec
   (fn [{:keys [db]} [authenticated? access-token id-token]]
-    (pprint (str "Event :authenticated with params: authenticated?=" authenticated? ", access-token=" access-token ", id-token=" id-token))
+    ; (pprint (str "Event :authenticated with params: authenticated?=" authenticated? ", access-token=" access-token ", id-token=" id-token))
     {:db (-> db
            (assoc :authenticated? authenticated?)
            (assoc :id-token id-token)

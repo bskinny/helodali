@@ -110,7 +110,7 @@
 (defn- handle-authenticated
   "Auth0 has authenticated the user. The auth-result contains accessToken, idToken and idTokenPayload"
   [auth-result]
-  (pprint (str "auth-result: " (js->clj auth-result)))
+  ; (pprint (str "auth-result: " (js->clj auth-result)))
   (let [result (js->clj auth-result)]
     (dispatch [:authenticated true (get result "accessToken") (get result "idToken")])))
 
