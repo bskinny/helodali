@@ -175,7 +175,7 @@
 (s/def ::search-pattern (s/nilable string?))
 (s/def ::view #{:show-login :artwork :contacts :exhibitions :documents :purchases :press :profile :search-results :account :static-page})
 (s/def ::static-page (s/nilable #{:privacy-policy}))
-(s/def ::display-type #{:contact-sheet :single-item :new-item :list :row :instagram :large-contact-sheet})
+(s/def ::display-type #{:contact-sheet :single-item :new-item :list :row :instagram})
 (s/def ::contacts (s/and
                      (s/map-of ::id ::contact)
                      #(instance? PersistentTreeMap %)))

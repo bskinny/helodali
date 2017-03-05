@@ -146,7 +146,7 @@
         facebook (subscribe [:item-key :contacts id :facebook])]
     (fn []
       [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
-        :children [[hyperlink :class "semibold" :style {:width (str (max 18 (get widths :name)) "ch")} :label (trunc (safe-string @cn "(no name)") (get widths :name))
+        :children [[hyperlink :style {:width (str (max 18 (get widths :name)) "ch")} :label (trunc (safe-string @cn "(no name)") (get widths :name))
                        :on-click #(route-single-item :contacts @uuid)]
                    [label :width "12ch" :class "all-small-caps" :label (clojure.string/replace (name @role) #"-" " ")]
                    [label :width (str (max 18 (:email widths)) "ch") :label (trunc @email (:email widths))]
@@ -176,37 +176,37 @@
                             :email (+ 4 (max-string-length @emails 40))
                             :url (+ 4(max-string-length @urls 40))})
             header [h-box :align :center :justify :start :width "100%"
-                      :children [[hyperlink :class "bold uppercase" :style {:width (str (max 18 (:name @widths)) "ch")}
+                      :children [[hyperlink :class "uppercase" :style {:width (str (max 18 (:name @widths)) "ch")}
                                      :label "Contact" :tooltip "Sort by Title"
                                      :on-click #(if (= (first @sort-key) :name)
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts] [:name true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "12ch"}
+                                 [hyperlink :class "uppercase" :style {:width "12ch"}
                                      :label "role" :tooltip "Sort by Role"
                                      :on-click #(if (= (first @sort-key) :role)
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts] [:role true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width (str (max 18 (:email @widths)) "ch")}
+                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:email @widths)) "ch")}
                                      :label "email" :tooltip "Sort by Email"
                                      :on-click #(if (= (first @sort-key) :email)
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts] [:email true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "15ch"}
+                                 [hyperlink :class "uppercase" :style {:width "15ch"}
                                      :label "phone" :tooltip "Sort by Phone"
                                      :on-click #(if (= (first @sort-key) :phone)
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts] [:phone true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width (str (max 18 (:url @widths)) "ch")}
+                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:url @widths)) "ch")}
                                      :label "url" :tooltip "Sort by URL"
                                      :on-click #(if (= (first @sort-key) :url)
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts] [:url true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "18ch"}
+                                 [hyperlink :class "uppercase" :style {:width "18ch"}
                                      :label "instagram" :tooltip "Sort by Instagram Name"
                                      :on-click #(if (= (first @sort-key) :instagram)
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts] [:instagram true]]))]
-                                 [hyperlink :class "bold uppercase" :style {:width "18ch"}
+                                 [hyperlink :class "uppercase" :style {:width "18ch"}
                                      :label "facebook" :tooltip "Sort by Facebook Name"
                                      :on-click #(if (= (first @sort-key) :facebook)
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])

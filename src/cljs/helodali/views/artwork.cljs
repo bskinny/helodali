@@ -384,11 +384,10 @@
         image-input-id (str "image-upload-" id "-0")
         showing-download-tooltip? (r/atom false)
         showing-primary-image-info? (r/atom false)
-        display-type (subscribe [:app-key :display-type])
-        single-item (or (= @display-type :single-item) (= @display-type :new-item))
-        image-size (if (or (= @display-type :contact-sheet) @editing) "240px" "480px")]  ;; Set image size based on contact-sheet vs. other views
+        display-type (subscribe [:app-key :display-type])]
     (fn []
-      (let [controls [h-box :gap "2px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
+      (let [single-item (or (= @display-type :single-item) (= @display-type :new-item))
+            controls [h-box :gap "2px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
                         :children [;(when (not (= @display-type :contact-sheet))
                                    ;  [row-button :disabled? (not @editing) :md-icon-name "zmdi zmdi-plus-circle-o"
                                    ;    :mouse-over-row? true :tooltip "Add image" :tooltip-position :right-center
@@ -408,6 +407,7 @@
                                      [md-icon-button :md-icon-name "zmdi zmdi-more mdc-text-blue"  :tooltip "Show more..."
                                         :on-click #(route-single-item :artwork @uuid)])]]
             image (first @images) ;; Note that images may be empty, hence image is nil
+            image-size (if (or (= @display-type :contact-sheet) @editing) "240px" "480px")  ;; Set image size based on contact-sheet vs. other views
             have-delegation-token? (not (empty? @delegation-token))
             raw-image-url (:signed-raw-url image)
             expiration (:signed-thumb-url-expiration-time image)
@@ -662,10 +662,9 @@
         uuid (subscribe [:by-path [:profile :uuid]])]
     (fn []
       [h-box :gap "18px" :align :center :justify :center
-         :children [;[md-icon-button :md-icon-name "zmdi zmdi-view-dashboard mdc-text-grey"
-                    ;     :on-click #(dispatch [:set-local-item-val [:display-type] :large-contact-sheet])
-                    [md-icon-button :md-icon-name "zmdi zmdi-apps mdc-text-grey" :tooltip "Contact Sheet"
-                                    :on-click #(route-view-display :artwork :contact-sheet)]
+         :children [[md-icon-button :md-icon-name "zmdi zmdi-apps mdc-text-grey" :tooltip "Contact Sheet"
+                                    :on-click #(do (dispatch [:sweep-and-set :artwork :expanded false])
+                                                   (route-view-display :artwork :contact-sheet))]
                     [md-icon-button :md-icon-name "zmdi zmdi-view-list mdc-text-grey" :tooltip "Row View"
                                     :on-click #(route-view-display :artwork :row)]
                     [md-icon-button :md-icon-name "zmdi zmdi-view-headline mdc-text-grey" :tooltip "List View"

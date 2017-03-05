@@ -159,7 +159,7 @@
    :contacts (into-sorted-map (map #(merge (default-contact) %) demo/contacts))
    :press (into-sorted-map (map #(merge (default-press) %) demo/press))
    :view :artwork ;; Can be :artwork :contacts :exhibitions :documents :purchases :profile :search-results
-   :display-type :contact-sheet ;; Can be :new-item :contact-sheet :row :list :single-item :large-contact-sheet
+   :display-type :contact-sheet ;; Can be :new-item :contact-sheet :row :list :single-item
    :single-item-uuid nil ;; Used to defined which entity is being viewed in detail
    :messages {}
    :initialized? true
@@ -175,7 +175,7 @@
    :instagram-media nil ;; This should be nil valued at time of login
    :view :artwork
    :static-page nil
-   :display-type :contact-sheet ;; Can be :new-item :contact-sheet :row :list :single-item :instagram :large-contact-sheet
+   :display-type :contact-sheet ;; Can be :new-item :contact-sheet :row :list :single-item :instagram
    :single-item-uuid nil ;; Used to defined which entity is being viewed in detail
    :messages {}
    :search-pattern nil
