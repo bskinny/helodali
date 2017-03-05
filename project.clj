@@ -2,7 +2,7 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/clojurescript "1.9.494"]
                  [reagent "0.6.0"]
-                 [re-frame "0.9.1"]
+                 [re-frame "0.9.2"]
                  [cljs-ajax "0.5.8"]
                  [day8.re-frame/http-fx "0.1.3"]
                  [com.taoensso/faraday "1.9.0"]
