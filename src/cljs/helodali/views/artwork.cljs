@@ -12,7 +12,7 @@
                                               input-text input-textarea single-dropdown selection-list
                                               button datepicker-dropdown checkbox popover-tooltip
                                               popover-anchor-wrapper popover-content-wrapper handler-fn
-                                              md-circle-icon-button]])
+                                              md-circle-icon-button hyperlink-href]])
     (:import goog.date.UtcDateTime))
 
 
@@ -696,6 +696,14 @@
         [v-box :gap "10px" :margin "40px" :align :center :justify :start
            :children [[item-view id]]]))))
 
+(defn- strip-tags
+  "Given an instagram caption, return both caption stripped of tags
+   as well as the list of tags"
+  [caption]
+  (let [matches (re-seq #"#([^\s]+)" caption)] ;; returns (["#tag1" "tag1"] ["#tag2" "tag2"] ["#tag3" "tag3"])
+     {:tags (map second matches)
+      :text (clojure.string/trim (clojure.string/replace caption #"#[^ ]+" ""))}))
+
 (defn instagram-item-view
   "Display an Instagram media item"
   [id]
@@ -704,6 +712,7 @@
         caption (subscribe [:item-key :instagram-media id :caption])
         image-url (subscribe [:item-key :instagram-media id :image-url])
         thumb-url (subscribe [:item-key :instagram-media id :thumb-url])
+        likes (subscribe [:item-key :instagram-media id :likes])
         processing (subscribe [:item-key :instagram-media id :processing])
         image-size "240px"]  ;; The thumb is the instragram 'low resolution image' and 320px, while the normal resolution is 640.
     (fn []
@@ -720,7 +729,16 @@
                            [re-com/throbber]
                            [hyperlink :label (trunc (title-string @title) 30)
                                       :on-click #(route-single-item :artwork @artwork-uuid)]))
-                       [:span (or @caption "(no caption)")]]]))))
+                       (if @caption
+                         (let [{:keys [tags text]} (strip-tags @caption)]
+                           [v-box :gap "4px" :align :center :justify :start
+                              :children [[:span text]
+                                         [h-box :gap "4px" :align :center :justify :start :style {:flex-flow "row wrap"}
+                                           :children (mapv (fn [tag]
+                                                             [hyperlink-href :target "_blank" :label tag
+                                                                :href (str "https://www.instagram.com/explore/tags/" tag "/")])
+                                                           tags)]]])
+                         [:span "(no caption)"])]]))))
 
 (defn instagram-view
   "Display contact sheet of items imported from Instagrem"
@@ -733,12 +751,14 @@
         [h-box :gap "20px" :margin "40px" :align :start :justify :start :children [[re-com/throbber]]]
         (if (empty? @items)
           [label :label "There is no media in your Instagram account."]
-          (let [load-more-buton [[box :align-self :center :justify :center :width "240px"
-                                    :child [md-circle-icon-button :md-icon-name "zmdi-more" :size :larger
-                                              :on-click #(dispatch [:refresh-instagram :last])]]]]
+          (let [controls [[v-box :gap "60px" :align :center :justify :center :width "240px" :height "300px"
+                              :children [[box :child [md-circle-icon-button :md-icon-name "zmdi-refresh-sync" :size :larger
+                                                        :on-click #(dispatch [:refresh-instagram :hard-reload])]]
+                                         [box :child [md-circle-icon-button :md-icon-name "zmdi-more" :size :larger
+                                                        :on-click #(dispatch [:refresh-instagram :append])]]]]]]
             [h-box :gap "20px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
                :children (concat (apply vector (map (fn [id] ^{:key id} [instagram-item-view id]) @items))
-                                 load-more-buton)]))))))
+                                 controls)]))))))
 
 (defn artwork-contact-sheet
   "Display contact sheet of items"
