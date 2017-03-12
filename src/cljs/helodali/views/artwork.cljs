@@ -753,8 +753,10 @@
           [label :label "There is no media in your Instagram account."]
           (let [controls [[v-box :gap "60px" :align :center :justify :center :width "240px" :height "300px"
                               :children [[box :child [md-circle-icon-button :md-icon-name "zmdi-refresh-sync" :size :larger
+                                                        :tooltip "Refresh media"
                                                         :on-click #(dispatch [:refresh-instagram :hard-reload])]]
                                          [box :child [md-circle-icon-button :md-icon-name "zmdi-more" :size :larger
+                                                        :tooltip "Load more media"
                                                         :on-click #(dispatch [:refresh-instagram :append])]]]]]]
             [h-box :gap "20px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
                :children (concat (apply vector (map (fn [id] ^{:key id} [instagram-item-view id]) @items))
