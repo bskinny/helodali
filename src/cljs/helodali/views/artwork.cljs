@@ -655,6 +655,7 @@
         [v-box :gap "4px" :align :center :justify :start :margin "10px"
            :children (into [header] (mapv (fn [id bg] ^{:key id} [item-list-view @widths id bg]) @items (cycle [true false])))]))))
 
+(def instagram-api-url "https://api.instagram.com/oauth/authorize/?client_id=cbfda8d4f3c445af9dbf79dd90f03b90&redirect_uri=")
 (defn view-selection
   "The row of view selection controls: contact-sheet row list"
   []
@@ -674,8 +675,8 @@
                     [md-icon-button :md-icon-name "zmdi zmdi-instagram mdc-text-grey" :tooltip "Instagram Media"
                                     :on-click #(if @instagram-media
                                                  (route-instagram-refresh)
-                                                 (set! (.-location js/document) (str "https://api.instagram.com/oauth/authorize/?client_id=cbfda8d4f3c445af9dbf79dd90f03b90&redirect_uri="
-                                                                                     (.-origin (.-location js/document)) "/instagram/oauth/callback&response_type=code&state=" @uuid)))]]])))
+                                                 (set! (.-location js/document) (str instagram-api-url (.-origin (.-location js/document))
+                                                                                     "/instagram/oauth/callback&response_type=code&state=" @uuid)))]]])))
 
 (defn single-item-view
   []
@@ -765,11 +766,22 @@
 (defn artwork-contact-sheet
   "Display contact sheet of items"
   []
-  (let [items (subscribe [:items-keys-sorted-by :artwork (partial sort-by-key-then-created :year true)])]
+  (let [items (subscribe [:items-keys-sorted-by :artwork (partial sort-by-key-then-created :year true)])
+        instagram-media (subscribe [:items-keys :instagram-media])]
     (fn []
-      (when (not (empty? @items))
+      (if-not (empty? @items)
         [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
-           :children (into [] (map (fn [id] ^{:key id} [item-view id]) @items))]))))
+           :children (into [] (map (fn [id] ^{:key id} [item-view id]) @items))]
+        [box :margin "40px"
+          :child [:p "Create your first artwork with "
+                   [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
+                                   :on-click #(route-new-item :artwork)]
+                   " or import from Instagram with "
+                   [md-icon-button :md-icon-name "zmdi zmdi-instagram mdc-text-grey"
+                       :on-click #(if @instagram-media
+                                    (route-instagram-refresh)
+                                    (set! (.-location js/document) (str instagram-api-url (.-origin (.-location js/document))
+                                                                        "/instagram/oauth/callback&response_type=code&state=" @uuid)))]]]))))
 
 (defn artwork-view
   "Display artwork"
