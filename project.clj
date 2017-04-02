@@ -1,6 +1,6 @@
 (defproject helodali "0.1.0-SNAPSHOT"
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [org.clojure/clojurescript "1.9.494"]
+                 [org.clojure/clojurescript "1.9.293"]
                  [reagent "0.6.1"]
                  [re-frame "0.9.2"]
                  [cljs-ajax "0.5.8"]
