@@ -1,37 +1,37 @@
 (defproject helodali "0.1.0-SNAPSHOT"
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [org.clojure/clojurescript "1.9.293"]
-                 [reagent "0.6.1"]
-                 [re-frame "0.9.2"]
-                 [cljs-ajax "0.5.8"]
-                 [day8.re-frame/http-fx "0.1.3"]
+                 [org.clojure/clojurescript "1.9.946"]
+                 [reagent "0.7.0"]
+                 [re-frame "0.10.2"]
+                 [cljs-ajax "0.7.3"]
+                 [day8.re-frame/http-fx "0.1.4"]
                  [com.taoensso/faraday "1.9.0"]
-                 [org.clojure/core.async "0.3.441"]
+                 [org.clojure/core.async "0.3.443"]
                  [danlentz/clj-uuid "0.1.6"]
                  [com.lucasbradstreet/cljs-uuid-utils "1.0.2"]
                  [clj-time "0.13.0"]
-                 [com.andrewmcveigh/cljs-time "0.5.0-alpha2"]
-                 [re-com "2.0.0"]
+                 [com.andrewmcveigh/cljs-time "0.5.0"]
+                 [re-com "2.1.0"]
                  [compojure "1.5.1"]
                  [yogthos/config "0.8"]
-                 [cljsjs/auth0-lock "10.8.1-0"]
+                 [cljsjs/auth0-lock "10.21.1-0"]
                  [cljsjs/auth0 "7.0.4-0"]
-                 [cljsjs/aws-sdk-js "2.2.41-4"]
+                 [cljsjs/aws-sdk-js "2.94.0-0"]
                  [org.clojars.bskinny/clj-aws-s3 "0.3.11" :exclusions [joda-time]]
-                 [ring/ring-defaults "0.2.1"]
-                 [ring-middleware-format "0.7.0"]
-                 [ring "1.5.0"]
+                 [ring/ring-defaults "0.3.1"]
+                 [ring-middleware-format "0.7.2"]
+                 [ring "1.6.3"]
                  [ring-logger "0.7.7"]
                  [clj-http "2.3.0"]
-                 [hickory "0.7.0"]
-                 [cheshire "5.6.3"]
+                 [hickory "0.7.1"]
+                 [cheshire "5.8.0"]
                  [secretary "1.2.3"]
                  [slingshot "0.12.2"]
-                 [venantius/accountant "0.1.7"]]
+                 [venantius/accountant "0.2.3"]]
 
-  :plugins [[lein-cljsbuild "1.1.5"]
-            [lein-ring "0.11.0"]
-            [lein-asset-minifier "0.3.1"
+  :plugins [[lein-cljsbuild "1.1.7"]
+            [lein-ring "0.12.1"]
+            [lein-asset-minifier "0.4.3"
                :exclusions [org.clojure/clojure]]]
 
   :min-lein-version "2.6.1"
@@ -51,9 +51,9 @@
   :profiles
     {:dev
        {:hooks [leiningen.cljsbuild]  ;; This adds cljsbuild when lein does an ordinary compile
-        :dependencies [[binaryage/devtools "0.8.3"]]
-        :plugins      [[lein-figwheel "0.5.8"]
-                       [lein-doo "0.1.7"]]
+        :dependencies [[binaryage/devtools "0.9.7"]]
+        :plugins      [[lein-figwheel "0.5.14"]
+                       [lein-doo "0.1.8"]]
         :cljsbuild
           {:builds
             {:app

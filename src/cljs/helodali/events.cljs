@@ -15,7 +15,7 @@
                            after debug dispatch]]
     [day8.re-frame.http-fx]
     [cljsjs.aws-sdk-js]
-    [cljs.spec :as s]))
+    [cljs.spec.alpha :as s]))
 
 (def ^:private app-db-undo (r/atom nil))
 

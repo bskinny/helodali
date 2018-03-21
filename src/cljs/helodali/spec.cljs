@@ -1,5 +1,5 @@
 (ns helodali.spec
-  (:require [cljs.spec :as s]))
+  (:require [cljs.spec.alpha :as s]))
 
 ;; clojure.spec definitions of the application db.
 
