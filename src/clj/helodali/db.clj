@@ -7,10 +7,12 @@
             [clojure.java.io :as io]
             [helodali.demodata :as demo]
             [helodali.common :refer [coerce-int fix-date keywordize-vals]]
-            [clojure.pprint :refer [pprint]]))
+            [clojure.pprint :refer [pprint]])
+  (:import [java.time ZonedDateTime ZoneId]
+           (java.time.format DateTimeFormatter)))
 
-;; These evironment variables are only necessary when running the app locally
-;; or outside AWS. Within AWS, we assign an IAM role to the ElastocBeanstalk
+;; These environment variables are only necessary when running the app locally
+;; or outside AWS. Within AWS, we assign an IAM role to the ElasticBeanstalk
 ;; instance housing the application.
 (def co
   {:access-key (or (System/getenv "AWS_ACCESS_KEY")
@@ -47,19 +49,6 @@
                  (assoc :residencies (apply vector (map #(coerce-int % [:year]) (:residencies m)))))
     m))
 
-(defn create-user-if-necessary
-  "Look for the given sub as a user of our application if she does not exist yet, create her."
-  [userinfo]
-  (when-not (nil? (:sub userinfo))
-    (let [openid-item (far/get-item co :openid {:sub (:sub userinfo)})]
-      (when (nil? (:uref openid-item))
-        (let [uuid (str (uuid/v1))
-              created (unparse (formatters :date) (now))]
-          (pprint (str "Creating user account for " (:sub userinfo)))
-          (far/put-item co :accounts {:uuid uuid :created created})
-          (far/put-item co :profiles {:uuid uuid :name (:name userinfo) :created created})
-          (far/put-item co :openid {:uref uuid :sub (:sub userinfo) :email (:email userinfo)}))))))
-
 (defn get-profile-by-sub
   "Given an openid subject identifier (the 'sub' claim), resolve to a profile map
    by searching the openid table for the user's uuid and then getting the items
@@ -91,6 +80,8 @@
 (defn- sync-userinfo
   "Update our openid item in the database if the given userinfo map disagrees"
   [userinfo openid-item]
+  (pprint (str "sync-userinfo: userinfo is " userinfo))
+  (pprint (str "sync-userinfo: openid-item is " openid-item))
   (let [sub (:sub openid-item)]      ;; TODO: combine these operations into one write
     (if (not= (:email openid-item) (:email userinfo))
       (far/update-item co :openid {:sub sub}
@@ -105,6 +96,20 @@
                         :expr-attr-vals  {":val" (:name userinfo)}
                         :return          :all-new}))))
 
+(defn create-user-if-necessary
+  "Look for the given sub as a user of our application if she does not exist yet, create her."
+  [userinfo]
+  (when-not (nil? (:sub userinfo))
+    (let [openid-item (far/get-item co :openid {:sub (:sub userinfo)})]
+      (if (nil? (:uref openid-item))
+        (let [uuid (str (uuid/v1))
+              created (unparse (formatters :date) (now))]
+          (pprint (str "Creating user account for " (:sub userinfo)))
+          (far/put-item co :accounts {:uuid uuid :created created})
+          (far/put-item co :profiles {:uuid uuid :name (:name userinfo) :created created})
+          (far/put-item co :openid {:uref uuid :sub (:sub userinfo) :email (:email userinfo)}))
+        (sync-userinfo userinfo openid-item)))))
+
 (defn valid-user?
   "Given an openid claims map, with :sub key, resolve the user against :openid and :profiles"
   [userinfo]
@@ -117,53 +122,69 @@
         false))))
 
 (defn cache-access-token
-  [access-token userinfo]
+  [session-uuid token-resp userinfo]
   (let [openid-item (far/get-item co :openid {:sub (:sub userinfo)})
         uref (:uref openid-item)]
     (when uref
-      (let [time-stamp (unparse (formatters :date-time) (now))]
-        (far/put-item co :sessions {:uref uref :token access-token :sub (:sub userinfo) :ts time-stamp})))))
+      (let [tn (ZonedDateTime/now (ZoneId/of "Z"))]
+        (far/put-item co :sessions {:uuid     session-uuid :uref uref :token (:access_token token-resp)
+                                    :refresh  (:refresh_token token-resp)
+                                    :id-token (:id_token token-resp) :sub (:sub userinfo)
+                                    :ts (.format tn DateTimeFormatter/ISO_INSTANT)})
+        uref))))
 
 (defn delete-access-token
   [access-token uref]
   (pprint (str "delete-access-token for uuid: " uref))
-  (let [session (far/get-item co :sessions {:uref uref :token access-token})]
-    (if session
-      (do
-        (far/delete-item co :sessions {:uref uref :token access-token})))))
+  (let [session  (far/query co :sessions {:uref [:eq uref] :token [:eq access-token]}
+                            {:index "uref-and-token" :limit 1})]
+    (when session
+      (far/delete-item co :sessions {:uref uref :token access-token}))))
 
-(defn valid-session?
-  "Check if the given uuid and access-token are in agreement in the :sessions table,
-   i.e. there is an item that matches the pair of values."
+(defn query-session
+  "Check if the given uref and access-token are in agreement in the :sessions table,
+   i.e. there is an item that matches the pair of values. If so, return the session."
   [uref access-token]
   (if (or (empty? uref) (empty? access-token))
     false
-    (let [session (far/get-item co :sessions {:uref uref :token access-token})]
+    (let [session (far/query co :sessions {:uref [:eq uref] :token [:eq access-token]}
+                             {:index "uref-and-token" :limit 1})]
+      ;; The projection will include :uuid, :uref, :token, :sub, :ts, and :refresh
       (if session
-        true
-        false))))
+        (first session)
+        {}))))
+
+(defn get-session
+  "Retrieve the session table item given the session uuid."
+  [uuid]
+  (let [session (far/get-item co :sessions {:uuid uuid})]
+    (if session
+      session
+      {})))
 
 (defn initialize-db
   "Given an openid claims map, with :sub key, resolve the user against :openid and :profiles
    tables and then construct the user's app-db for the client. Also take this opportunity to
    make sure our openid table item is in sync with the provided claims map - update the
    email or name in our database."
-  [userinfo]
-  (if (nil? (:sub userinfo))
+  [sub session]
+  (if (nil? sub)
     {}
-    (let [[openid-item profile] (get-profile-by-sub (:sub userinfo))
+    (let [[openid-item profile] (get-profile-by-sub sub)
           uref (:uuid profile)]
-      (when (not (empty? openid-item))
-        (sync-userinfo userinfo openid-item))
       {:artwork (query-by-uref :artwork uref)
        :documents (query-by-uref :documents uref)
        :exhibitions (query-by-uref :exhibitions uref)
        :contacts (query-by-uref :contacts uref)
        :press (query-by-uref :press uref)
        :profile profile
+       :authenticated? true
+       :initialized? true
+       :access-token (:token session)
+       :id-token (:id-token session)
        :account (-> (get-account uref)
                     (dissoc :instagram-access-token))
-       :userinfo userinfo})))
+       :userinfo openid-item})))   ;; TODO: Fix this, should be userinfo
 
 (defn- undash
   "Replace '-' with 'D' in given string"
@@ -288,7 +309,7 @@
 (defn refresh-item-path
   "Fetch item from artwork, press, exhibitions, documents, or contacts table. The 'path'
    argument is a keyword or vector path into the item and can be nil to return the entire item."
-  ;; TODO: think about optimzing the get-item call with projections
+  ;; TODO: think about optimizing the get-item call with projections
   [table uref item-uuid path]
   (pprint (str "refresh-item-path uref/item-uuid: " uref "/" item-uuid))
   (let [item (->> (far/get-item co table {:uref uref :uuid item-uuid})
@@ -301,7 +322,7 @@
 
 (defn refresh-image-data
   "Fetch image map from artwork table the image given by item-uuid and image-uuid"
-  ;; TODO: think about optimzing the get-item call with projections
+  ;; TODO: think about optimizing the get-item call with projections
   [uref item-uuid image-uuid]
   (pprint (str "refresh-image-data uref/item-uuid/image-uuid: " uref "/" item-uuid "/" image-uuid))
   (let [item (coerce-item :artwork (far/get-item co :artwork {:uref uref :uuid item-uuid}))
@@ -352,8 +373,8 @@
        :instagram-media [[(:instagram-id media) [nil (assoc media :artwork-uuid artwork-uuid)]]]})))
 
 (defn delete-item
-  [table uref uuid]
-  (far/delete-item co table {:uref uref :uuid uuid}))
+  [table key-map]
+  (far/delete-item co table key-map))
 
 (defn create-table
   [name]
@@ -401,9 +422,14 @@
       {:throughput {:read 2 :write 2} ; Read & write capacity (units/sec)
        :block? true})
     (far/create-table co :sessions
-      [:uref :s]  ; Hash key of uuid-valued user reference, (:s => string type)
-      {:range-key [:token :s] ; access-token has second component to primary key
+      [:uuid :s]  ; Hash key of uuid-valued session reference, (:s => string type)
+      {:range-key [:uref :s] ; uuid user reference as second component to primary key
        :throughput {:read 2 :write 2} ; Read & write capacity (units/sec)
+       :gsindexes [{:name "uref-and-token"
+                    :hash-keydef [:uref :s]
+                    :range-keydef [:token :s]
+                    :projection :all
+                    :throughput {:read 2 :write 2}}]
        :block? true})
     (far/create-table co :openid
       [:sub :s]  ; Hash key is the OpenID 'sub' claim (subject identifier, e.g. "google-oauth2|1234")

@@ -93,10 +93,7 @@
                               :opt-un [::description ::editions ::condition ::style ::associated-documents ::purchases
                                        ::list-price ::current-location ::expanded ::editing ::exhibition-history
                                        ::instagram-media-ref ::sync-with-instagram?]))
-(s/def ::artwork (s/and                              ;; should use the :kind kw to s/map-of (not supported yet)
-                   (s/map-of ::id ::artwork-item)       ;; in this map, each todo is keyed by its :id
-                   #(instance? PersistentTreeMap %)))    ;; is a sorted-map (not just a map)
-
+(s/def ::artwork (s/every-kv ::id ::artwork-item))
 
 
 ;; Contacts
@@ -147,7 +144,7 @@
 
 ;; User's artist profile
 (s/def ::photo (s/nilable string?))
-(s/def ::birth-year int?)
+(s/def ::birth-year (s/and int? #(> % 1000)))
 (s/def ::birth-place (s/nilable string?))
 (s/def ::currently-resides (s/nilable string?))
 (s/def ::val (s/nilable string?))
@@ -161,39 +158,31 @@
                                              ::url ::degrees ::awards-and-grants ::residencies ::lectures-and-talks
                                              ::collections ::photo])))
 
+(s/def ::accessKeyId (s/nilable string?))
+(s/def ::secretAccessKey (s/nilable string?))
+(s/def ::sessionToken (s/nilable string?))
+
 ;; Top-level db
 (s/def ::authenticated? boolean?)
+(s/def ::aws-creds (s/nilable (s/keys :req-un [::accessKeyId ::secretAccessKey ::sessionToken])))
 (s/def ::initialized? boolean?)
+(s/def ::refresh-aws-creds? boolean?)
 (s/def ::access-token (s/nilable string?))
 (s/def ::id-token (s/nilable string?))
-(s/def ::delegation-token (s/nilable (s/keys :opt-un []))) ;; From Auth0, no need to spec the contents of this map
-(s/def ::delegation-token-expiration (s/nilable ::time))
-(s/def ::delegation-token-retrieval-underway boolean?)
-(s/def ::userinfo (s/nilable (s/keys :opt-un [::sub]))) ;; From Auth0, no need to spec the complete contents of this map
+(s/def ::userinfo (s/nilable (s/keys :opt-un [::sub]))) ;; From Cognito, no need to spec the complete contents of this map
 (s/def ::csrf-token (s/nilable string?))
 (s/def ::single-item-uuid (s/nilable string?))
 (s/def ::search-pattern (s/nilable string?))
 (s/def ::view #{:show-login :artwork :contacts :exhibitions :documents :purchases :press :profile :search-results :account :static-page})
 (s/def ::static-page (s/nilable #{:privacy-policy}))
 (s/def ::display-type #{:contact-sheet :single-item :new-item :list :row :instagram})
-(s/def ::contacts (s/and
-                     (s/map-of ::id ::contact)
-                     #(instance? PersistentTreeMap %)))
-(s/def ::exhibitions (s/and
-                        (s/map-of ::id ::exhibition)
-                        #(instance? PersistentTreeMap %)))
-(s/def ::documents (s/and
-                        (s/map-of ::id ::document)
-                        #(instance? PersistentTreeMap %)))
-(s/def ::press (s/and
-                  (s/map-of ::id ::press-ref)
-                  #(instance? PersistentTreeMap %)))
-(s/def ::instagram-media (s/nilable (s/and
-                                       (s/map-of ::id ::instagram-media-ref)
-                                       #(instance? PersistentTreeMap %))))
+(s/def ::contacts (s/every-kv ::id ::contact))
+(s/def ::exhibitions (s/every-kv ::id ::exhibition))
+(s/def ::documents (s/every-kv ::id ::document))
+(s/def ::press (s/every-kv ::id ::press-ref))
+(s/def ::instagram-media (s/nilable (s/every-kv ::id ::instagram-media-ref)))
 (s/def ::messages (s/keys))  ;; The keys for ::messages are mostly random
 (s/def ::db (s/keys :req-un [::view ::display-type ::single-item-uuid ::artwork ::contacts ::exhibitions
                              ::press ::profile ::authenticated? ::initialized? ::access-token ::id-token
-                             ::delegation-token ::delegation-token-expiration ::delegation-token-retrieval-underway
-                             ::userinfo ::search-pattern ::documents]
+                             ::userinfo ::search-pattern ::documents ::aws-creds ::refresh-aws-creds?]
                     :opt-un [::messages ::instagram-media]))

@@ -8,3 +8,6 @@ ProcFile
 .DS_Store
 .nrepl-port
 .lein-repl-history
+.idea
+*.iml
+.rebel_readline_history
