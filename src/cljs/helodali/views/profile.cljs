@@ -128,7 +128,7 @@
                   [h-box :gap "6px" :align :center
                     :children [[:span.uppercase.light-grey "Birth Year"]
                                [input-text :width "60px" :model (str @birth-year) :style {:border "none"}
-                                    :on-change #(dispatch [:set-local-item-val [:profile :birth-year] %])]]]
+                                    :on-change #(dispatch [:set-local-item-val [:profile :birth-year] (js/Number %)])]]]
                   [h-box :gap "8px" :align :center :justify :between
                           :children [[:span.uppercase.light-grey "Birth Place"]
                                      [input-text :model (str @birth-place) :placeholder "" :width "320px" :style {:border "none"}

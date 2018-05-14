@@ -11,7 +11,6 @@
               [helodali.views.search-results :refer [search-results-view]]
               [helodali.views.static-pages :refer [static-pages-view]]
               [cljs.pprint :refer [pprint]]
-              [cljsjs.auth0-lock]
               [reagent.core :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
               [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button hyperlink
@@ -103,16 +102,13 @@
 (defn- our-title [] [re-com/title :level :level1 :label "helodali"])
 
 (defn- login-button
-  [lock]
-  [md-icon-button :md-icon-name "zmdi zmdi-brush" :size :larger
-       :on-click #(.show lock (clj->js {:initialScreen "login" :rememberLastLogin true}))])
-
-(defn- handle-authenticated
-  "Auth0 has authenticated the user. The auth-result contains accessToken, idToken and idTokenPayload"
-  [auth-result]
-  ; (pprint (str "auth-result: " (js->clj auth-result)))
-  (let [result (js->clj auth-result)]
-    (dispatch [:authenticated true (get result "accessToken") (get result "idToken")])))
+  []
+  (let [origin (.-origin (.-location js/document))]
+    [md-icon-button :md-icon-name "zmdi zmdi-brush" :size :larger
+                    ;; TODO: generate state value
+                    :on-click #(set! (.. js/window -location -href)
+                                (str "https://helodali.auth.us-east-1.amazoncognito.com/oauth2/authorize?redirect_uri=" origin
+                                     "/login&response_type=code&client_id=7uddoehg2ov8abqro8sud6i9ag&state=GEf3hb11buI2acaXtyQuvgFHDTYQQY4A&scope=openid%20email%20profile"))]))
 
 (defn display-message
   [id msg]
@@ -123,84 +119,80 @@
 (defn main-panel []
  (let [msgs (subscribe [:app-key :messages])
        view (subscribe [:app-key :view])
+       aws-creds (subscribe [:app-key :aws-creds])
+       aws-s3 (subscribe [:app-key :aws-s3])
        authenticated? (subscribe [:app-key :authenticated?])
+       refresh-aws-creds? (subscribe [:app-key :refresh-aws-creds?])
        initialized? (subscribe [:app-key :initialized?])
        csrf-token (subscribe [:app-key :csrf-token])
-       profile (subscribe [:app-key :profile])
        access-token (subscribe [:app-key :access-token])
        id-token (subscribe [:app-key :id-token])
-       delegation-token (subscribe [:app-key :delegation-token])
        sit-and-spin (subscribe [:app-key :sit-and-spin])]
    (fn []
-     (let [lock (js/Auth0Lock. "UNQ9LKBRomyn7hLPKKJmdK2mI7RNphGs" "helodali.auth0.com"
-                               (clj->js {:auth {:params {:scope "openid name email"}}
-                                         :rememberLastLogin true
-                                         :theme {:logo "/image-assets/logo.png"
-                                                 :primaryColor "red"}}))
-           _ (.on lock "authenticated" handle-authenticated)]
-       ;;
-       ;; Perform whatever dispatching is needed depending on current state
-       ;;
-       (when (and (not @authenticated?) (not (empty? @csrf-token)) (not (empty? @access-token)))
-         ;; We have an access token in local storage, validate it and possibly avoid login prompt
-         (dispatch [:validate-access-token]))
+     ;;
+     ;; Perform whatever dispatching is needed depending on current state
+     ;;
+     (when (and (not @authenticated?) (not (empty? @access-token)) (not (empty? @csrf-token)))
+       (dispatch [:validate-access-token]))
 
-       (when (and @authenticated? (not (empty? @csrf-token)) (empty? @profile))
-         ;; Everything is ready for the login request which results in the population of the app-db
-         ;; and the setting of initialized?
-         (dispatch [:login]))
+     (when (and (not @authenticated?) (empty? @access-token) (not (empty? @csrf-token)))
+       (dispatch [:check-session]))
 
-       (when (and @authenticated? @initialized? (empty? @delegation-token) (not (empty? @id-token))
-                  (expired? (get @delegation-token "Expiration")))
-         ;; Fetch the delegation token which is used to authenticate with S3
-         (dispatch [:fetch-aws-delegation-token]))
+     ;; Fetch AWS Credentials if first time in or if needing a refresh after credential expiration
+     (when (or (and @authenticated? @initialized? (empty? @aws-creds) (not (empty? @id-token)))
+               @refresh-aws-creds?)
+       ;; Fetch the AWS credentials from Cognito and initialize AWS services like S3
+       (let [aws-config (.-config js/AWS)]
+         (set! (.-region aws-config) "us-east-1")
+         (set! (.-credentials aws-config) (js/AWS.CognitoIdentityCredentials. (clj->js {:IdentityPoolId "us-east-1:c5e15cf1-df1d-48df-85ba-f67d1ff45016"
+                                                                                        :Logins {"cognito-idp.us-east-1.amazonaws.com/us-east-1_Xct1ioypu" @id-token}})))
+         (.get (.-credentials aws-config) (clj->js (fn [err] (dispatch [:set-aws-credentials (.-credentials js/AWS.config)]))))))
 
-       ;;
-       ;; UI states
-       ;;
-       (cond ;; Note: some of the clauses below are formatted oddly because of parinfer and the desire not to let the code run as wide as this comment.
-         @sit-and-spin (show-spinner)
+     ;;
+     ;; UI states
+     ;;
+     (cond ;; Note: some of the clauses below are formatted oddly because of parinfer and the desire not to let the code run as wide as this comment.
+       @sit-and-spin (show-spinner)
 
-         (and (not @authenticated?) (empty? @access-token) (not= @view :static-page))
-         ;; Display login widget front and center
-         [v-box :gap "20px" :width "100%" :height "100%" :margin "0" :class "login-page"
-                :align :center :justify :between
-            :children [[h-box :size "0 0 auto" :width "100%" :align :center :justify :around :class "header" ; :style {:border "dashed 1px red"}
-                          :children [(our-title)  (login-button lock)]]
-                       [gap :size "1px"]
-                       [footer]]]
+       (and (not @authenticated?) (empty? @access-token) (not= @view :static-page))
+       ;; Display login widget front and center
+       [v-box :gap "20px" :width "100%" :height "100%" :margin "0" :class "login-page"
+              :align :center :justify :between
+          :children [[h-box :size "0 0 auto" :width "100%" :align :center :justify :around :class "header" ; :style {:border "dashed 1px red"}
+                        :children [(our-title)  (login-button)]]
+                     [gap :size "1px"]
+                     [footer]]]
 
-         (and (not @authenticated?) (empty? @access-token) (= @view :static-page))
-         ;; Display static html with login header
-         [v-box :gap "20px" :width "100%" :height "100%" :margin "0" :justify :between
-            :children [[h-box :align :center :justify :around :children [(our-title) (login-button lock)]]
-                       [static-pages-view]
-                       [footer]]]
+       (and (not @authenticated?) (empty? @access-token) (= @view :static-page))
+       ;; Display static html with login header
+       [v-box :gap "20px" :width "100%" :height "100%" :margin "0" :justify :between
+          :children [[h-box :align :center :justify :around :children [(our-title) (login-button)]]
+                     [static-pages-view]
+                     [footer]]]
 
+       (and @authenticated? @initialized? (not (empty? @aws-creds)) (not (nil? @aws-s3)))
+       ;; Finally, display the app
+       [v-box :gap "0px" :margin "0px" :justify :between :width "100%" ; :style {:border "dashed 1px red"}
+          :children [[v-box
+                       :children [[header]
+                                  (if (not (empty? @msgs))
+                                    [v-box :gap "12px" :justify :start :align :center
+                                        :children (mapv (fn [[id msg]] ^{:key (str id)} [display-message id msg]) @msgs)])
+                                  [re-com/gap :size "18px"]
+                                  (condp = @view
+                                    :artwork [artwork-view]
+                                    :contacts [contacts-view]
+                                    :press [press-view]
+                                    :profile [profile-view]
+                                    :static-page [static-pages-view]
+                                    :account [box :width "50%" :align-self :center
+                                                :child [re-com/alert-box :alert-type :warning :closeable? true :body "The account page is still being developed"]]
+                                    :purchases [purchases-view]
+                                    :documents [documents-view]
+                                    :exhibitions [exhibitions-view]
+                                    :search-results [search-results-view]
+                                    [box :width "50%" :align-self :center
+                                       :child [re-com/alert-box :alert-type :warning :closeable? true :body (str "Unexpected value for :view of " @view)]])]]
+                     [footer]]]
 
-         (and @authenticated? @initialized?)
-         ;; Finally, display the app
-         [v-box :gap "0px" :margin "0px" :justify :between :width "100%" ; :style {:border "dashed 1px red"}
-            :children [[v-box
-                         :children [[header]
-                                    (if (not (empty? @msgs))
-                                      [v-box :gap "12px" :justify :start :align :center
-                                          :children (mapv (fn [[id msg]] ^{:key (str id)} [display-message id msg]) @msgs)])
-                                    [re-com/gap :size "18px"]
-                                    (condp = @view
-                                      :artwork [artwork-view]
-                                      :contacts [contacts-view]
-                                      :press [press-view]
-                                      :profile [profile-view]
-                                      :static-page [static-pages-view]
-                                      :account [box :width "50%" :align-self :center
-                                                  :child [re-com/alert-box :alert-type :warning :closeable? true :body "The account page is still being developed"]]
-                                      :purchases [purchases-view]
-                                      :documents [documents-view]
-                                      :exhibitions [exhibitions-view]
-                                      :search-results [search-results-view]
-                                      [box :width "50%" :align-self :center
-                                         :child [re-com/alert-box :alert-type :warning :closeable? true :body (str "Unexpected value for :view of " @view)]])]]
-                       [footer]]]
-
-         :else (show-spinner))))))
+       :else (show-spinner)))))

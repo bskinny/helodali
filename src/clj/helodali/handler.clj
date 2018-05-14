@@ -2,12 +2,14 @@
   (:require [compojure.core :refer [GET POST HEAD ANY defroutes]]
             [compojure.route :refer [resources]]
             [clojure.pprint :refer [pprint]]
+            [clj-jwt.core :refer [str->jwt]]
             [helodali.db :refer [initialize-db update-item create-item delete-item refresh-image-data
                                  update-user-table valid-user? refresh-item-path cache-access-token
-                                 valid-session? delete-access-token create-user-if-necessary
+                                 delete-access-token create-user-if-necessary
                                  create-artwork-from-instragram]]
             [helodali.instagram :refer [refresh-instagram process-instagram-auth]]
-            [helodali.auth0 :as auth0]
+            [helodali.cognito :as cognito]
+            [clj-uuid :as uuid]
             [ring.logger :as logger]
             [ring.logger.protocols :as logger.protocols]
             [ring.logger.tools-logging :refer [make-tools-logging-logger]]
@@ -17,14 +19,17 @@
             [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]
             [ring.middleware.multipart-params :refer [wrap-multipart-params]]
             [ring.middleware.format-params :refer [wrap-restful-params]]
-            [ring.middleware.format-response :refer [wrap-restful-response]]))
+            [ring.middleware.format-response :refer [wrap-restful-response]]
+            [slingshot.slingshot :refer [throw+ try+]]
+            [helodali.db :as db]))
+
+;; The response to the application which will trigger the login flow
+(def force-login-response {:authenticated? false :access-token nil :id-token nil :initialized? false})
 
 (defn- process-request
   [uref access-token process-fx]
-  (if (valid-session? uref access-token)
-    (response (process-fx))
-    {:status 400   ;; else return error
-     :body {:reason (str "Invalid session for " uref " and given access token")}}))
+  (let [verify-response (cognito/verify-token (db/query-session uref access-token))]
+    (response (merge (process-fx) verify-response))))
 
 (defroutes routes
   (GET "/" []
@@ -39,7 +44,9 @@
     (-> (resource-response page {:root "public/static"})
        (content-type "text/html")))
 
-  (GET "/csrf-token" [] (response {:csrf-token *anti-forgery-token*}))
+  (GET "/csrf-token" []
+    (pprint "Getting csrf-token.")
+    (response {:csrf-token *anti-forgery-token*}))
 
   (POST "/refresh-instagram" [uref access-token max-id :as req]
     (pprint (str "refresh-instagram with uref/max-id: " uref "/" max-id))
@@ -48,6 +55,7 @@
   (POST "/create-from-instagram" [uref sub access-token media :as req]
     (pprint (str "create-from-instagram media: " media))
     (process-request uref access-token #(create-artwork-from-instragram uref sub media)))
+
   (GET "/instagram/oauth/callback" [code state :as req]
     (process-instagram-auth code state)
     (redirect "/"))
@@ -66,7 +74,7 @@
 
   (POST "/delete-item" [table uref uuid access-token :as req]
     (pprint (str "delete-item table/uref/uuid: " table "/" uref "/" uuid))
-    (process-request uref access-token #(delete-item table uref uuid)))
+    (process-request uref access-token #(delete-item table {:uref uref :uuid uuid})))
 
   (POST "/refresh-item-path" [uref access-token table item-uuid path :as req]
     (pprint (str "refresh-item-path table/item-uuid/path: " table "/" item-uuid "/" path))
@@ -77,27 +85,57 @@
     (pprint (str "refresh-image-data item-uuid/image-uuid: " item-uuid "/" image-uuid))
     (process-request uref access-token #(refresh-image-data uref item-uuid image-uuid)))
 
-  (POST "/validate-token" [access-token :as req]
-    (let [userinfo (auth0/get-userinfo access-token)]
+  ;; Validate the given tokens and replace the tokens with cognito/verify-token if
+  ;; the access token is expired.
+  (POST "/validate-token" [access-token id-token :as req]
+    (let [userinfo (-> id-token str->jwt :claims)]
       (if (nil? userinfo)
-        (response {:authenticated? false :access-token nil :id-token nil :delegation-token nil})
-        ;; Let the client's cached id-token be used and cache this access-token
-        (do
-          (cache-access-token access-token userinfo)
-          (response {:authenticated? true :access-token access-token :delegation-token nil})))))
+        (response force-login-response)
+        (let [[openid-item profile] (db/get-profile-by-sub (:sub userinfo))
+              uref (:uuid profile)
+              ;; The verify-response will be {} for a valid token and a map of refreshed access
+              ;; and id tokens otherwise.
+              session (db/query-session uref access-token)]
+          (if (empty? session)
+            ;; No session found for access token, force authentication.
+            (response force-login-response)
+            (let [verify-response (cognito/verify-token session)
+                  ;; Fetch the session again as the tokens might have been refreshed
+                  session (db/query-session uref (get verify-response :access-token access-token))]
+              (if (empty? session)
+                ;; Refresh did not work
+                (response force-login-response)
+                ;; Token is valid
+                (let [db (initialize-db (:sub userinfo) session)]
+                  (response (merge db (refresh-instagram uref nil)))))))))))
 
-  (POST "/login" [access-token :as req]
-    (let [userinfo (auth0/get-userinfo access-token)]
-      (pprint (str "Handle /login with userinfo: " userinfo))
-      (if (nil? (:sub userinfo))
-        (do
-          {:message (str "No :sub claim found in userinfo: " userinfo)})
-        (do
+
+  (GET "/check-session" req
+    (pprint (str "Handle /check-session with req: " req))
+    (let [sub (get-in req [:session :sub])
+          session-uuid (get-in req [:session :uuid])]
+      (if (empty? sub)
+        (response {})
+        (let [session (db/get-session session-uuid)
+              db (initialize-db sub session)
+              uref (get-in db [:profile :uuid])]
+          (response (merge db (refresh-instagram uref nil)))))))
+
+  ;; Redirected from Cognito server-side token request
+  (GET "/login" [code :as req]
+    (pprint (str "Handle /login with req: " req))
+    (let [token-resp (cognito/get-token code)]
+      (if (nil? token-resp)
+        {:message "Unable to get access token"}
+        (let [userinfo (-> (:id_token token-resp) str->jwt :claims)]
           (create-user-if-necessary userinfo)
-          (cache-access-token access-token userinfo)
-          (let [db (initialize-db userinfo)
-                uref (get-in db [:profile :uuid])]
-            (response (merge db (refresh-instagram uref nil))))))))
+          (let [session-uuid (str (uuid/v1))
+                uref (cache-access-token session-uuid token-resp userinfo)]
+            (pprint (str "/login with userinfo from id_token: " userinfo))
+            (-> (redirect "/")
+              ;; Stash the user's uuid in the session
+              (assoc-in [:session :sub] (:sub userinfo))
+              (assoc-in [:session :uuid] session-uuid)))))))
 
   (POST "/logout" [access-token uref :as req]
     (pprint (str "logout " uref))

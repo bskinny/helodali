@@ -15,7 +15,7 @@
                            after debug dispatch]]
     [day8.re-frame.http-fx]
     [cljsjs.aws-sdk-js]
-    [cljs.spec :as s]))
+    [cljs.spec.alpha :as s]))
 
 (def ^:private app-db-undo (r/atom nil))
 
@@ -207,25 +207,32 @@
   :initialize-db-from-result
   [(inject-cofx :local-store-signed-urls)]
   (fn [{:keys [db local-store-signed-urls]} [_ result]]
-    ;; Some values in the items need coercion back to DateTime and keyword syntaxes.
-    (let [resp (fix-response result)]
-      {:db (-> db
-              (assoc :artwork (-> (map #(merge (helodali.db/default-artwork) %) (:artwork resp))
-                                  (apply-artwork-signed-urls local-store-signed-urls)
-                                  (into-sorted-map)))
-              (assoc :exhibitions (into-sorted-map (map #(merge (helodali.db/default-exhibition) %) (:exhibitions resp))))
-              (assoc :documents (-> (map #(merge (helodali.db/default-document) %) (:documents resp))
-                                    (apply-document-signed-urls local-store-signed-urls)
+    ;; Some values in the items need coercion back to DateTime and keyword syntax.
+    (when (not (empty? result))
+      (let [resp (fix-response result)]
+        {:db (-> db
+                (assoc :artwork (-> (map #(merge (helodali.db/default-artwork) %) (:artwork resp))
+                                    (apply-artwork-signed-urls local-store-signed-urls)
                                     (into-sorted-map)))
-              (assoc :contacts (into-sorted-map (map #(merge (helodali.db/default-contact) %) (:contacts resp))))
-              (assoc :press (into-sorted-map (map #(merge (helodali.db/default-press) %) (:press resp))))
-              (assoc :profile (:profile resp))
-              (assoc :account (:account resp))
-              (assoc :userinfo (:userinfo resp))
-              (assoc :instagram-media (and (:instagram-media resp) (into-sorted-map (:instagram-media resp))))
-              (assoc :initialized? true))})))
+                (assoc :exhibitions (into-sorted-map (map #(merge (helodali.db/default-exhibition) %) (:exhibitions resp))))
+                (assoc :documents (-> (map #(merge (helodali.db/default-document) %) (:documents resp))
+                                      (apply-document-signed-urls local-store-signed-urls)
+                                      (into-sorted-map)))
+                (assoc :contacts (into-sorted-map (map #(merge (helodali.db/default-contact) %) (:contacts resp))))
+                (assoc :press (into-sorted-map (map #(merge (helodali.db/default-press) %) (:press resp))))
+                (assoc :profile (:profile resp))
+                (assoc :account (:account resp))
+                (assoc :userinfo (:userinfo resp))
+                (assoc :access-token (:access-token resp))
+                (assoc :id-token (:id-token resp))
+                (assoc :authenticated? (:authenticated? resp))
+                (assoc :initialized? (:initialized? resp))
+                (assoc :instagram-media (and (:instagram-media resp) (into-sorted-map (:instagram-media resp))))
+                (assoc :initialized? true))
+         :sync-to-local-storage [{:k "helodali.access-token" :v (:access-token resp)}
+                                 {:k "helodali.id-token" :v (:id-token resp)}]}))))
 
-;; Update top-level app-db keys if supplied predicate evaluates true
+;; Update top-level app-db keys if supplied predicate evaluates true.
 (reg-event-db
   :update-db-from-result
   manual-check-spec
@@ -288,7 +295,7 @@
                               :timeout         5000
                               :format          (ajax/transit-request-format {})
                               :response-format (ajax/transit-response-format {:keywords? true})
-                              :on-success      [:noop]
+                              :on-success      [:update-db-from-result (fn [db] true)]
                               :on-failure      [:bad-result {} retry-fx]}}))))
 
 ;; Similar to above but restricted to the app-db's :profile, which results to writes against
@@ -309,7 +316,7 @@
                             :timeout         5000
                             :format          (ajax/transit-request-format {})
                             :response-format (ajax/transit-response-format {:keywords? true})
-                            :on-success      [:noop]
+                            :on-success      [:update-db-from-result (fn [db] true)]
                             :on-failure      [:bad-result {} retry-fx]}})))
 
 (defn- create-fx
@@ -328,7 +335,7 @@
                             :timeout         5000
                             :format          (ajax/transit-request-format {})
                             :response-format (ajax/transit-response-format {:keywords? true})
-                            :on-success      [:noop]
+                            :on-success      [:update-db-from-result (fn [db] true)]
                             :on-failure      [:bad-result {} retry-fx]}})))
 
 (defn- delete-fx
@@ -345,7 +352,7 @@
                              :timeout         5000
                              :format          (ajax/transit-request-format {})
                              :response-format (ajax/transit-response-format {:keywords? true})
-                             :on-success      [:noop]
+                             :on-success      [:update-db-from-result (fn [db] true)]
                              :on-failure      [:bad-result {} retry-fx]}}))))
 
 ;; Update the app-db locally (i.e. do not propogate change to server)
@@ -541,10 +548,11 @@
   :validate-access-token
   manual-check-spec
   (fn [{:keys [db]} _]
-    (pprint (str "Within validate-access-token: authenticated?=" (:authenticated? db) ", access-token=" (:access-token db) ", initialized?=" (:initialized? db)))
     {:http-xhrio {:method          :post
                   :uri             "/validate-token"
-                  :params          {:access-token (:access-token db)}
+                  :params          {:access-token (:access-token db)
+                                    :id-token (:id-token db)
+                                    :uref (:uuid (:profile db))}
                   :headers         {:x-csrf-token (:csrf-token db)}
                   :timeout         5000
                   :format          (ajax/transit-request-format {})
@@ -558,7 +566,8 @@
   (fn [{:keys [db]} _]
     {:http-xhrio {:method          :post
                   :uri             "/login"
-                  :params          {:access-token (:access-token db)}
+                  :params          {:access-token (:access-token db)
+                                    :id-token (:id-token db)}
                   :headers         {:x-csrf-token (:csrf-token db)}
                   :timeout         5000
                   :format          (ajax/transit-request-format {})
@@ -566,47 +575,33 @@
                   :on-success      [:initialize-db-from-result]
                   :on-failure      [:bad-result {} false]}}))
 
-(defn- handle-delegation-token-retrieval
-  "The delegation-result contains 'Credentials'"
-  [err delegation-result]
-  (if (not (nil? err))
-    ;; TODO: Handle the 401 resultCode error for expired id token
-    (pprint (str "Error from getDelegationToken: " (js->clj err)))
-    (let [result (js->clj delegation-result)]
-      (dispatch [:setup-aws-delegation (get result "Credentials")]))))
+;; GET /check-session and retrieve :profile
+(reg-event-fx
+  :check-session
+  (fn [{:keys [db]} _]
+    {:http-xhrio {:method          :get
+                  :uri             "/check-session"
+                  :headers         {:x-csrf-token (:csrf-token db)}
+                  :timeout         5000
+                  :format          (ajax/transit-request-format {})
+                  :response-format (ajax/transit-response-format {:keywords? true})
+                  :on-success      [:initialize-db-from-result]
+                  :on-failure      [:bad-result {} false]}}))
 
 (reg-event-db
-  :fetch-aws-delegation-token
-  manual-check-spec
-  (fn [db _]
-    (if (:delegation-token-retrieval-underway db)
-      db
-      (let [auth0 (js/Auth0. (clj->js {:domain "helodali.auth0.com"
-                                       :clientID "UNQ9LKBRomyn7hLPKKJmdK2mI7RNphGs"
-                                       :callbackURL "dummy"}))
-            options {:id_token (:id-token db) :api "aws"
-                     :principal "arn:aws:iam::128225160927:saml-provider/auth0-provider"
-                     :role "arn:aws:iam::128225160927:role/access-to-s3-per-user"}]
-        (.getDelegationToken auth0 (clj->js options) handle-delegation-token-retrieval)
-        (-> db
-           (assoc :delegation-token nil)
-           (assoc :delegation-token-expiration nil)
-           (assoc :delegation-token-retrieval-underway true)
-           (assoc :aws-s3 nil))))))
-
-(reg-event-db
-  :setup-aws-delegation
+  :set-aws-credentials
   interceptors
-  (fn [db [credentials]]
-    (let [aws-creds (js/AWS.Credentials. (get credentials "AccessKeyId")
-                                         (get credentials "SecretAccessKey")
-                                         (get credentials "SessionToken"))
-          s3 (js/AWS.S3. (clj->js {:credentials aws-creds}))]
+  (fn [db [aws-creds-js]]
+    (pprint (str "In set-aws-credentials with " (js->clj aws-creds-js)))
+    (let [aws-creds {:accessKeyId (.-accessKeyId aws-creds-js)
+                     :secretAccessKey (.-secretAccessKey aws-creds-js)
+                     :sessionToken (.-sessionToken aws-creds-js)}
+          s3 (js/AWS.S3. (clj->js (:aws-creds db)))]
       (-> db
-         (assoc :delegation-token credentials)
-         (assoc :delegation-token-expiration (parse-date :date-time (get credentials "Expiration")))
-         (assoc :delegation-token-retrieval-underway false)
-         (assoc :aws-s3 s3)))))
+          (assoc :refresh-aws-creds? false)
+          (assoc :aws-creds-created-time (ct/now))
+          (assoc :aws-s3 s3)
+          (assoc :aws-creds aws-creds)))))
 
 (reg-event-fx
   :logout
@@ -946,7 +941,7 @@
 
 ;; This event should be dispatched when an item or path into an item needs to be
 ;; refreshed from the database. We dispatch continually, with a
-;; 400ms delay, until a satisfactory result is returned as determined by the
+;; 1000ms delay, until a satisfactory result is returned as determined by the
 ;; given satisfied function. The 'item-path' argument must contain at table
 ;; and id at minimum. E.g. [:documents 2]
 (reg-event-fx
@@ -984,7 +979,7 @@
 
 ;; This event should be dispatched when an artwork has images being processed and hence
 ;; a fetch is required from DynamoDB. We dispatch continually, with a
-;; 400ms delay, until a result is returned.
+;; 1000ms delay, until a result is returned.
 (reg-event-fx
   :refresh-image
   manual-check-spec
@@ -1022,43 +1017,88 @@
     ;; try again after a delay. But make sure the item still exists in our app-db (in case it was deleted).
     (if (and (empty? result) (get-in db [(first path-to-image) (second path-to-image)]))
       {:dispatch-later [{:ms 1000 :dispatch [:refresh-image path-to-image]}]}
-      ;; else merge the map into the artwork and unset :processing
-      (let [image (-> (get-in db path-to-image)
-                     (merge result)
-                     (dissoc :signed-raw-url-expiration-time :signed-thumb-url-expiration-time)
-                     (coerce-int [:density :size :width :height])
-                     (dissoc :processing))]
-        {:db (-> db
-                (assoc-in path-to-image image))}))))
+      ;; If the AWS Credentials have expired, then delay the execution of this event
+      (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
+        {:dispatch-later [{:ms 400 :dispatch [:apply-image-refresh path-to-image result]}]}
+        ;; else merge the map into the artwork and unset :processing
+        (let [image (-> (get-in db path-to-image)
+                       (merge result)
+                       (dissoc :signed-raw-url-expiration-time :signed-thumb-url-expiration-time)
+                       (coerce-int [:density :size :width :height])
+                       (dissoc :processing))]
+          {:db (-> db
+                  (assoc-in path-to-image image))})))))
 
 ;; Get the signed URL to access designated S3 object. Define a 24 hour
-;; expiration. If the delegation token has not been fetched yet, then trigger
-;; another attempt at this event in 400 ms.
+;; expiration.
 (reg-event-fx
   :get-signed-url
   manual-check-spec
   (fn [{:keys [db]} [path-to-object-map bucket object-key url-key expiration-key]]
-    (pprint (str "get-signed-url with existing key " (trunc (get-in db (conj path-to-object-map url-key)) 20) " and expiration "
-                 (safe-unparse-datetime (get-in db (conj path-to-object-map url-key)))))
-    (if (nil? (:delegation-token db))
-      ;; Wait for the delegation-token to be fetched
+    ;; If the AWS Credentials have expired, then delay the execution of this event
+    (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
       {:dispatch-later [{:ms 400 :dispatch [:get-signed-url path-to-object-map bucket object-key url-key expiration-key]}]}
-      (if (expired? (:delegation-token-expiration db))
-        ;; Refresh the expired delegation-token
-        {:dispatch-n (list [:fetch-aws-delegation-token] [:get-signed-url path-to-object-map bucket object-key url-key expiration-key])}
-        ;; Get the signed url
-        (let [s3 (:aws-s3 db)
-              expiration-seconds (* 60 60 24) ;; 24 hours
-              expiration-time (ct/plus (ct/now) (ct/seconds expiration-seconds))
-              params (clj->js {:Bucket bucket :Key object-key :Expires expiration-seconds})
-              url (js->clj (.getSignedUrl s3 "getObject" params))
-              new-db (-> db
-                        (assoc-in (conj path-to-object-map url-key) url)
-                        (assoc-in (conj path-to-object-map expiration-key) expiration-time))]
-          (pprint (str "Retrieved signedUrl: " url))
-          {:db new-db
-           :sync-to-local-storage [{:k "helodali.signed-urls"
-                                    :v (current-signed-urls new-db)}]})))))
+      ;; Get the signed url
+      (let [s3 (:aws-s3 db)
+            expiration-seconds (* 60 60 24) ;; 24 hours
+            expiration-time (ct/plus (ct/now) (ct/seconds expiration-seconds))
+            params (clj->js {:Bucket bucket :Key object-key :Expires expiration-seconds})
+            url (js->clj (.getSignedUrl s3 "getObject" params))
+            new-db (-> db
+                      (assoc-in (conj path-to-object-map url-key) url)
+                      (assoc-in (conj path-to-object-map expiration-key) expiration-time))]
+        (pprint (str "Retrieved signedUrl: " url))
+        {:db new-db
+         :sync-to-local-storage [{:k "helodali.signed-urls"
+                                  :v (current-signed-urls new-db)}]}))))
+
+;; Execute s3 function s3f and on-success if successful, refresh token and retry otherwise
+; (reg-fx
+;   :s3-request
+;   (fn [{:keys [s3f on-success retry]}]
+;     (let [callback (fn [err data]
+;                       (if (nil? err)
+;                         (on-success)
+;                         (do
+;                           (.getSession ())
+;                           (retry))))
+;           op (condp = op-type
+;                       :put-object #(.putObject s3 params callback)
+;                       :copy-object #(.copyObject s3 params callback)
+;                       :delete-objects #(.deleteObjects s3 params callback)
+;                       (pprint (str "Error, s3-operation unknown op-type: " op-type)))]
+;       (op))))
+;
+; (reg-event-fx
+;   :store-signed-url
+;   manual-check-spec
+;   (fn [{:keys [db]} [path-to-object-map bucket object-key url-key expiration-key]]
+;     ;; Get the signed url
+;     (let [s3 (:aws-s3 db)
+;           expiration-seconds (* 60 60 24) ;; 24 hours
+;           expiration-time (ct/plus (ct/now) (ct/seconds expiration-seconds))
+;           params (clj->js {:Bucket bucket :Key object-key :Expires expiration-seconds})
+;           url (js->clj (.getSignedUrl s3 "getObject" params))
+;           new-db (-> db
+;                     (assoc-in (conj path-to-object-map url-key) url)
+;                     (assoc-in (conj path-to-object-map expiration-key) expiration-time))]
+;       (pprint (str "Retrieved signedUrl: " url))
+;       {:db new-db
+;        :sync-to-local-storage [{:k "helodali.signed-urls"
+;                                 :v (current-signed-urls new-db)}]})))
+;
+; (reg-event-fx
+;   :get-signed-url
+;   manual-check-spec
+;   (fn [{:keys [db]} [path-to-object-map bucket object-key url-key expiration-key]]
+;     ;; Get the signed url
+;     (let [s3 (:aws-s3 db)
+;           expiration-seconds (* 60 60 24) ;; 24 hours
+;           expiration-time (ct/plus (ct/now) (ct/seconds expiration-seconds))
+;           params (clj->js {:Bucket bucket :Key object-key :Expires expiration-seconds})
+;           s3f (partial (.getSignedUrl s3 "getObject" params))]
+;       {:s3-request {:s3f s3f :on-success #(dispatch [:store-signed-url path-to-object-map bucket object-key expiration-key])
+;                     :retry #(dispatch [:get-signed-url path-to-object-map bucket object-key expiration-key])}})))
 
 ;; Upload an image to the helodali-raw-images bucket. The s3 object key ("filename") is composed
 ;; as follows: sub/artwork-uuid/image-uuid/filename
@@ -1070,9 +1110,9 @@
   :add-image
   manual-check-spec
   (fn [{:keys [db]} [item-path js-file]]
-    (if (expired? (:delegation-token-expiration db))
-      ;; Refresh the expired delegation-token
-      {:dispatch-n (list [:fetch-aws-delegation-token] [:add-image item-path js-file])}
+    ;; If the AWS Credentials have expired, then delay the execution of this event
+    (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
+      {:dispatch-later [{:ms 400 :dispatch [:add-image item-path js-file]}]}
       (let [filename (.-name js-file)
             callback (fn [err data]
                        (if (not (nil? err))
@@ -1085,8 +1125,6 @@
             params (clj->js {:Bucket "helodali-raw-images" :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})
             images-path (conj item-path :images)
             images (get-in db images-path)]
-        (pprint (str "object-key: " object-key))
-        (pprint (str "ContentType: " (.-type js-file)))
         (.putObject s3 params callback)
         {:db (assoc-in db images-path (conj images {:uuid uuid :processing true}))}))))
 
@@ -1095,9 +1133,9 @@
   :replace-image
   manual-check-spec
   (fn [{:keys [db]} [item-path image-uuid js-file]]
-    (if (expired? (:delegation-token-expiration db))
-      ;; Refresh the expired delegation-token
-      {:dispatch-n (list [:fetch-aws-delegation-token] [:replace-image item-path image-uuid js-file])}
+    ;; If the AWS Credentials have expired, then delay the execution of this event
+    (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
+      {:dispatch-later [{:ms 400 :dispatch [:replace-image item-path image-uuid js-file]}]}
       (let [filename (.-name js-file)
             callback (fn [err data]
                        (if (not (nil? err))
@@ -1112,8 +1150,6 @@
             object-key (str (:sub (:userinfo db)) "/" (get-in db (conj item-path :uuid))
                             "/" new-uuid "/" filename)
             params (clj->js {:Bucket "helodali-raw-images" :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})]
-        (pprint (str "object-key: " object-key))
-        (pprint (str "ContentType: " (.-type js-file)))
         (.putObject s3 params callback)
         {:db (assoc-in db (conj images-path idx) {:uuid new-uuid :processing true})
          :dispatch [:delete-s3-objects "helodali-raw-images" [image-to-delete]]}))))
@@ -1126,7 +1162,7 @@
     (let [callback (fn [err data]
                       (if (nil? err)
                         (on-success)
-                        (pprint (str "Err from putObject: " err)))) ;; TODO: dispatch error event?
+                        (pprint (str "Err from s3-operation: " err)))) ;; TODO: dispatch error event?
           op (condp = op-type
                       :put-object #(.putObject s3 params callback)
                       :copy-object #(.copyObject s3 params callback)
@@ -1156,17 +1192,15 @@
   :add-s3-object
   manual-check-spec
   (fn [{:keys [db]} [bucket item-path js-file]]
-    (if (expired? (:delegation-token-expiration db))
-      ;; Refresh the expired delegation-token
-      {:dispatch-n (list [:fetch-aws-delegation-token] [:add-s3-object bucket item-path js-file])}
+    ;; If the AWS Credentials have expired, then delay the execution of this event
+    (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
+      {:dispatch-later [{:ms 400 :dispatch [:add-s3-object bucket item-path js-file]}]}
       (let [filename (.-name js-file)
             s3 (:aws-s3 db)
             this-uuid (generate-uuid)
             object-key (str (:sub (:userinfo db)) "/" (get-in db (conj item-path :uuid)) "/" this-uuid "/" filename)
             params (clj->js {:Bucket bucket :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})
             changes {:key object-key :filename filename :size (.-size js-file)}]
-        (pprint (str "object-key: " object-key))
-        (pprint (str "ContentType: " (.-type js-file)))
         {:s3-operation {:op-type :put-object :s3 s3 :params params
                         :on-success #(dispatch [:on-s3-success item-path changes])}
          :db (-> db
@@ -1179,9 +1213,9 @@
   :replace-s3-object
   manual-check-spec
   (fn [{:keys [db]} [bucket item-path js-file]]
-    (if (expired? (:delegation-token-expiration db))
-      ;; Refresh the expired delegation-token
-      {:dispatch-n (list [:fetch-aws-delegation-token] [:replace-s3-object bucket item-path js-file])}
+    ;; If the AWS Credentials have expired, then delay the execution of this event
+    (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
+      {:dispatch-later [{:ms 400 :dispatch [:replace-s3-object bucket item-path js-file]}]}
       (let [filename (.-name js-file)
             s3 (:aws-s3 db)
             this-uuid (generate-uuid)
@@ -1205,9 +1239,9 @@
   :copy-s3-object
   manual-check-spec
   (fn [{:keys [db]} [bucket source-object-map target-item-path]]
-    (if (expired? (:delegation-token-expiration db))
-      ;; Refresh the expired delegation-token
-      {:dispatch-n (list [:fetch-aws-delegation-token] [:copy-s3-object bucket source-object-map target-item-path])}
+    ;; If the AWS Credentials have expired, then delay the execution of this event
+    (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
+      {:dispatch-later [{:ms 400 :dispatch [:copy-s3-object bucket source-object-map target-item-path]}]}
       (let [s3 (:aws-s3 db)
             copy-source (str bucket "/" (:key source-object-map))
             this-uuid (generate-uuid)
@@ -1231,9 +1265,9 @@
   :copy-s3-within-bucket
   manual-check-spec
   (fn [{:keys [db]} [bucket source-object-map target-item-path]]
-    (if (expired? (:delegation-token-expiration db))
-      ;; Refresh the expired delegation-token
-      {:dispatch-n (list [:fetch-aws-delegation-token] [:copy-s3-within-bucket bucket source-object-map target-item-path])}
+    ;; If the AWS Credentials have expired, then delay the execution of this event
+    (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
+      {:dispatch-later [{:ms 400 :dispatch [:copy-s3-within-bucket bucket source-object-map target-item-path]}]}
       (let [callback (fn [err data]
                        (if (not (nil? err))
                          (pprint (str "Err from copyObject: " err))
@@ -1259,21 +1293,19 @@
   (fn [{:keys [db]} [bucket objects]]
     (if (empty? objects)
       {:db db} ;; nothing to do
-      (if (nil? (:delegation-token db))
+      ;; If the AWS Credentials have expired, then delay the execution of this event
+      (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
         {:dispatch-later [{:ms 400 :dispatch [:delete-s3-objects bucket objects]}]}
-        (if (expired? (:delegation-token-expiration db))
-          ;; Refresh the expired delegation-token
-          {:dispatch-n (list [:fetch-aws-delegation-token] [:delete-s3-objects bucket objects])}
-          (let [s3 (:aws-s3 db)
-                callback (fn [err data]
-                           (if (not (nil? err))
-                             (pprint (str "Err from deleteObjects: " err))
-                             (pprint (str "successful deleteObjects" data))))
-                object-keys (apply vector (map (fn [m] {:Key (get m :key)}) objects))
-                params (clj->js {:Bucket bucket :Delete {:Objects object-keys
-                                                         :Quiet false}})
-                _ (js->clj (.deleteObjects s3 params callback))]
-            {:db db}))))))
+        (let [s3 (:aws-s3 db)
+              callback (fn [err data]
+                         (if (not (nil? err))
+                           (pprint (str "Err from deleteObjects: " err))
+                           (pprint (str "successful deleteObjects" data))))
+              object-keys (apply vector (map (fn [m] {:Key (get m :key)}) objects))
+              params (clj->js {:Bucket bucket :Delete {:Objects object-keys
+                                                       :Quiet false}})
+              _ (js->clj (.deleteObjects s3 params callback))]
+          {:db db})))))
 
 ;; If uploading to our ring handler, which is not planned.
 ; (reg-event-fx

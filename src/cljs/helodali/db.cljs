@@ -1,6 +1,5 @@
 (ns helodali.db
-  (:require [cljs-uuid-utils.core :as uuid]
-            [cljs-time.core :refer [now year days ago date-time]]
+  (:require [cljs-time.core :refer [now year days ago date-time]]
             [helodali.demodata :as demo]
             [helodali.misc :refer [into-sorted-map generate-uuid]]))
 
@@ -167,8 +166,10 @@
 
 (def default-db
   {:artwork (sorted-map)
+   :refresh-aws-creds? false
    :documents (sorted-map)
    :profile {}
+
    :exhibitions (sorted-map)
    :contacts (sorted-map)
    :press (sorted-map)
@@ -182,14 +183,12 @@
    :sit-and-spin false ;; A directive to show the spinner on the main page
    :initialized? false
    :authenticated? false
+   :aws-creds nil
    :access-token nil
    :id-token nil
-   :delegation-token nil
-   :delegation-token-expiration nil
-   :delegation-token-retrieval-underway false
    :aws-s3 nil; ;; Accesses multiple S3 buckets
    :csrf-token nil
-   :userinfo nil ;; The userinfo map returned by Auth0
+   :userinfo nil ;; The userinfo map returned by Cognito
    :sort-keys {:artwork [:year false]  ;; true/false for forward/reverse sorting
                :contacts [:name true]
                :referred-artwork [:year false]

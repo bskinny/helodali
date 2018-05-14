@@ -380,7 +380,9 @@
         container-style (if @expanded {:background-color "#fff"} {})
         editing (subscribe [:item-key :artwork id :editing])
         signed-thumb-url (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url]])
-        delegation-token (subscribe [:app-key :delegation-token])
+        expiration (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url-expiration-time]])
+        raw-image-url (subscribe [:by-path [:artwork id :images 0 :signed-raw-url]])
+        processing (subscribe [:by-path [:artwork id :images 0 :processing]])
         image-input-id (str "image-upload-" id "-0")
         showing-download-tooltip? (r/atom false)
         showing-primary-image-info? (r/atom false)
@@ -408,24 +410,21 @@
                                         :on-click #(route-single-item :artwork @uuid)])]]
             image (first @images) ;; Note that images may be empty, hence image is nil
             image-size (if (or (= @display-type :contact-sheet) @editing) "240px" "480px")  ;; Set image size based on contact-sheet vs. other views
-            have-delegation-token? (not (empty? @delegation-token))
-            raw-image-url (:signed-raw-url image)
-            expiration (:signed-thumb-url-expiration-time image)
             url (cond
-                  (:processing image) "/image-assets/ajax-loader.gif"
+                  @processing "/image-assets/ajax-loader.gif"
                   ; (and (not (nil? expiration)) (not (expired? expiration))) @signed-thumb-url
-                  (not (nil? expiration)) @signed-thumb-url
+                  (not (nil? @expiration)) @signed-thumb-url
                   :else "/image-assets/thumb-stub.png")
             object-fit (cond
-                          (:processing image) "fit-none"
+                          @processing "fit-none"
                           (or (= @display-type :contact-sheet) @editing) "fit-cover"
                           :else "fit-contain")]
         ;; Perform some dispatching if the artwork is not in sync with S3 and database
-        (if (:processing image)
+        (if @processing
           (dispatch [:refresh-image [:artwork id :images 0]])
-          (when (and have-delegation-token? (not (nil? image)) (nil? @signed-thumb-url)) ;(or (nil? url) (expired? expiration)))
+          (when (and (not (nil? image)) (nil? @signed-thumb-url)) ;(or (nil? url) (expired? expiration)))
             (dispatch [:get-signed-url [:artwork id :images 0] "helodali-images" (:key image) :signed-thumb-url :signed-thumb-url-expiration-time])))
-        (when (and (:key image) have-delegation-token? (expired? (:signed-raw-url-expiration-time image)))
+        (when (and (:key image) (expired? @expiration))
           (dispatch [:get-signed-url [:artwork id :images 0] "helodali-raw-images" (:key image) :signed-raw-url :signed-raw-url-expiration-time]))
 
         ;; Base UI on new-item versus single-item versus inline display within contact-sheet
@@ -442,7 +441,7 @@
                                                                   :on-click #(if (not (= @display-type :new-item)) ;; Don't toggle 'expanded' when in :new-item mode
                                                                                (dispatch [:set-local-item-val [:artwork id :expanded] (not @expanded)])
                                                                                nil)}]]
-                                                  (when (or (and @editing (= @display-type :single-item) (not (:processing image)))
+                                                  (when (or (and @editing (= @display-type :single-item) (not @processing))
                                                             (and (not @editing) (= @display-type :single-item) (nil? image)))
                                                     [h-box :gap "8px" :align :center :justify :center :style {:background-color "#428bca"}
                                                        :children [(when-not (empty? (:metadata image))
@@ -483,7 +482,7 @@
                                                                      :anchor [:a {:class "zmdi zmdi-download rc-md-icon-button rc-icon-emphasis"
                                                                                   :on-mouse-over (handler-fn (reset! showing-download-tooltip? true))
                                                                                   :on-mouse-out  (handler-fn (reset! showing-download-tooltip? false))
-                                                                                  :href (:signed-raw-url image)
+                                                                                  :href @raw-image-url
                                                                                   :download ""}]]]])]]
                                     (when (and @expanded (or (not @editing) (not single-item))) controls)
                                     (when (not @expanded) [v-box :gap "2px" :align :start :justify :start
@@ -563,11 +562,8 @@
         title (subscribe [:item-key :artwork id :title])
         year (subscribe [:item-key :artwork id :year])
         status (subscribe [:item-key :artwork id :status])
-        style (subscribe [:item-key :artwork id :style])
         type (subscribe [:item-key :artwork id :type])
         expenses (subscribe [:item-key :artwork id :expenses])
-        purchases (subscribe [:item-key :artwork id :purchases])
-        condition (subscribe [:item-key :artwork id :condition])
         list-price (subscribe [:item-key :artwork id :list-price])
         current-location (subscribe [:item-key :artwork id :current-location])
         instagram (subscribe [:item-key :artwork id :instagram])

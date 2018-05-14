@@ -4,7 +4,6 @@
             [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [slingshot.slingshot :refer [throw+ try+]]
-            [clj-uuid :as uuid]
             [clj-time.core :refer [now days ago]]
             [clj-time.format :refer [parse unparse formatters]]
             [helodali.common :refer [coerce-int fix-date keywordize-vals]]
