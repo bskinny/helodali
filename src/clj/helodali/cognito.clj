@@ -70,7 +70,7 @@
   "Passed a session which contains an expired token, use the refresh token to request
    a new token and replace the session in the database."
   [session]
-  (pprint "Refreshing token.")
+  (pprint (str "Refreshing token from session: " session))
   (let [params {:client_id (:id client)
                 :grant_type "refresh_token"
                 :refresh_token (:refresh session)}

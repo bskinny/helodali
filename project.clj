@@ -67,7 +67,7 @@
           {:builds
             {:app
               {:source-paths ["src/cljs" "src/cljc" "env/dev/cljs"]
-               :figwheel     {:on-jsload "helodali.core/mount-root" :debug true}
+               :figwheel     {:on-jsload "helodali.core/mount-root"}
                :compiler     {:main                 helodali.dev
                               :output-to            "resources/public/js/compiled/app.js"
                               :output-dir           "resources/public/js/compiled/out"

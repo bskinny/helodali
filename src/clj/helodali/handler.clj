@@ -28,8 +28,12 @@
 
 (defn- process-request
   [uref access-token process-fx]
-  (let [verify-response (cognito/verify-token (db/query-session uref access-token))]
-    (response (merge (process-fx) verify-response))))
+  (let [session (db/query-session uref access-token)]
+    ;; If the session is not available, force a login
+    (if (empty? session)
+      (response force-login-response)
+      (let [verify-response (cognito/verify-token session)]
+        (response (merge (process-fx) verify-response))))))
 
 (defroutes routes
   (GET "/" []
@@ -82,7 +86,7 @@
 
   ;; Refresh image by uuid of image
   (POST "/refresh-image-data" [uref access-token item-uuid image-uuid :as req]
-    (pprint (str "refresh-image-data item-uuid/image-uuid: " item-uuid "/" image-uuid))
+    (pprint (str "refresh-image-data item-uuid/image-uuid: " item-uuid "/" image-uuid " token: " access-token))
     (process-request uref access-token #(refresh-image-data uref item-uuid image-uuid)))
 
   ;; Validate the given tokens and replace the tokens with cognito/verify-token if

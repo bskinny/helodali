@@ -557,7 +557,7 @@
                   :timeout         5000
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
-                  :on-success      [:update-db-from-result #(= (:access-token %) (:access-token db))]  ;; Apply update if the access-token has not been changed in the meantime
+                  :on-success      [:initialize-db-from-result]  ;; Apply update if the access-token has not been changed in the meantime
                   :on-failure      [:bad-result {:access-token nil :id-token nil} false]}}))
 
 ;; POST /login request and retrieve :profile

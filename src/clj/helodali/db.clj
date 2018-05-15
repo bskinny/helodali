@@ -5,7 +5,6 @@
             [clj-time.format :refer [parse unparse formatters]]
             [aws.sdk.s3 :as s3]
             [clojure.java.io :as io]
-            [helodali.demodata :as demo]
             [helodali.common :refer [coerce-int fix-date keywordize-vals]]
             [clojure.pprint :refer [pprint]])
   (:import [java.time ZonedDateTime ZoneId]
@@ -146,7 +145,7 @@
    i.e. there is an item that matches the pair of values. If so, return the session."
   [uref access-token]
   (if (or (empty? uref) (empty? access-token))
-    false
+    {}
     (let [session (far/query co :sessions {:uref [:eq uref] :token [:eq access-token]}
                              {:index "uref-and-token" :limit 1})]
       ;; The projection will include :uuid, :uref, :token, :sub, :ts, and :refresh
@@ -393,24 +392,7 @@
   "This recreates the database and will delete all existing data."
   []
   (let [brianw "1073c8b0-ab47-11e6-8f9d-c83ff47bbdcb"
-        tables (far/list-tables co)
-        press (->> demo/press
-                 (map #(assoc % :uref brianw))
-                 (map #(assoc % :created (unparse (formatters :date) (:created %))))
-                 (map #(assoc % :publication-date (unparse (formatters :date) (:publication-date %)))))
-        contacts (->> demo/contacts
-                    (map #(assoc % :uref brianw))
-                    (map #(assoc % :created (unparse (formatters :date) (:created %)))))
-        exhibitions (->> demo/exhibitions
-                       (map #(assoc % :uref brianw))
-                       (map #(assoc % :created (unparse (formatters :date) (:created %))))
-                       (map #(assoc % :begin-date (unparse (formatters :date) (:begin-date %))))
-                       (map #(assoc % :end-date (unparse (formatters :date) (:end-date %)))))
-        artwork (->> demo/artwork
-                   (map #(assoc % :uuid (str (uuid/v1))))
-                   (map #(assoc % :uref brianw))
-                   (map #(assoc % :created (unparse (formatters :date) (:created %))))
-                   (map #(assoc % :purchases (fix-date :unparse :date (:purchases %)))))]
+        tables (far/list-tables co)]
     (doall (map #(far/delete-table co %) tables))
     (doall (map #(create-table %) [:press :exhibitions :documents :artwork :contacts]))
     (far/create-table co :profiles
@@ -438,16 +420,7 @@
        :gsindexes [{:name "email-index"
                     :hash-keydef [:email :s]
                     :projection :keys-only
-                    :throughput {:read 2 :write 2}}]})
-    (far/put-item co :accounts (assoc demo/account :created (unparse (formatters :date) (:created demo/account))))
-    (far/put-item co :profiles (assoc demo/profile :created (unparse (formatters :date) (:created demo/profile))))
-    (far/put-item co :openid {:uref (:uuid demo/profile) :sub "google-oauth2|1234" :email "brian.williams@mayalane.com"})
-    (far/put-item co :openid {:uref (:uuid demo/profile) :sub "facebook|1234" :email "brian@mayalane.com"})
-    (far/put-item co :openid {:uref "doesnotexist" :sub "facebook|4321" :email "brian@mayalane.com"})
-    (doall (put-items :contacts contacts))
-    (doall (put-items :exhibitions exhibitions))
-    (doall (put-items :artwork artwork))
-    (doall (put-items :press press))))
+                    :throughput {:read 2 :write 2}}]})))
 
 ; (far/scan co :sessions)
 ; (cache-access-token "swizBbwU7cC7x123" {:sub "facebook|10208314583117362"})
