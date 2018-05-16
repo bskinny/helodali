@@ -138,7 +138,7 @@
 
    ;; Social Media
    :instagram-media-ref nil
-   :sync-with-instagram? false
+   :sync-with-instagram false
 
    ; :facebook {:posted "<date>" :description nil :comments [{:user "@username" :comment nil}] :likes 0}
 

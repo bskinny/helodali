@@ -355,7 +355,7 @@
               :list-price 0
               :expenses 0
               :editions 0
-              :sync-with-instagram? true
+              :sync-with-instagram true
               :instagram-media-ref media}
         url (java.net.URL. (:image-url media))
         filename (-> (.getPath url)
