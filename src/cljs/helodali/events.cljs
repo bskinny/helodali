@@ -596,7 +596,7 @@
     (let [aws-creds {:accessKeyId (.-accessKeyId aws-creds-js)
                      :secretAccessKey (.-secretAccessKey aws-creds-js)
                      :sessionToken (.-sessionToken aws-creds-js)}
-          s3 (js/AWS.S3. (clj->js (:aws-creds db)))]
+          s3 (js/AWS.S3. (clj->js aws-creds))]
       (-> db
           (assoc :refresh-aws-creds? false)
           (assoc :aws-creds-created-time (ct/now))
@@ -1017,17 +1017,14 @@
     ;; try again after a delay. But make sure the item still exists in our app-db (in case it was deleted).
     (if (and (empty? result) (get-in db [(first path-to-image) (second path-to-image)]))
       {:dispatch-later [{:ms 1000 :dispatch [:refresh-image path-to-image]}]}
-      ;; If the AWS Credentials have expired, then delay the execution of this event
-      (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
-        {:dispatch-later [{:ms 400 :dispatch [:apply-image-refresh path-to-image result]}]}
-        ;; else merge the map into the artwork and unset :processing
-        (let [image (-> (get-in db path-to-image)
-                       (merge result)
-                       (dissoc :signed-raw-url-expiration-time :signed-thumb-url-expiration-time)
-                       (coerce-int [:density :size :width :height])
-                       (dissoc :processing))]
-          {:db (-> db
-                  (assoc-in path-to-image image))})))))
+      ;; else merge the map into the artwork and unset :processing
+      (let [image (-> (get-in db path-to-image)
+                     (merge result)
+                     (dissoc :signed-raw-url-expiration-time :signed-thumb-url-expiration-time)
+                     (coerce-int [:density :size :width :height])
+                     (dissoc :processing))]
+        {:db (-> db
+                (assoc-in path-to-image image))}))))
 
 ;; Get the signed URL to access designated S3 object. Define a 24 hour
 ;; expiration.

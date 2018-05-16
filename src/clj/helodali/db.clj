@@ -385,7 +385,7 @@
 
 (defn put-items
   [table items]
-  (for [item items]
+  (doseq [item items]
     (far/put-item co table item)))
 
 (defn table-and-demo-creation
