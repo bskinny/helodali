@@ -607,21 +607,16 @@
   :logout
   interceptors
   (fn [{:keys [db]} _]
-    {:db (-> db
-            (assoc :authenticated? false)
-            (assoc :id-token nil)
-            (assoc :access-token nil)
-            (assoc :sit-and-spin true))
-     :http-xhrio {:method          :post
-                   :uri             "/logout"
-                   :params          {:access-token (:access-token db)
-                                     :uref (get-in db [:profile :uuid])}
-                   :headers         {:x-csrf-token (:csrf-token db)}
-                   :timeout         5000
-                   :format          (ajax/transit-request-format {})
-                   :response-format (ajax/transit-response-format {:keywords? true})
-                   :on-success      [:complete-logout]
-                   :on-failure      [:bad-result {} false]}
+    {:http-xhrio {:method          :post
+                  :uri             "/logout"
+                  :params          {:access-token (:access-token db)
+                                    :uref (get-in db [:profile :uuid])}
+                  :headers         {:x-csrf-token (:csrf-token db)}
+                  :timeout         5000
+                  :format          (ajax/transit-request-format {})
+                  :response-format (ajax/transit-response-format {:keywords? true})
+                  :on-success      [:complete-logout]
+                  :on-failure      [:bad-result {} false]}
      :sync-to-local-storage [{:k "helodali.access-token" :v nil}
                              {:k "helodali.id-token" :v nil}]}))
 

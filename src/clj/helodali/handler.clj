@@ -5,8 +5,7 @@
             [clj-jwt.core :refer [str->jwt]]
             [helodali.db :refer [initialize-db update-item create-item delete-item refresh-image-data
                                  update-user-table valid-user? refresh-item-path cache-access-token
-                                 delete-access-token create-user-if-necessary
-                                 create-artwork-from-instragram]]
+                                 create-user-if-necessary create-artwork-from-instragram query-session]]
             [helodali.instagram :refer [refresh-instagram process-instagram-auth]]
             [helodali.cognito :as cognito]
             [clj-uuid :as uuid]
@@ -28,7 +27,7 @@
 
 (defn- process-request
   [uref access-token process-fx]
-  (let [session (db/query-session uref access-token)]
+  (let [session (query-session uref access-token)]
     ;; If the session is not available, force a login
     (if (empty? session)
       (response force-login-response)
@@ -99,13 +98,13 @@
               uref (:uuid profile)
               ;; The verify-response will be {} for a valid token and a map of refreshed access
               ;; and id tokens otherwise.
-              session (db/query-session uref access-token)]
+              session (query-session uref access-token)]
           (if (empty? session)
             ;; No session found for access token, force authentication.
             (response force-login-response)
             (let [verify-response (cognito/verify-token session)
                   ;; Fetch the session again as the tokens might have been refreshed
-                  session (db/query-session uref (get verify-response :access-token access-token))]
+                  session (query-session uref (get verify-response :access-token access-token))]
               (if (empty? session)
                 ;; Refresh did not work
                 (response force-login-response)
@@ -142,8 +141,17 @@
               (assoc-in [:session :uuid] session-uuid)))))))
 
   (POST "/logout" [access-token uref :as req]
-    (pprint (str "logout " uref))
-    (process-request uref access-token #(delete-access-token access-token uref)))
+    (pprint (str "Handle /logout with req: " req))
+    (let [session (query-session uref access-token)
+          session-cookie (-> (:session req)
+                             (dissoc :uuid)
+                             (dissoc :sub))]
+      ;; If the session is found, then delete it
+      (when (not (empty? session))
+        (delete-item :sessions (select-keys session [:uuid])))
+      (-> (response {})
+        ;; Clear the user's information in the session
+        (assoc :session (vary-meta session-cookie assoc :recreate true)))))
 
   ;; Redirect any client side routes to "/".
   (ANY "/view/*" [] (redirect "/"))

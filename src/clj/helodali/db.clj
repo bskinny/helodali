@@ -132,14 +132,6 @@
                                     :ts (.format tn DateTimeFormatter/ISO_INSTANT)})
         uref))))
 
-(defn delete-access-token
-  [access-token uref]
-  (pprint (str "delete-access-token for uuid: " uref))
-  (let [session  (far/query co :sessions {:uref [:eq uref] :token [:eq access-token]}
-                            {:index "uref-and-token" :limit 1})]
-    (when session
-      (far/delete-item co :sessions {:uref uref :token access-token}))))
-
 (defn query-session
   "Check if the given uref and access-token are in agreement in the :sessions table,
    i.e. there is an item that matches the pair of values. If so, return the session."
