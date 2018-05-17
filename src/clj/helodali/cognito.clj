@@ -114,7 +114,6 @@
   Pull the kid and alg from the JWT header and pass to the verify function. Then check expiration.
   If the  token is expired, attempt to refresh."
   [session]
-  (pprint (str "verify-token with session: " session))
   (let [jwt (str->jwt (:token session))
         jwt-header (:header jwt)
         public-key (get-in @jwks [(:kid jwt-header) :public-key])]

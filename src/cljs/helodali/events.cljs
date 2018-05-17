@@ -1039,7 +1039,6 @@
             new-db (-> db
                       (assoc-in (conj path-to-object-map url-key) url)
                       (assoc-in (conj path-to-object-map expiration-key) expiration-time))]
-        (pprint (str "Retrieved signedUrl: " url))
         {:db new-db
          :sync-to-local-storage [{:k "helodali.signed-urls"
                                   :v (current-signed-urls new-db)}]}))))
