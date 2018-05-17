@@ -380,7 +380,8 @@
         container-style (if @expanded {:background-color "#fff"} {})
         editing (subscribe [:item-key :artwork id :editing])
         signed-thumb-url (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url]])
-        expiration (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url-expiration-time]])
+        thumb-expiration (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url-expiration-time]])
+        raw-expiration (subscribe [:by-path [:artwork id :images 0 :signed-raw-url-expiration-time]])
         raw-image-url (subscribe [:by-path [:artwork id :images 0 :signed-raw-url]])
         processing (subscribe [:by-path [:artwork id :images 0 :processing]])
         image-input-id (str "image-upload-" id "-0")
@@ -413,7 +414,7 @@
             url (cond
                   @processing "/image-assets/ajax-loader.gif"
                   ; (and (not (nil? expiration)) (not (expired? expiration))) @signed-thumb-url
-                  (not (nil? @expiration)) @signed-thumb-url
+                  (not (nil? @thumb-expiration)) @signed-thumb-url
                   :else "/image-assets/thumb-stub.png")
             object-fit (cond
                           @processing "fit-none"
@@ -424,8 +425,10 @@
           (dispatch [:refresh-image [:artwork id :images 0]])
           (when (and (not (nil? image)) (nil? @signed-thumb-url)) ;(or (nil? url) (expired? expiration)))
             (dispatch [:get-signed-url [:artwork id :images 0] "helodali-images" (:key image) :signed-thumb-url :signed-thumb-url-expiration-time])))
-        (when (and (:key image) (expired? @expiration))
-          (dispatch [:get-signed-url [:artwork id :images 0] "helodali-raw-images" (:key image) :signed-raw-url :signed-raw-url-expiration-time]))
+        (when (and (:key image) (expired? @raw-expiration))
+          (do
+            (pprint (str "The raw-url has expired, refreshing. Expiration time: " @raw-expiration))
+            (dispatch [:get-signed-url [:artwork id :images 0] "helodali-raw-images" (:key image) :signed-raw-url :signed-raw-url-expiration-time])))
 
         ;; Base UI on new-item versus single-item versus inline display within contact-sheet
         ;; A new-item view does not present the image or edit/delete controls

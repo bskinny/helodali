@@ -1021,8 +1021,7 @@
         {:db (-> db
                 (assoc-in path-to-image image))}))))
 
-;; Get the signed URL to access designated S3 object. Define a 24 hour
-;; expiration.
+;; Get the signed URL to access designated S3 object. Define a 1 hour expiration.
 (reg-event-fx
   :get-signed-url
   manual-check-spec
@@ -1032,7 +1031,7 @@
       {:dispatch-later [{:ms 400 :dispatch [:get-signed-url path-to-object-map bucket object-key url-key expiration-key]}]}
       ;; Get the signed url
       (let [s3 (:aws-s3 db)
-            expiration-seconds (* 60 60 24) ;; 24 hours
+            expiration-seconds (* 60 60) ;; 1 hour
             expiration-time (ct/plus (ct/now) (ct/seconds expiration-seconds))
             params (clj->js {:Bucket bucket :Key object-key :Expires expiration-seconds})
             url (js->clj (.getSignedUrl s3 "getObject" params))
