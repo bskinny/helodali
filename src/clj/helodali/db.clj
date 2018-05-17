@@ -331,7 +331,13 @@
 
 (defn create-artwork-from-instragram
    "Build an artwork item from the given instagram media, copy the image from instagram to our S3
-    bucket and return updates to both :artwork and :instagram-media portions of the client's app-db."
+    bucket and return updates to both :artwork and :instagram-media portions of the client's app-db.
+
+    The call to S3 putObject will warn 'WARNING: No content length specified for stream data. Stream
+    contents will be buffered in memory and could result in out of memory errors' as we are not
+    providing a metadata map with {:content-length N} to the s3/put-object invocation. The Instagram
+    api does not provide the content size of images so we would have to buffer the image ourselves
+    in order to determine this. Since Instagram images tend to be smallish, we'll let this slide for now."
   [uref sub media]
   (let [cred (dissoc co :endpoint)
         artwork-uuid (str (uuid/v1))
