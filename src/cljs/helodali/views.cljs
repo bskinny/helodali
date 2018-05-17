@@ -103,12 +103,14 @@
 
 (defn- login-button
   []
-  (let [origin (.-origin (.-location js/document))]
+  (let [origin (.-origin (.-location js/document))
+        state-value (rand)]
+    ;; We are not checking the state value of the authorize request on the return visit.
     [md-icon-button :md-icon-name "zmdi zmdi-brush" :size :larger
-                    ;; TODO: generate state value
                     :on-click #(set! (.. js/window -location -href)
                                 (str "https://helodali.auth.us-east-1.amazoncognito.com/oauth2/authorize?redirect_uri=" origin
-                                     "/login&response_type=code&client_id=7uddoehg2ov8abqro8sud6i9ag&state=GEf3hb11buI2acaXtyQuvgFHDTYQQY4A&scope=openid%20email%20profile"))]))
+                                     "/login&response_type=code&client_id=7uddoehg2ov8abqro8sud6i9ag&state=" state-value
+                                     "&scope=openid%20email%20profile"))]))
 
 (defn display-message
   [id msg]
