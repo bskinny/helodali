@@ -557,7 +557,7 @@
                   :timeout         5000
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
-                  :on-success      [:initialize-db-from-result]  ;; Apply update if the access-token has not been changed in the meantime
+                  :on-success      [:initialize-db-from-result]
                   :on-failure      [:bad-result {:access-token nil :id-token nil} false]}}))
 
 ;; POST /login request and retrieve :profile
@@ -587,6 +587,23 @@
                   :response-format (ajax/transit-response-format {:keywords? true})
                   :on-success      [:initialize-db-from-result]
                   :on-failure      [:bad-result {} false]}}))
+
+;; Ask the server to refresh the access token and therefore set the refresh-aws-creds? if necessary
+(reg-event-fx
+  :refresh-access-token
+  manual-check-spec
+  (fn [{:keys [db]} _]
+    {:http-xhrio {:method          :post
+                  :uri             "/refresh-token"
+                  :params          {:access-token (:access-token db)
+                                    :id-token (:id-token db)
+                                    :uref (:uuid (:profile db))}
+                  :headers         {:x-csrf-token (:csrf-token db)}
+                  :timeout         5000
+                  :format          (ajax/transit-request-format {})
+                  :response-format (ajax/transit-response-format {:keywords? true})
+                  :on-success      [:update-db-from-result (fn [db] true)]
+                  :on-failure      [:bad-result {:access-token nil :id-token nil} false]}}))
 
 (reg-event-db
   :set-aws-credentials
@@ -677,12 +694,14 @@
                          (assoc new-items id (assoc item kw value)))]
       (assoc db type (reduce-kv apply-change (sorted-map) (get db type))))))
 
-;; Change view. If 'display' is :default, look up the default view for the item type
+;; Change view. If 'display' is :default, look up the default view for the item type. Take this opportunity
+;; to inspect the age of the aws credentials and force a refresh if necessary.
 (reg-event-db
   :change-view
   (fn [db [_ type display]]
     (let [display-type (if (= display :default) (helodali.db/default-view-for-type type) display)]
       (-> db
+        (assoc :refresh-access-token? (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
         (assoc :display-type display-type)
         (assoc :view type)))))
 

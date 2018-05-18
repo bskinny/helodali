@@ -1,5 +1,6 @@
 (ns helodali.views
     (:require [helodali.misc :refer [expired?]]
+              [cljs-time.core :as ct]
               [helodali.routes :refer [route route-profile route-search]]
               [helodali.views.artwork :refer [artwork-view]]
               [helodali.views.contacts :refer [contacts-view]]
@@ -122,6 +123,7 @@
  (let [msgs (subscribe [:app-key :messages])
        view (subscribe [:app-key :view])
        aws-creds (subscribe [:app-key :aws-creds])
+       refresh-access-token? (subscribe [:app-key :refresh-access-token?])
        aws-s3 (subscribe [:app-key :aws-s3])
        authenticated? (subscribe [:app-key :authenticated?])
        refresh-aws-creds? (subscribe [:app-key :refresh-aws-creds?])
@@ -139,6 +141,11 @@
 
      (when (and (not @authenticated?) (empty? @access-token) (not (empty? @csrf-token)))
        (dispatch [:check-session]))
+
+     ;; Force the fetch of a access token refresh in the event the signed urls expire and we have not hit the
+     ;; (helodali) server for a pass through verify-token.
+     (when @refresh-access-token?
+       (dispatch [:refresh-access-token]))
 
      ;; Fetch AWS Credentials if first time in or if needing a refresh after credential expiration
      (when (or (and @authenticated? @initialized? (empty? @aws-creds) (not (empty? @id-token)))

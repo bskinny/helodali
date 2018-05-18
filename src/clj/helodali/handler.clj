@@ -96,8 +96,6 @@
         (response force-login-response)
         (let [[openid-item profile] (db/get-profile-by-sub (:sub userinfo))
               uref (:uuid profile)
-              ;; The verify-response will be {} for a valid token and a map of refreshed access
-              ;; and id tokens otherwise.
               session (query-session uref access-token)]
           (if (empty? session)
             ;; No session found for access token, force authentication.
@@ -112,6 +110,26 @@
                 (let [db (initialize-db (:sub userinfo) session)]
                   (response (merge db (refresh-instagram uref nil)))))))))))
 
+  ;; Check for the need to refresh the access token and do so if necessary.
+  (POST "/refresh-token" [access-token id-token :as req]
+    (let [userinfo (-> id-token str->jwt :claims)]
+      (if (nil? userinfo)
+        (response force-login-response)
+        (let [[openid-item profile] (db/get-profile-by-sub (:sub userinfo))
+              uref (:uuid profile)
+              session (query-session uref access-token)]
+          (if (empty? session)
+            ;; No session found for access token, force authentication.
+            (response force-login-response)
+            (let [verify-response (cognito/verify-token session)
+                  ;; Fetch the session again as the tokens might have been refreshed
+                  session (query-session uref (get verify-response :access-token access-token))]
+              (if (empty? session)
+                ;; Refresh did not work
+                (response force-login-response)
+                ;; Token is valid or has been refreshed, in the former case the response will be a
+                ;; empty map, the latter will contain the tokens.
+                (response (merge verify-response {:refresh-access-token? false})))))))))
 
   (GET "/check-session" req
     (pprint (str "Handle /check-session with req: " req))
@@ -124,7 +142,7 @@
               uref (get-in db [:profile :uuid])]
           (response (merge db (refresh-instagram uref nil)))))))
 
-  ;; Redirected from Cognito server-side token request
+    ;; Redirected from Cognito server-side token request
   (GET "/login" [code :as req]
     (pprint (str "Handle /login with req: " req))
     (let [token-resp (cognito/get-token code)]
@@ -153,7 +171,7 @@
         ;; Clear the user's information in the session
         (assoc :session (vary-meta session-cookie assoc :recreate true)))))
 
-  ;; Redirect any client side routes to "/".
+    ;; Redirect any client side routes to "/".
   (ANY "/view/*" [] (redirect "/"))
   (ANY "/new/*" [] (redirect "/"))
   (ANY "/search/*" [] (redirect "/"))
@@ -164,7 +182,7 @@
     (-> (resource-response js {:root "public/js/compiled"})
        (header "Cache-Control" "max-age=86400, must-revalidate")))
 
-  ;; Everything else
+    ;; Everything else
   (resources "/"))
 
 (defroutes api-routes
