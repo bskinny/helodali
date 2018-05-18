@@ -70,7 +70,7 @@
   "Passed a session which contains an expired token, use the refresh token to request
    a new token and replace the session in the database."
   [session]
-  (pprint "Refreshing token.")
+  (pprint "Refreshing token")
   (let [params {:client_id (:id client)
                 :grant_type "refresh_token"
                 :refresh_token (:refresh session)}
@@ -114,7 +114,6 @@
   Pull the kid and alg from the JWT header and pass to the verify function. Then check expiration.
   If the  token is expired, attempt to refresh."
   [session]
-  (pprint (str "verify-token with session: " session))
   (let [jwt (str->jwt (:token session))
         jwt-header (:header jwt)
         public-key (get-in @jwks [(:kid jwt-header) :public-key])]

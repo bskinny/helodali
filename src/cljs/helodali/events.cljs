@@ -557,7 +557,7 @@
                   :timeout         5000
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
-                  :on-success      [:update-db-from-result #(= (:access-token %) (:access-token db))]  ;; Apply update if the access-token has not been changed in the meantime
+                  :on-success      [:initialize-db-from-result]
                   :on-failure      [:bad-result {:access-token nil :id-token nil} false]}}))
 
 ;; POST /login request and retrieve :profile
@@ -588,6 +588,23 @@
                   :on-success      [:initialize-db-from-result]
                   :on-failure      [:bad-result {} false]}}))
 
+;; Ask the server to refresh the access token and therefore set the refresh-aws-creds? if necessary
+(reg-event-fx
+  :refresh-access-token
+  manual-check-spec
+  (fn [{:keys [db]} _]
+    {:http-xhrio {:method          :post
+                  :uri             "/refresh-token"
+                  :params          {:access-token (:access-token db)
+                                    :id-token (:id-token db)
+                                    :uref (:uuid (:profile db))}
+                  :headers         {:x-csrf-token (:csrf-token db)}
+                  :timeout         5000
+                  :format          (ajax/transit-request-format {})
+                  :response-format (ajax/transit-response-format {:keywords? true})
+                  :on-success      [:update-db-from-result (fn [db] true)]
+                  :on-failure      [:bad-result {:access-token nil :id-token nil} false]}}))
+
 (reg-event-db
   :set-aws-credentials
   interceptors
@@ -596,7 +613,7 @@
     (let [aws-creds {:accessKeyId (.-accessKeyId aws-creds-js)
                      :secretAccessKey (.-secretAccessKey aws-creds-js)
                      :sessionToken (.-sessionToken aws-creds-js)}
-          s3 (js/AWS.S3. (clj->js (:aws-creds db)))]
+          s3 (js/AWS.S3. (clj->js aws-creds))]
       (-> db
           (assoc :refresh-aws-creds? false)
           (assoc :aws-creds-created-time (ct/now))
@@ -607,21 +624,16 @@
   :logout
   interceptors
   (fn [{:keys [db]} _]
-    {:db (-> db
-            (assoc :authenticated? false)
-            (assoc :id-token nil)
-            (assoc :access-token nil)
-            (assoc :sit-and-spin true))
-     :http-xhrio {:method          :post
-                   :uri             "/logout"
-                   :params          {:access-token (:access-token db)
-                                     :uref (get-in db [:profile :uuid])}
-                   :headers         {:x-csrf-token (:csrf-token db)}
-                   :timeout         5000
-                   :format          (ajax/transit-request-format {})
-                   :response-format (ajax/transit-response-format {:keywords? true})
-                   :on-success      [:complete-logout]
-                   :on-failure      [:bad-result {} false]}
+    {:http-xhrio {:method          :post
+                  :uri             "/logout"
+                  :params          {:access-token (:access-token db)
+                                    :uref (get-in db [:profile :uuid])}
+                  :headers         {:x-csrf-token (:csrf-token db)}
+                  :timeout         5000
+                  :format          (ajax/transit-request-format {})
+                  :response-format (ajax/transit-response-format {:keywords? true})
+                  :on-success      [:complete-logout]
+                  :on-failure      [:bad-result {} false]}
      :sync-to-local-storage [{:k "helodali.access-token" :v nil}
                              {:k "helodali.id-token" :v nil}]}))
 
@@ -682,12 +694,14 @@
                          (assoc new-items id (assoc item kw value)))]
       (assoc db type (reduce-kv apply-change (sorted-map) (get db type))))))
 
-;; Change view. If 'display' is :default, look up the default view for the item type
+;; Change view. If 'display' is :default, look up the default view for the item type. Take this opportunity
+;; to inspect the age of the aws credentials and force a refresh if necessary.
 (reg-event-db
   :change-view
   (fn [db [_ type display]]
     (let [display-type (if (= display :default) (helodali.db/default-view-for-type type) display)]
       (-> db
+        (assoc :refresh-access-token? (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
         (assoc :display-type display-type)
         (assoc :view type)))))
 
@@ -1017,20 +1031,16 @@
     ;; try again after a delay. But make sure the item still exists in our app-db (in case it was deleted).
     (if (and (empty? result) (get-in db [(first path-to-image) (second path-to-image)]))
       {:dispatch-later [{:ms 1000 :dispatch [:refresh-image path-to-image]}]}
-      ;; If the AWS Credentials have expired, then delay the execution of this event
-      (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
-        {:dispatch-later [{:ms 400 :dispatch [:apply-image-refresh path-to-image result]}]}
-        ;; else merge the map into the artwork and unset :processing
-        (let [image (-> (get-in db path-to-image)
-                       (merge result)
-                       (dissoc :signed-raw-url-expiration-time :signed-thumb-url-expiration-time)
-                       (coerce-int [:density :size :width :height])
-                       (dissoc :processing))]
-          {:db (-> db
-                  (assoc-in path-to-image image))})))))
+      ;; else merge the map into the artwork and unset :processing
+      (let [image (-> (get-in db path-to-image)
+                     (merge result)
+                     (dissoc :signed-raw-url-expiration-time :signed-thumb-url-expiration-time)
+                     (coerce-int [:density :size :width :height])
+                     (dissoc :processing))]
+        {:db (-> db
+                (assoc-in path-to-image image))}))))
 
-;; Get the signed URL to access designated S3 object. Define a 24 hour
-;; expiration.
+;; Get the signed URL to access designated S3 object. Define a 1 hour expiration.
 (reg-event-fx
   :get-signed-url
   manual-check-spec
@@ -1040,14 +1050,13 @@
       {:dispatch-later [{:ms 400 :dispatch [:get-signed-url path-to-object-map bucket object-key url-key expiration-key]}]}
       ;; Get the signed url
       (let [s3 (:aws-s3 db)
-            expiration-seconds (* 60 60 24) ;; 24 hours
+            expiration-seconds (* 60 60) ;; 1 hour
             expiration-time (ct/plus (ct/now) (ct/seconds expiration-seconds))
             params (clj->js {:Bucket bucket :Key object-key :Expires expiration-seconds})
             url (js->clj (.getSignedUrl s3 "getObject" params))
             new-db (-> db
                       (assoc-in (conj path-to-object-map url-key) url)
                       (assoc-in (conj path-to-object-map expiration-key) expiration-time))]
-        (pprint (str "Retrieved signedUrl: " url))
         {:db new-db
          :sync-to-local-storage [{:k "helodali.signed-urls"
                                   :v (current-signed-urls new-db)}]}))))

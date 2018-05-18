@@ -24,7 +24,6 @@
   "Called with a list of maps, such as an artwork's :purchases, and converts a date valued kw to/from string
    The type argument is a keyword of either :parse or :unparse."
   [type kw l]
-  ; (pprint (str "fix-date: " kw " " l))
   (let [parse-unparse (if (= type :parse)
                         parse
                         unparse)]

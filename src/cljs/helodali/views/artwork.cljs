@@ -194,7 +194,7 @@
                                           :on-click #(dispatch [:delete-local-vector-element [:artwork id :purchases] idx])]]]]])))
 
 (defn display-secondary-image
-  [id editing? idx image odd-row?]
+  [id editing idx image odd-row?]
   (let [bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
         image-size "240px"
         image-input-id (str "image-upload-" id "-" idx)
@@ -212,7 +212,7 @@
       [v-box ;:max-width image-size :max-height image-size ;:style {:margin-top "10px" :z-index 0 :position "relative"}
          :children [[box :max-width image-size :max-height image-size
                       :child [:img {:src url}]] ; :on-click #()}]]  TODO: on-click should present a larger image
-                    (when (and @editing? (not (:processing image)))
+                    (when (and @editing (not (:processing image)))
                       [h-box :gap "8px" :align :center :justify :center :style {:background-color "#428bca"}
                          :children [;; hidden input text + button for image upload
                                     [:input {:type "file" :accept "image/*" :multiple false :name "image-upload"
@@ -282,7 +282,7 @@
                                                            (range (count @exhibition-history)) @exhibition-history (cycle [true false])))])
                              (when (> (count @images) 1)
                                [h-box :gap "16px" :align :start :justify :start :padding "20px" :style {:flex-flow "row wrap"}
-                                  :children (into [] (mapv (fn [idx image bg] ^{:key (str "image-" idx)} [display-secondary-image id false idx image bg]) (range 1 (count @images)) (rest @images) (cycle [true false])))])]]
+                                  :children (into [] (mapv (fn [idx image bg] ^{:key (str "image-" idx)} [display-secondary-image id editing idx image bg]) (range 1 (count @images)) (rest @images) (cycle [true false])))])]]
             create-control [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
                               :children [[button :label "Create" :class "btn-default"
                                            :on-click #(dispatch [:create-from-placeholder :artwork []])]
@@ -380,7 +380,8 @@
         container-style (if @expanded {:background-color "#fff"} {})
         editing (subscribe [:item-key :artwork id :editing])
         signed-thumb-url (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url]])
-        expiration (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url-expiration-time]])
+        thumb-expiration (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url-expiration-time]])
+        raw-expiration (subscribe [:by-path [:artwork id :images 0 :signed-raw-url-expiration-time]])
         raw-image-url (subscribe [:by-path [:artwork id :images 0 :signed-raw-url]])
         processing (subscribe [:by-path [:artwork id :images 0 :processing]])
         image-input-id (str "image-upload-" id "-0")
@@ -413,7 +414,7 @@
             url (cond
                   @processing "/image-assets/ajax-loader.gif"
                   ; (and (not (nil? expiration)) (not (expired? expiration))) @signed-thumb-url
-                  (not (nil? @expiration)) @signed-thumb-url
+                  (not (nil? @thumb-expiration)) @signed-thumb-url
                   :else "/image-assets/thumb-stub.png")
             object-fit (cond
                           @processing "fit-none"
@@ -424,7 +425,7 @@
           (dispatch [:refresh-image [:artwork id :images 0]])
           (when (and (not (nil? image)) (nil? @signed-thumb-url)) ;(or (nil? url) (expired? expiration)))
             (dispatch [:get-signed-url [:artwork id :images 0] "helodali-images" (:key image) :signed-thumb-url :signed-thumb-url-expiration-time])))
-        (when (and (:key image) (expired? @expiration))
+        (when (and (:key image) (expired? @raw-expiration))
           (dispatch [:get-signed-url [:artwork id :images 0] "helodali-raw-images" (:key image) :signed-raw-url :signed-raw-url-expiration-time]))
 
         ;; Base UI on new-item versus single-item versus inline display within contact-sheet
@@ -768,16 +769,16 @@
       (if-not (empty? @items)
         [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
            :children (into [] (map (fn [id] ^{:key id} [item-view id]) @items))]
-        [box :margin "40px"
-          :child [:p "Create your first artwork with "
-                   [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
-                                   :on-click #(route-new-item :artwork)]
-                   " or import from Instagram with "
-                   [md-icon-button :md-icon-name "zmdi zmdi-instagram mdc-text-grey"
-                       :on-click #(if @instagram-media
-                                    (route-instagram-refresh)
-                                    (set! (.-location js/document) (str instagram-api-url (.-origin (.-location js/document))
-                                                                        "/instagram/oauth/callback&response_type=code&state=" @uuid)))]]]))))
+        [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
+         :children [[:p "Create your first artwork with "]
+                    [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
+                                      :on-click #(route-new-item :artwork)]
+                    [:p " or import from Instagram with "]
+                    [md-icon-button :md-icon-name "zmdi zmdi-instagram mdc-text-grey"
+                        :on-click #(if @instagram-media
+                                     (route-instagram-refresh)
+                                     (set! (.-location js/document) (str instagram-api-url (.-origin (.-location js/document))
+                                                                         "/instagram/oauth/callback&response_type=code&state=" @uuid)))]]]))))
 
 (defn artwork-view
   "Display artwork"

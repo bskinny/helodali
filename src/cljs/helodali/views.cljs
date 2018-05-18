@@ -1,5 +1,6 @@
 (ns helodali.views
     (:require [helodali.misc :refer [expired?]]
+              [cljs-time.core :as ct]
               [helodali.routes :refer [route route-profile route-search]]
               [helodali.views.artwork :refer [artwork-view]]
               [helodali.views.contacts :refer [contacts-view]]
@@ -103,12 +104,14 @@
 
 (defn- login-button
   []
-  (let [origin (.-origin (.-location js/document))]
+  (let [origin (.-origin (.-location js/document))
+        state-value (rand)]
+    ;; We are not checking the state value of the authorize request on the return visit.
     [md-icon-button :md-icon-name "zmdi zmdi-brush" :size :larger
-                    ;; TODO: generate state value
                     :on-click #(set! (.. js/window -location -href)
                                 (str "https://helodali.auth.us-east-1.amazoncognito.com/oauth2/authorize?redirect_uri=" origin
-                                     "/login&response_type=code&client_id=7uddoehg2ov8abqro8sud6i9ag&state=GEf3hb11buI2acaXtyQuvgFHDTYQQY4A&scope=openid%20email%20profile"))]))
+                                     "/login&response_type=code&client_id=7uddoehg2ov8abqro8sud6i9ag&state=" state-value
+                                     "&scope=openid%20email%20profile"))]))
 
 (defn display-message
   [id msg]
@@ -120,6 +123,7 @@
  (let [msgs (subscribe [:app-key :messages])
        view (subscribe [:app-key :view])
        aws-creds (subscribe [:app-key :aws-creds])
+       refresh-access-token? (subscribe [:app-key :refresh-access-token?])
        aws-s3 (subscribe [:app-key :aws-s3])
        authenticated? (subscribe [:app-key :authenticated?])
        refresh-aws-creds? (subscribe [:app-key :refresh-aws-creds?])
@@ -137,6 +141,11 @@
 
      (when (and (not @authenticated?) (empty? @access-token) (not (empty? @csrf-token)))
        (dispatch [:check-session]))
+
+     ;; Force the fetch of a access token refresh in the event the signed urls expire and we have not hit the
+     ;; (helodali) server for a pass through verify-token.
+     (when @refresh-access-token?
+       (dispatch [:refresh-access-token]))
 
      ;; Fetch AWS Credentials if first time in or if needing a refresh after credential expiration
      (when (or (and @authenticated? @initialized? (empty? @aws-creds) (not (empty? @id-token)))

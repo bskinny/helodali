@@ -1,6 +1,5 @@
 (ns helodali.db
   (:require [cljs-time.core :refer [now year days ago date-time]]
-            [helodali.demodata :as demo]
             [helodali.misc :refer [into-sorted-map generate-uuid]]))
 
 (defn default-year-val-map
@@ -139,7 +138,7 @@
 
    ;; Social Media
    :instagram-media-ref nil
-   :sync-with-instagram? false
+   :sync-with-instagram false
 
    ; :facebook {:posted "<date>" :description nil :comments [{:user "@username" :comment nil}] :likes 0}
 
@@ -150,19 +149,6 @@
    :expanded false
    :editing false})
 
-(def demo-db
-  {:artwork (into-sorted-map (map #(merge (default-artwork) (assoc % :uuid (generate-uuid))) demo/artwork))
-   :documents {}
-   :profile demo/profile
-   :exhibitions (into-sorted-map (map #(merge (default-exhibition) %) demo/exhibitions))
-   :contacts (into-sorted-map (map #(merge (default-contact) %) demo/contacts))
-   :press (into-sorted-map (map #(merge (default-press) %) demo/press))
-   :view :artwork ;; Can be :artwork :contacts :exhibitions :documents :purchases :profile :search-results
-   :display-type :contact-sheet ;; Can be :new-item :contact-sheet :row :list :single-item
-   :single-item-uuid nil ;; Used to defined which entity is being viewed in detail
-   :messages {}
-   :initialized? true
-   :csrf-token nil})
 
 (def default-db
   {:artwork (sorted-map)

@@ -5,8 +5,7 @@
             [clj-jwt.core :refer [str->jwt]]
             [helodali.db :refer [initialize-db update-item create-item delete-item refresh-image-data
                                  update-user-table valid-user? refresh-item-path cache-access-token
-                                 delete-access-token create-user-if-necessary
-                                 create-artwork-from-instragram]]
+                                 create-user-if-necessary create-artwork-from-instragram query-session]]
             [helodali.instagram :refer [refresh-instagram process-instagram-auth]]
             [helodali.cognito :as cognito]
             [clj-uuid :as uuid]
@@ -28,8 +27,12 @@
 
 (defn- process-request
   [uref access-token process-fx]
-  (let [verify-response (cognito/verify-token (db/query-session uref access-token))]
-    (response (merge (process-fx) verify-response))))
+  (let [session (query-session uref access-token)]
+    ;; If the session is not available, force a login
+    (if (empty? session)
+      (response force-login-response)
+      (let [verify-response (cognito/verify-token session)]
+        (response (merge (process-fx) verify-response))))))
 
 (defroutes routes
   (GET "/" []
@@ -82,7 +85,7 @@
 
   ;; Refresh image by uuid of image
   (POST "/refresh-image-data" [uref access-token item-uuid image-uuid :as req]
-    (pprint (str "refresh-image-data item-uuid/image-uuid: " item-uuid "/" image-uuid))
+    (pprint (str "refresh-image-data item-uuid/image-uuid: " item-uuid "/" image-uuid " token: " access-token))
     (process-request uref access-token #(refresh-image-data uref item-uuid image-uuid)))
 
   ;; Validate the given tokens and replace the tokens with cognito/verify-token if
@@ -93,15 +96,13 @@
         (response force-login-response)
         (let [[openid-item profile] (db/get-profile-by-sub (:sub userinfo))
               uref (:uuid profile)
-              ;; The verify-response will be {} for a valid token and a map of refreshed access
-              ;; and id tokens otherwise.
-              session (db/query-session uref access-token)]
+              session (query-session uref access-token)]
           (if (empty? session)
             ;; No session found for access token, force authentication.
             (response force-login-response)
             (let [verify-response (cognito/verify-token session)
                   ;; Fetch the session again as the tokens might have been refreshed
-                  session (db/query-session uref (get verify-response :access-token access-token))]
+                  session (query-session uref (get verify-response :access-token access-token))]
               (if (empty? session)
                 ;; Refresh did not work
                 (response force-login-response)
@@ -109,6 +110,26 @@
                 (let [db (initialize-db (:sub userinfo) session)]
                   (response (merge db (refresh-instagram uref nil)))))))))))
 
+  ;; Check for the need to refresh the access token and do so if necessary.
+  (POST "/refresh-token" [access-token id-token :as req]
+    (let [userinfo (-> id-token str->jwt :claims)]
+      (if (nil? userinfo)
+        (response force-login-response)
+        (let [[openid-item profile] (db/get-profile-by-sub (:sub userinfo))
+              uref (:uuid profile)
+              session (query-session uref access-token)]
+          (if (empty? session)
+            ;; No session found for access token, force authentication.
+            (response force-login-response)
+            (let [verify-response (cognito/verify-token session)
+                  ;; Fetch the session again as the tokens might have been refreshed
+                  session (query-session uref (get verify-response :access-token access-token))]
+              (if (empty? session)
+                ;; Refresh did not work
+                (response force-login-response)
+                ;; Token is valid or has been refreshed, in the former case the response will be a
+                ;; empty map, the latter will contain the tokens.
+                (response (merge verify-response {:refresh-access-token? false})))))))))
 
   (GET "/check-session" req
     (pprint (str "Handle /check-session with req: " req))
@@ -121,7 +142,7 @@
               uref (get-in db [:profile :uuid])]
           (response (merge db (refresh-instagram uref nil)))))))
 
-  ;; Redirected from Cognito server-side token request
+    ;; Redirected from Cognito server-side token request
   (GET "/login" [code :as req]
     (pprint (str "Handle /login with req: " req))
     (let [token-resp (cognito/get-token code)]
@@ -138,10 +159,19 @@
               (assoc-in [:session :uuid] session-uuid)))))))
 
   (POST "/logout" [access-token uref :as req]
-    (pprint (str "logout " uref))
-    (process-request uref access-token #(delete-access-token access-token uref)))
+    (pprint (str "Handle /logout with req: " req))
+    (let [session (query-session uref access-token)
+          session-cookie (-> (:session req)
+                             (dissoc :uuid)
+                             (dissoc :sub))]
+      ;; If the session is found, then delete it
+      (when (not (empty? session))
+        (delete-item :sessions (select-keys session [:uuid])))
+      (-> (response {})
+        ;; Clear the user's information in the session
+        (assoc :session (vary-meta session-cookie assoc :recreate true)))))
 
-  ;; Redirect any client side routes to "/".
+    ;; Redirect any client side routes to "/".
   (ANY "/view/*" [] (redirect "/"))
   (ANY "/new/*" [] (redirect "/"))
   (ANY "/search/*" [] (redirect "/"))
@@ -152,7 +182,7 @@
     (-> (resource-response js {:root "public/js/compiled"})
        (header "Cache-Control" "max-age=86400, must-revalidate")))
 
-  ;; Everything else
+    ;; Everything else
   (resources "/"))
 
 (defroutes api-routes

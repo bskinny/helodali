@@ -1,4 +1,4 @@
-// This function is responsible processing images uploaded to the helodali-raw-images bucket:
+// This function is responsible for processing images uploaded to the helodali-raw-images bucket:
 // - A (large) thumb is created and placed in the helodali-images bucket with the same key Value
 //   as the source bucket key.
 // - The references to both the original raw image and processed thumb are written
@@ -7,7 +7,7 @@
 // The raw image object key looks like a filename (S3 let's us think of /-delimited strings
 // as unix filenames):
 // facebook|10208314583117362/b1543a71-b751-11e6-af6f-f8a3047232a7/1073c8b0-ab47-11e6-8f9d-c83ff47bbdcb/284187881_VMFA_7.jpg
-// Which is of the form: openid-sub / artwork-uuid / image-uuid / filenames
+// Which is of the form: openid-sub / artwork-uuid / image-uuid / filename
 
 // dependencies
 var async = require('async');

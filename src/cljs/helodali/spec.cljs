@@ -92,7 +92,7 @@
                                        ::type ::dimensions ::series ::status]
                               :opt-un [::description ::editions ::condition ::style ::associated-documents ::purchases
                                        ::list-price ::current-location ::expanded ::editing ::exhibition-history
-                                       ::instagram-media-ref ::sync-with-instagram?]))
+                                       ::instagram-media-ref ::sync-with-instagram]))
 (s/def ::artwork (s/every-kv ::id ::artwork-item))
 
 
