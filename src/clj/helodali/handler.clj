@@ -115,7 +115,7 @@
     (let [userinfo (-> id-token str->jwt :claims)]
       (if (nil? userinfo)
         (response force-login-response)
-        (let [[openid-item profile] (db/get-profile-by-sub (:sub userinfo))
+        (let [[_ profile] (db/get-profile-by-sub (:sub userinfo))
               uref (:uuid profile)
               session (query-session uref access-token)]
           (if (empty? session)
@@ -135,14 +135,22 @@
     (pprint (str "Handle /check-session with req: " req))
     (let [sub (get-in req [:session :sub])
           session-uuid (get-in req [:session :uuid])]
-      (if (empty? sub)
+      (if (or (empty? session-uuid) (empty? sub))
         (response {})
-        (let [session (db/get-session session-uuid)
-              db (initialize-db sub session)
-              uref (get-in db [:profile :uuid])]
-          (response (merge db (refresh-instagram uref nil)))))))
+        (let [[_ profile] (db/get-profile-by-sub sub)
+              uref (:uuid profile)
+              current-session (db/get-session session-uuid)
+              verify-response (cognito/verify-token current-session)
+              ;; Fetch the session again as the tokens might have been refreshed
+              session (query-session uref (get verify-response :access-token (:token current-session)))]
+          (if (empty? session)
+            ;; Refresh did not work
+            (response force-login-response)
+            ;; Token is valid
+            (let [db (initialize-db sub session)]
+              (response (merge db (refresh-instagram uref nil)))))))))
 
-    ;; Redirected from Cognito server-side token request
+  ;; Redirected from Cognito server-side token request
   (GET "/login" [code :as req]
     (pprint (str "Handle /login with req: " req))
     (let [token-resp (cognito/get-token code)]
