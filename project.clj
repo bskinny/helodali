@@ -92,10 +92,12 @@
                         :closure-defines {goog.DEBUG false}
                         :pretty-print    false}}}}}
 
-     :api
-       {:ring {:handler helodali.handler/api-handler
-               :uberwar-name "helodali-api.war"}
-        :cljsbuild {:builds []}}}
+     :dbmgmt {:dependencies [[org.clojure/tools.nrepl "0.2.13"]]}}
+
+    :api
+    {:ring {:handler helodali.handler/api-handler
+            :uberwar-name "helodali-api.war"}
+     :cljsbuild {:builds []}}
 
   :main helodali.server
 
