@@ -1,11 +1,10 @@
-// This function is responsible for processing images uploaded to the helodali-raw-images bucket:
-// - A (large) thumb is created and placed in the helodali-images bucket with the same key Value
+// This function is responsible for processing images uploaded to or deleted from the helodali-raw-images bucket:
+// - On upload, a (large) thumb is created and placed in the helodali-images bucket with the same key Value
 //   as the source bucket key.
 // - The references to both the original raw image and processed thumb are written
 //   to the user's DynamoDB 'artwork' table.
 //
-// The raw image object key looks like a filename (S3 let's us think of /-delimited strings
-// as unix filenames):
+// The raw image object key looks like a filename (S3 let's us think of /-delimited strings as unix filenames):
 // facebook|10208314583117362/b1543a71-b751-11e6-af6f-f8a3047232a7/1073c8b0-ab47-11e6-8f9d-c83ff47bbdcb/284187881_VMFA_7.jpg
 // Which is of the form: openid-sub / artwork-uuid / image-uuid / filename
 
@@ -74,6 +73,8 @@ exports.handler = function(event, context, callback) {
         function fetchImages(data, next) {
             if (isEmptyObject(data)) {
               next('No openid item for user ' + nameComponents[0])
+              // Must 'return' when invoking callback before end of function
+              return;
             }
             dynamoDB.get({Key: {'uref': data.Item.uref,
                                 'uuid': nameComponents[1]},
@@ -90,6 +91,8 @@ exports.handler = function(event, context, callback) {
         function update(data, next) {
             if (isEmptyObject(data)) {
               next('No images for artwork ' + nameComponents[1])
+              // Must 'return' when invoking callback before end of function
+              return;
             }
             var images = data.Item.images;
             var idx = images.findIndex(function (img) {
@@ -97,6 +100,8 @@ exports.handler = function(event, context, callback) {
                                        });
             if (idx == -1) {
               next("The image was not found in the db, for key: " + srcKey)
+              // Must 'return' when invoking callback before end of function
+              return;
             } else {
               var updateExpression = 'REMOVE #images[' + idx + ']';
               var params = {TableName: 'artwork',
@@ -187,6 +192,7 @@ exports.handler = function(event, context, callback) {
 
             if (isEmptyObject(data)) {
               next('No openid item for user ' + nameComponents[0])
+              return;
             }
 
             // Update the artwork's images attributes by appending the new image to the
