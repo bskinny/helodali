@@ -653,6 +653,12 @@
            :children (into [header] (mapv (fn [id bg] ^{:key id} [item-list-view @widths id bg]) @items (cycle [true false])))]))))
 
 (def instagram-api-url "https://api.instagram.com/oauth/authorize/?client_id=cbfda8d4f3c445af9dbf79dd90f03b90&redirect_uri=")
+
+(defn instagram-auth
+  [uuid]
+  (set! (.-location js/document) (str instagram-api-url (.-origin (.-location js/document))
+                                      "/instagram/oauth/callback&response_type=code&state=" uuid)))
+
 (defn view-selection
   "The row of view selection controls: contact-sheet row list"
   []
@@ -672,8 +678,7 @@
                     [md-icon-button :md-icon-name "zmdi zmdi-instagram mdc-text-grey" :tooltip "Instagram Media"
                                     :on-click #(if @instagram-media
                                                  (route-instagram-refresh)
-                                                 (set! (.-location js/document) (str instagram-api-url (.-origin (.-location js/document))
-                                                                                     "/instagram/oauth/callback&response_type=code&state=" @uuid)))]]])))
+                                                 (instagram-auth @uuid))]]])))
 
 (defn single-item-view
   []
@@ -764,7 +769,8 @@
   "Display contact sheet of items"
   []
   (let [items (subscribe [:items-keys-sorted-by :artwork (partial sort-by-key-then-created :year true)])
-        instagram-media (subscribe [:items-keys :instagram-media])]
+        instagram-media (subscribe [:items-keys :instagram-media])
+        uuid (subscribe [:by-path [:profile :uuid]])]
     (fn []
       (if-not (empty? @items)
         [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
@@ -777,8 +783,7 @@
                     [md-icon-button :md-icon-name "zmdi zmdi-instagram mdc-text-grey"
                         :on-click #(if @instagram-media
                                      (route-instagram-refresh)
-                                     (set! (.-location js/document) (str instagram-api-url (.-origin (.-location js/document))
-                                                                         "/instagram/oauth/callback&response_type=code&state=" @uuid)))]]]))))
+                                     (instagram-auth @uuid))]]]))))
 
 (defn artwork-view
   "Display artwork"

@@ -158,6 +158,17 @@
                                              ::url ::degrees ::awards-and-grants ::residencies ::lectures-and-talks
                                              ::collections ::photo])))
 
+;; User's account - mostly read-only information
+(s/def ::bio (s/nilable string?))
+(s/def ::full_name (s/nilable string?))
+(s/def ::profile_picture (s/nilable string?))
+(s/def ::website (s/nilable string?))
+(s/def ::username (s/nilable string?))
+(s/def ::is_business boolean?)
+(s/def ::instagram-user (s/keys :opt-un [::bio ::is_business ::full_name ::profile_picture ::website ::username]))
+(s/def ::account (s/nilable (s/keys :opt-un [::created ::instagram-user ::uuid])))
+
+;; AWS Credentials for access S3
 (s/def ::accessKeyId (s/nilable string?))
 (s/def ::secretAccessKey (s/nilable string?))
 (s/def ::sessionToken (s/nilable string?))
@@ -184,5 +195,5 @@
 (s/def ::messages (s/keys))  ;; The keys for ::messages are mostly random
 (s/def ::db (s/keys :req-un [::view ::display-type ::single-item-uuid ::artwork ::contacts ::exhibitions
                              ::press ::profile ::authenticated? ::initialized? ::access-token ::id-token
-                             ::userinfo ::search-pattern ::documents ::aws-creds ::refresh-aws-creds?]
+                             ::userinfo ::search-pattern ::documents ::aws-creds ::refresh-aws-creds? ::account]
                     :opt-un [::messages ::instagram-media]))

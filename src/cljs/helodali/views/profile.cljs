@@ -46,8 +46,7 @@
 (defn item-view
   "Display the profile"
   [id]
-  (let [uuid (subscribe [:by-path [:profile :uuid]])
-        cn (subscribe [:by-path [:profile :name]])
+  (let [cn (subscribe [:by-path [:profile :name]])
         photo (subscribe [:by-path [:profile :photo]])
         birth-year (subscribe [:by-path [:profile :birth-year]])
         birth-place (subscribe [:by-path [:profile :birth-place]])

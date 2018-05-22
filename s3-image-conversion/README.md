@@ -6,3 +6,5 @@ create the function but it does not include the trigger assignments. Existing tr
 helodali-raw-images need to be removed before reassigning to a recreated image-conversion function.
 
 See http://sharp.dimens.io/en/latest/install/#aws-lambda for the docker build requirements.
+
+The image-conversion.yaml may also be used to recreate or verify configuration.

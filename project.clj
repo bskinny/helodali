@@ -6,7 +6,11 @@
                  [cljs-ajax "0.7.3"]
                  [day8.re-frame/http-fx "0.1.6"]
                  [joda-time "2.9.9"]
-                 [com.amazonaws/aws-java-sdk-dynamodb "1.11.79"]
+                 [amazonica "0.3.125" :exclusions [com.amazonaws/aws-java-sdk
+                                                   com.amazonaws/amazon-kinesis-client]]
+                 [com.amazonaws/aws-java-sdk-core "1.11.333"]
+                 [com.amazonaws/aws-java-sdk-dynamodb "1.11.333"]
+                 [com.amazonaws/aws-java-sdk-s3 "1.11.333"]
                  [com.taoensso/faraday "1.9.0"]
                  [commons-codec "1.10"]
                  [org.apache.httpcomponents/httpclient "4.5.3"]
@@ -92,10 +96,12 @@
                         :closure-defines {goog.DEBUG false}
                         :pretty-print    false}}}}}
 
-     :api
-       {:ring {:handler helodali.handler/api-handler
-               :uberwar-name "helodali-api.war"}
-        :cljsbuild {:builds []}}}
+     :dbmgmt {:dependencies [[org.clojure/tools.nrepl "0.2.13"]]}}
+
+    :api
+    {:ring {:handler helodali.handler/api-handler
+            :uberwar-name "helodali-api.war"}
+     :cljsbuild {:builds []}}
 
   :main helodali.server
 

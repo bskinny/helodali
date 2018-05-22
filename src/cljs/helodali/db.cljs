@@ -155,7 +155,7 @@
    :refresh-aws-creds? false
    :documents (sorted-map)
    :profile {}
-
+   :account {}
    :exhibitions (sorted-map)
    :contacts (sorted-map)
    :press (sorted-map)
