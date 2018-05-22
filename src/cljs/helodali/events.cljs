@@ -188,6 +188,8 @@
                              (map #(assoc % :instagram-media-ref (and (:instagram-media-ref %)
                                                                       (first (fixer :created [(:instagram-media-ref %)])))))
                              (map #(assoc % :purchases (fixer :date (:purchases %))))))
+        (assoc :account (if (:account resp)
+                          (assoc-in (:account resp) [:created] (parse-date :date (get-in resp [:account :created])))))
         (assoc :press (->> (:press resp)
                            (fixer :created)
                            (fixer :publication-date)))
@@ -339,21 +341,19 @@
                             :on-failure      [:bad-result {} retry-fx]}})))
 
 (defn- delete-fx
-  ([db table item]
-   (delete-fx db table item false))
-  ([db table item is-retry?]
-   (let [_ (check-and-throw :helodali.spec/db db)
-         retry-fx (or is-retry? #(delete-fx db table item true))
-         fx (if is-retry? {} {:db db})]
-     (merge fx {:http-xhrio {:method          :post
-                             :uri             "/delete-item"
-                             :params          {:table table :uref (:uref item) :uuid (:uuid item) :access-token (:access-token db)}
-                             :headers         {:x-csrf-token (:csrf-token db)}
-                             :timeout         5000
-                             :format          (ajax/transit-request-format {})
-                             :response-format (ajax/transit-response-format {:keywords? true})
-                             :on-success      [:update-db-from-result (fn [db] true)]
-                             :on-failure      [:bad-result {} retry-fx]}}))))
+  [table item is-retry? db]
+  (let [_ (check-and-throw :helodali.spec/db db)
+        retry-fx (or is-retry? (partial delete-fx table item true))
+        fx (if is-retry? {} {:db db})]
+    (merge fx {:http-xhrio {:method          :post
+                            :uri             "/delete-item"
+                            :params          {:table table :uref (:uref item) :uuid (:uuid item) :access-token (:access-token db)}
+                            :headers         {:x-csrf-token (:csrf-token db)}
+                            :timeout         5000
+                            :format          (ajax/transit-request-format {})
+                            :response-format (ajax/transit-response-format {:keywords? true})
+                            :on-success      [:update-db-from-result (fn [db] true)]
+                            :on-failure      [:bad-result {} retry-fx]}})))
 
 ;; Update the app-db locally (i.e. do not propogate change to server)
 ;; path is a vector pointing into :profile or items, e.g. :artwork, :contacts, etc. E.g.
@@ -363,15 +363,6 @@
   interceptors
   (fn [db [path val]]
     (assoc-in db path val)))
-
-;; Update the app-db locally and send change to database immediately.
-;; path is a vector pointing into :profile or items, e.g. :artwork, :contacts, etc. E.g.
-;; [:artwork 16 :purchases 0 :price] or [:exhibitions 3 :location]
-; (reg-event-db
-;   :set-item-val    ;; This event handler may not be needed
-;   interceptors
-;   (fn [db [path val]]
-;     (update-fx path val false (assoc-in db path val))))
 
 ;; Switch to edit mode for given item. Stash the current app-db to undo changes
 ;; that are canceled. 'item-path' is a path to item such as [:press 2]
@@ -575,7 +566,7 @@
                   :on-success      [:initialize-db-from-result]
                   :on-failure      [:bad-result {} false]}}))
 
-;; GET /check-session and retrieve :profile
+;; GET /check-session and initialize db if a valid access token is refreshed on the server
 (reg-event-fx
   :check-session
   (fn [{:keys [db]} _]
@@ -637,6 +628,24 @@
      :sync-to-local-storage [{:k "helodali.access-token" :v nil}
                              {:k "helodali.id-token" :v nil}]}))
 
+(reg-event-fx
+  :delete-account
+  manual-check-spec
+  (fn [{:keys [db]} _]
+    {:http-xhrio {:method          :post
+                  :uri             "/delete-account"
+                  :params          {:access-token (:access-token db)
+                                    :uref (get-in db [:profile :uuid])}
+                  :headers         {:x-csrf-token (:csrf-token db)}
+                  :timeout         5000
+                  :format          (ajax/transit-request-format {})
+                  :response-format (ajax/transit-response-format {:keywords? true})
+                  :on-success      [:complete-logout]
+                  :on-failure      [:bad-result {} false]}
+     :sync-to-local-storage [{:k "helodali.access-token" :v nil}
+                             {:k "helodali.id-token" :v nil}
+                             {:k "helodali.signed-urls" :v nil}]}))
+
 ;; A successful logout: reset the db to the unauthenticated default but keep the csrf-token
 (reg-event-fx
   :complete-logout
@@ -646,6 +655,7 @@
             (assoc :sit-and-spin false)
             (assoc :csrf-token (:csrf-token db)))
      :route-client {:route-name helodali.routes/home :args {}}}))
+
 
 (reg-event-fx
   :authenticated
@@ -699,9 +709,12 @@
 (reg-event-db
   :change-view
   (fn [db [_ type display]]
-    (let [display-type (if (= display :default) (helodali.db/default-view-for-type type) display)]
+    (let [display-type (if (= display :default) (helodali.db/default-view-for-type type) display)
+          refresh-access-token? (if (:aws-creds-created-time db)
+                                  (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1)))
+                                  false)]
       (-> db
-        (assoc :refresh-access-token? (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
+        (assoc :refresh-access-token? refresh-access-token?)
         (assoc :display-type display-type)
         (assoc :view type)))))
 
@@ -824,7 +837,7 @@
       ;; Submit change to server for all deletes except those to the placeholder item
       (if (or (= 0 id) (not (empty? refint)))
         {:db new-db}
-        (delete-fx new-db type item)))))
+        (delete-fx type item false new-db)))))
 
 ;; Dispatch this event to delete an artwork item, images needs to be removed from S3.
 (reg-event-fx
@@ -839,7 +852,7 @@
       ;; Submit change to server for all deletes except those to the placeholder item
       (if (or (= 0 id) (not (empty? refint)))
         {:db new-db}
-        (merge (delete-fx new-db type item)
+        (merge (delete-fx type item false new-db)
                {:dispatch-n (list [:delete-s3-objects "helodali-raw-images" (:images item)])})))))
 
 ;; Dispatch this event to delete a document item, the file needs to be removed from S3.
@@ -855,7 +868,7 @@
       ;; Submit change to server for all deletes except those to the placeholder item
       (if (or (= 0 id) (not (empty? refint)))
         {:db new-db}
-        (merge (delete-fx new-db type item)
+        (merge (delete-fx type item false new-db)
                {:dispatch-n (list [:delete-s3-objects "helodali-documents" (filter #(not (empty? (:key %))) [item])])})))))
 
 ;; Apply this change only to our app-db: Push new 'defaults' element in the front of vector given by 'path'

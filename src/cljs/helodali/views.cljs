@@ -7,6 +7,7 @@
               [helodali.views.press :refer [press-view]]
               [helodali.views.documents :refer [documents-view]]
               [helodali.views.profile :refer [profile-view]]
+              [helodali.views.account :refer [account-view]]
               [helodali.views.purchases :refer [purchases-view]]
               [helodali.views.exhibitions :refer [exhibitions-view]]
               [helodali.views.search-results :refer [search-results-view]]
@@ -54,7 +55,7 @@
         :width "160px" :backdrop-opacity 0.3 :on-cancel #(reset! showing-account-popover? false) :style {:cursor "pointer"}
         :body [v-box
                 :children [[label :label "Artist Profile" :on-click #(select-fn :profile)]
-                           ; [label :label "Account" :on-click #(select-fn :account)]
+                           [label :label "My Account" :on-click #(select-fn :account)]
                            [label :label "Logout" :on-click (fn []
                                                                (dispatch [:logout])
                                                                (reset! showing-account-popover? false))]]]])))
@@ -194,8 +195,7 @@
                                     :press [press-view]
                                     :profile [profile-view]
                                     :static-page [static-pages-view]
-                                    :account [box :width "50%" :align-self :center
-                                                :child [re-com/alert-box :alert-type :warning :closeable? true :body "The account page is still being developed"]]
+                                    :account [account-view]
                                     :purchases [purchases-view]
                                     :documents [documents-view]
                                     :exhibitions [exhibitions-view]

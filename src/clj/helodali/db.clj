@@ -50,7 +50,7 @@
 
 (defn get-profile-by-sub
   "Given an openid subject identifier (the 'sub' claim), resolve to a profile map
-   by searching the openid table for the user's uuid and then getting the items
+   by searching the openid table for the user's uuid and then getting the item
    from profiles. Return the openid item found and the profile map, an empty map
    if no profile is found."
   [sub]
@@ -153,6 +153,38 @@
       session
       {})))
 
+(defn delete-item
+  [table key-map]
+  (far/delete-item co table key-map))
+
+(defn delete-items
+  "Delete, in batches of 25, the given items from given table. The item-list
+   should be of the form [{key} {key}]. E.g. For artwork [{:uref \"abc\" :uuid \"123\"}]"
+  [table item-list]
+  (loop [items item-list]
+    (if (> (count items) 0)
+      (do
+        (pprint (str "Removing " (vec (take 25 items))))
+        (far/batch-write-item co {table {:delete (vec (take 25 items))}})
+        (recur (drop 25 items))))))
+
+(defn delete-user
+  "(batch-write-item client-opts
+                     {:users {:put    [{:user-id 1 :username \"sally\"}
+                                       {:user-id 2 :username \"jane\"}]
+                              :delete [{:user-id [3 4 5]}]}})"
+  [uref sub]
+  (let [query-opts {:proj-expr "#uref, #uuid"
+                    :expr-attr-names {"#uref" "uref" "#uuid" "uuid"}}]
+    (delete-items :artwork (far/query co :artwork {:uref [:eq uref]} query-opts))
+    (delete-items :documents (far/query co :documents {:uref [:eq uref]} query-opts))
+    (delete-items :exhibitions (far/query co :exhibitions {:uref [:eq uref]} query-opts))
+    (delete-items :contacts (far/query co :contacts {:uref [:eq uref]} query-opts))
+    (delete-items :press (far/query co :press {:uref [:eq uref]} query-opts))
+    (delete-item :profiles {:uuid uref})
+    (delete-item :openid {:sub sub})))
+
+
 (defn initialize-db
   "Given an openid claims map, with :sub key, resolve the user against :openid and :profiles
    tables and then construct the user's app-db for the client. Also take this opportunity to
@@ -162,7 +194,8 @@
   (if (nil? sub)
     {}
     (let [[openid-item profile] (get-profile-by-sub sub)
-          uref (:uuid profile)]
+          uref (:uuid profile)
+          account (get-account uref)]
       {:artwork (query-by-uref :artwork uref)
        :documents (query-by-uref :documents uref)
        :exhibitions (query-by-uref :exhibitions uref)
@@ -173,8 +206,9 @@
        :initialized? true
        :access-token (:token session)
        :id-token (:id-token session)
-       :account (-> (get-account uref)
-                    (dissoc :instagram-access-token))
+       :account (-> account
+                    (dissoc :instagram-access-token)
+                    (assoc :instagram-user (select-keys (:instagram-user account) [:bio :website :full_name :profile_picture :username])))
        :userinfo openid-item})))   ;; TODO: Fix this, should be userinfo
 
 (defn- undash
@@ -368,10 +402,6 @@
       ;; Return an updated version of the :instagram-media-ref item as well as the new :artwork item
       {:artwork [[artwork-uuid [nil (assoc item :images [{:uuid image-uuid :processing true}])]]]
        :instagram-media [[(:instagram-id media) [nil (assoc media :artwork-uuid artwork-uuid)]]]})))
-
-(defn delete-item
-  [table key-map]
-  (far/delete-item co table key-map))
 
 (defn create-table
   [name]

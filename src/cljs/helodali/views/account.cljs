@@ -6,63 +6,74 @@
               [cljs.pprint :refer [pprint]]
               [reagent.core  :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
-              [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button hyperlink
-                                              input-text input-textarea single-dropdown selection-list
-                                              button title checkbox]]))
+              [re-com.core :as re-com :refer [box v-box h-box label modal-panel hyperlink
+                                              input-text row-button button title checkbox p border line]]))
+
+(defn delete-account-dialog-markup
+  [form-data process-ok process-cancel]
+  [v-box :padding  "0px" ;:style    {:background-color "cornsilk"}
+      :children [[title :label "Delete My Account" :level :level2]
+                 [p "Taking this action will result in the permanent deletion of all data associated with
+                            your account."]
+                 [checkbox
+                  :label     "Please confirm your request to delete all account data"
+                  :model     (:confirmation @form-data)
+                  :on-change #(swap! form-data assoc :confirmation %)]
+                 [line :color "#ddd" :style {:margin "10px 0 10px"}]
+                 [h-box :gap "12px"
+                   :children [[button :label "Delete" :on-click process-ok :disabled? (not (:confirmation @form-data))]
+                              [button :label "Cancel" :on-click process-cancel]]]]])
+
+(defn delete-account-modal-dialog
+  "A modal dialog to capture confirmation of account deletion"
+  []
+  (let [show? (r/atom false)
+        initial-form-data {:confirmation false}
+        form-data (r/atom initial-form-data)
+        process-ok (fn [event]
+                     (reset! show? false)
+                     ;; Process the deletion
+                     (dispatch [:delete-account])
+                     false) ;; Prevent default "GET" form submission (if used)
+        process-cancel (fn [event]
+                         (reset! form-data initial-form-data)
+                         (reset! show? false)
+                         false)]
+    (fn []
+      [v-box
+       :children [[button :label "Delete Account" :class "btn-info"
+                          :on-click #(do
+                                       (reset! show? true))]
+                  (when @show?
+                    [modal-panel :backdrop-color "grey" :backdrop-opacity 0.4
+                         :child [delete-account-dialog-markup form-data process-ok process-cancel]])]])))
 
 (defn item-view
   "Display account"
   [id]
-  (let [uuid (subscribe [:by-path [:profile :uuid]])
-        cn (subscribe [:by-path [:userinfo :name]])
-        email (subscribe [:by-path [:userinfo :email]])
-        billing-name (subscribe [:by-path [:account :billing-name]])
-        billing-street (subscribe [:by-path [:account :billing-street]])
-        billing-city (subscribe [:by-path [:account :billing-city]])
-        billing-state (subscribe [:by-path [:account :billing-state]])
-        billing-zip (subscribe [:by-path [:account :billing-zip]])
-        editing (subscribe [:by-path [:account :editing]])]
+  (let [cn (subscribe [:by-path [:userinfo :name]])
+        created (subscribe [:by-path [:account :created]])
+        instagram-user (subscribe [:by-path [:account :instagram-user]])]
+        ;billing-stuff (subscribe [:by-path [:account :billing-stuff]])
+        ;editing (subscribe [:by-path [:account :editing]])]
     (fn []
-      (let [header [title :level :level2 :label "Artist Information"]
-            view-control [h-box :gap "2px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
-                             :children [[row-button :md-icon-name "zmdi zmdi-edit"
-                                          :mouse-over-row? true :tooltip "Edit your profile" :tooltip-position :right-center
-                                          :on-click #(dispatch [:edit-item [:profile]])]]]
-            save-control [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
-                             :children [[button :label "Save" :class "btn-default"
-                                          :on-click #(dispatch [:save-changes [:profile]])]
-                                        [button :label "Cancel" :class "btn-default"
-                                          :on-click #(dispatch [:cancel-edit-item [:profile]])]]]
+      (let [header [title :level :level2 :label "My Account"]
             view [[h-box :gap "8px" :align :center :justify :start
-                     :children [[:span.bold @cn]
-                                (when (not (nil? @email))
-                                  [label :label @email])]]]
-                  ; (when (or (not (empty? @birth-place)))
-                  ;   [h-box :gap "8px" :align :center :justify :start
-                  ;           :children [[:span.uppercase.light-grey "Birth Place"]
-                  ;                      [:span (str @birth-place)]]])
-                  ; (when (or (not (empty? @currently-resides)))
-                  ;   [h-box :gap "8px" :align :center :justify :start
-                  ;           :children [[:span.uppercase.light-grey "Currently Resides"]
-                  ;                      [:span (str @currently-resides)]]])
-            edit [[h-box :gap "8px" :align :center :justify :start
-                     :children [[:span.bold @cn]
-                                (when (not (nil? @email))
-                                  [label :label @email])]]]]
-                  ; [h-box :gap "6px" :align :center
-                  ;   :children [[:span.uppercase.light-grey "Birth Year"]
-                  ;              [input-text :width "60px" :model (str @birth-year) :style {:border "none"}
-                  ;                   :on-change #(dispatch [:set-local-item-val [:profile :birth-year] %])]]]
-                  ; [h-box :gap "8px" :align :center :justify :between
-                  ;         :children [[:span.uppercase.light-grey "Birth Place"]
-                  ;                    [input-text :model (str @birth-place) :placeholder "" :width "320px" :style {:border "none"}
-                  ;                       :on-change #(dispatch [:set-local-item-val [:profile :birth-place] %])]]]]]
+                     :children [[:span.bold "Created"]
+                                (when (not (nil? @created))
+                                  [:span (safe-date-string @created)])]]]]
+                   ;(when (not (empty? @instagram-user))
+                   ;  [h-box :gap "8px" :align :center :justify :start
+                   ;          :children [[:span.uppercase.light-grey ""]
+                   ;                     [:span (str @birth-place)]]])]]
         [v-box :gap "10px" :align :start :justify :start ;:style {:border "dashed 1px red"}
-               :children (concat [header] (if @editing edit view) [(if @editing save-control view-control)])]))))
+               :children (concat [header] view)]))))
 
-(defn profile-view
-  "Display the user's profile"
+(defn account-view
+  "Display the user's account"
   []
   (fn []
     [v-box :gap "16px" :align :center :justify :center
-       :children [[item-view]]]))
+       :children [[item-view]
+                  [re-com/gap :size "24px"]
+                  [delete-account-modal-dialog]]]))
