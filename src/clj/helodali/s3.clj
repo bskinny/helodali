@@ -53,7 +53,7 @@
     (loop [options {:bucket-name bucket
                     :prefix prefix}]
       (let [results (aws3/list-objects-v2 co options)]
-        (when (:object-summaries results)
+        (when (and (:object-summaries results) (not (empty? (:object-summaries results))))
           (aws3/delete-objects co {:bucket-name bucket
                                    :quiet? true
                                    :keys (vec (map #(get %1 :key) (:object-summaries results)))})
