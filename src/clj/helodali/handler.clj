@@ -246,7 +246,7 @@
                     ;                                         (println "Level " level ": " message)
                     ;                                         (logger.protocols/log logger level throwable (format "%s" message)))))})))
 
-;; Don't use secure-site-defaults. We are using http->https redirection via .ebextensions
+;; Don't use secure-site-defaults. We are using http->https redirection via AWS Elastic Beanstalk load balancing
 (def handler (-> #'routes
                 (wrap-defaults site-defaults)
                 (wrap-restful-params)

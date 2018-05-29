@@ -27,7 +27,7 @@
                  [yogthos/config "1.1.1"]
                  [clj-jwt "0.1.1"]
                  [buddy/buddy-core "1.5.0-SNAPSHOT"]
-                 [cljsjs/aws-sdk-js "2.94.0-0"]
+                 [cljsjs/aws-sdk-js "2.247.1-0"]  ;; This is a local build of aws-sdk-js
                  [org.clojars.bskinny/clj-aws-s3 "0.3.11" :exclusions [joda-time com.fasterxml.jackson.core/jackson-databind
                                                                        com.fasterxml.jackson.core/jackson-annotations]]
                  [ring/ring-defaults "0.3.1"]
@@ -84,7 +84,7 @@
        {:hooks [leiningen.cljsbuild]  ;; This adds cljsbuild when lein does an ordinary compile
         :ring {:handler helodali.handler/handler
                :uberwar-name "helodali.war"
-               :war-exclusions []}  ;; This prevents excluding hidden files (default behavior) - we need .ebextensions
+               :war-exclusions []}  ;; This prevents excluding hidden files (default behavior) - if we need .ebextensions
         :cljsbuild
          {:builds
            {:app

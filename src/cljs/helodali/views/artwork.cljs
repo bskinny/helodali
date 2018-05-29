@@ -481,10 +481,10 @@
                                                        :children [[popover-tooltip :label "Download original image"
                                                                      :showing? showing-download-tooltip? :position :below-center
                                                                      :anchor [:a {:class "zmdi zmdi-download rc-md-icon-button rc-icon-emphasis"
+                                                                                  :target "_blank" :rel "noopener noreferrer"
                                                                                   :on-mouse-over (handler-fn (reset! showing-download-tooltip? true))
                                                                                   :on-mouse-out  (handler-fn (reset! showing-download-tooltip? false))
-                                                                                  :href @raw-image-url
-                                                                                  :download ""}]]]])]]
+                                                                                  :href @raw-image-url}]]]])]]
                                     (when (and @expanded (or (not @editing) (not single-item))) controls)
                                     (when (not @expanded) [v-box :gap "2px" :align :start :justify :start
                                                                :children [[:span.semibold (title-string @title)]

@@ -2,7 +2,6 @@
   (:require [clj-http.client :as http]
             [helodali.db :as db]
             [cheshire.core :refer [parse-string generate-string]]
-            [clojure.java.io :as io]
             [buddy.core.keys :as keys]
             [clj-jwt.core :refer [str->jwt verify]]
             [clojure.pprint :refer [pprint]]
@@ -42,7 +41,7 @@
   (let [jwks (try+
                (http/get jwks-url options)
                (catch Object _
-                 (pprint (str (:throwable &throw-context) "unexpected error"))
+                 (pprint (str (:throwable &throw-context) " unexpected error"))
                  (throw+)))]
     (->> (:body jwks)
          (:keys)
@@ -62,7 +61,7 @@
                                   (merge options {:form-params params}))
                        (:body))
                    (catch Object _
-                     (pprint (str (:throwable &throw-context) "unexpected error"))
+                     (pprint (str (:throwable &throw-context) " unexpected error"))
                      (throw+)))]
      response))
 
@@ -79,7 +78,7 @@
                                   (merge options {:form-params params}))
                        (:body))
                    (catch Object _
-                     (pprint (str (:throwable &throw-context) "unexpected error"))
+                     (pprint (str (:throwable &throw-context) " unexpected error"))
                      (throw+)))
         tn (ZonedDateTime/now (ZoneId/of "Z"))]
     (db/delete-item :sessions (select-keys session [:uuid]))

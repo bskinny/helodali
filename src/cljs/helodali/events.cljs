@@ -603,12 +603,11 @@
     (pprint (str "In set-aws-credentials with " (js->clj aws-creds-js)))
     (let [aws-creds {:accessKeyId (.-accessKeyId aws-creds-js)
                      :secretAccessKey (.-secretAccessKey aws-creds-js)
-                     :sessionToken (.-sessionToken aws-creds-js)}
-          s3 (js/AWS.S3. (clj->js aws-creds))]
+                     :sessionToken (.-sessionToken aws-creds-js)}]
       (-> db
           (assoc :refresh-aws-creds? false)
           (assoc :aws-creds-created-time (ct/now))
-          (assoc :aws-s3 s3)
+          (assoc :aws-s3 (js/AWS.S3. (clj->js aws-creds)))
           (assoc :aws-creds aws-creds)))))
 
 (reg-event-fx
@@ -1136,10 +1135,6 @@
     (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
       {:dispatch-later [{:ms 400 :dispatch [:add-image item-path js-file]}]}
       (let [filename (.-name js-file)
-            callback (fn [err data]
-                       (if (not (nil? err))
-                         (pprint (str "Err from putObject: " err))
-                         (pprint "successful putObject")))
             s3 (:aws-s3 db)
             uuid (generate-uuid)
             object-key (str (:sub (:userinfo db)) "/" (get-in db (conj item-path :uuid))
@@ -1147,8 +1142,8 @@
             params (clj->js {:Bucket "helodali-raw-images" :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})
             images-path (conj item-path :images)
             images (get-in db images-path)]
-        (.putObject s3 params callback)
-        {:db (assoc-in db images-path (conj images {:uuid uuid :processing true}))}))))
+        {:s3-operation {:op-type :put-object :s3 s3 :params params}
+         :db (assoc-in db images-path (conj images {:uuid uuid :processing true}))}))))
 
 ;; Similar to add-image but replace the existing image
 (reg-event-fx
@@ -1159,10 +1154,6 @@
     (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
       {:dispatch-later [{:ms 400 :dispatch [:replace-image item-path image-uuid js-file]}]}
       (let [filename (.-name js-file)
-            callback (fn [err data]
-                       (if (not (nil? err))
-                         (pprint (str "Err from putObject: " err))
-                         (pprint "successful putObject")))
             s3 (:aws-s3 db)
             images-path (conj item-path :images)
             images (get-in db images-path)
@@ -1172,9 +1163,9 @@
             object-key (str (:sub (:userinfo db)) "/" (get-in db (conj item-path :uuid))
                             "/" new-uuid "/" filename)
             params (clj->js {:Bucket "helodali-raw-images" :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})]
-        (.putObject s3 params callback)
-        {:db (assoc-in db (conj images-path idx) {:uuid new-uuid :processing true})
-         :dispatch [:delete-s3-objects "helodali-raw-images" [image-to-delete]]}))))
+        {:s3-operation {:op-type :put-object :s3 s3 :params params
+                        :on-success #(dispatch [:delete-s3-objects "helodali-raw-images" [image-to-delete]])}
+         :db (assoc-in db (conj images-path idx) {:uuid new-uuid :processing true})}))))
 
 ;; Perform an s3 operation, such as putObject or copyObject. The 'op-type' argument tells us what
 ;; operation to perform.
@@ -1183,13 +1174,14 @@
   (fn [{:keys [op-type s3 params on-success]}]
     (let [callback (fn [err data]
                       (if (nil? err)
-                        (on-success)
+                        (when on-success
+                          (on-success))
                         (pprint (str "Err from s3-operation: " err)))) ;; TODO: dispatch error event?
           op (condp = op-type
                       :put-object #(.putObject s3 params callback)
                       :copy-object #(.copyObject s3 params callback)
                       :delete-objects #(.deleteObjects s3 params callback)
-                      (pprint (str "Error, s3-operation unknown op-type: " op-type)))]
+                      #(pprint (str "Error, s3-operation unknown op-type: " op-type)))]
       (op))))
 
 (reg-event-fx

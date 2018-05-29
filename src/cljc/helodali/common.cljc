@@ -4,8 +4,7 @@
             #?(:clj  [clj-time.core :refer [now days ago date-time]]
                :cljs [cljs-time.core :refer [now days ago date-time]])
             #?(:clj  [clj-time.format :refer [parse unparse formatters]]
-               :cljs [cljs-time.format :refer [parse unparse formatters]])
-            [clojure.pprint :refer [pprint]]))
+               :cljs [cljs-time.format :refer [parse unparse formatters]])))
 
 (defn coerce-int
   "Given map and set of keys, coerce the values associated with keys to int
