@@ -7,6 +7,9 @@
   {:year (year (now))
    :val nil})
 
+;; The UI Defaults for some of the editable fields (useful when creating multiple items)
+(def ui-defaults {:artwork-defaults {:type :mixed-media :dimensions nil :medium nil}})
+
 (defn default-exhibition
   []
   {:uuid (generate-uuid)
@@ -95,7 +98,8 @@
    :notes nil})
 
 (defn default-artwork
-  []
+  "Define an empty artwork item with default field values provided in the 'defaults' map."
+  [defaults]
   {:uuid (generate-uuid)
    :uref nil ;; The user's uuid, part of the DB primary key
    :created (now) ;; time this item was created in helodali
@@ -103,10 +107,10 @@
    :series false ;; Whether the piece is singular or has editions (photo prints) or incarnations (installations)
    :images [] ;; One or more high resolution images (optional)
    :style #{} ;; Enumeration of styles taken from wpadc.org. E.g. :abstract :assemblage. Full list at bottom.
-   :type :mixed-media ;; Single-valued enumeration describing category of piece, such as painting, sculpture. See 'media' map defined at bottom.
+   :type (:type defaults) ;; Single-valued enumeration describing category of piece, such as painting, sculpture. See 'media' map defined at bottom.
    :year (year (now)) ;; year piece was created
-   :medium nil ;; free-form and provided by user. Examples include "oil on panel"
-   :dimensions nil ;; User provided. Can be "h x w x d inches" or "variable" or "21 minutes"
+   :medium (:medium defaults) ;; free-form and provided by user. Examples include "oil on panel"
+   :dimensions (:dimensions defaults) ;; User provided. Can be "h x w x d inches" or "variable" or "21 minutes"
    :editions 0 ;; Useful for prints
    :status :for-sale ;; Can :private :destroyed :not-for-sale :sold :for-sale
    :condition nil ;; User provided string
@@ -127,7 +131,7 @@
    ;              :commissioned false ;; Whether this piece was commissioned by the buyer
    ;              :collection false
    ;              :price 0 ;; float valued
-   ;              :agent nil ;; <uuid> The possiblity an art consultant is involved in the sale
+   ;              :agent nil ;; <uuid> If an art consultant is involved in the sale
    ;              :dealer nil ;; <uuid> The dealer or gallery taking commission on the sale (splitting with agent if one involved)
    ;              :total-commission-percent 0 ;; The total commission taken by agent and dealer
    ;              :location nil ;; Optional city name or address where art is located, possibly on public display
@@ -160,6 +164,7 @@
    :contacts (sorted-map)
    :press (sorted-map)
    :instagram-media nil ;; This should be nil valued at time of login
+   :ui-defaults ui-defaults
    :view :artwork
    :static-page nil
    :display-type :contact-sheet ;; Can be :new-item :contact-sheet :row :list :single-item :instagram
@@ -185,9 +190,9 @@
                :search-results [:item-type false]}})
 
 (defn defaults-for-type
-  [type]
+  [db type]
   (let [defaults (condp = type
-                    :artwork (default-artwork)
+                    :artwork (default-artwork (get-in db [:ui-defaults :artwork-defaults]))
                     :documents (default-document)
                     :exhibitions (default-exhibition)
                     :contacts (default-contact)
@@ -264,7 +269,7 @@
    :surreal "Surreal"
    :symbolic "Symbolic"
    :technological "Technological"
-   :trompe-loeil "Trompe l&#039;oeil"
+   :trompe-loeil "Trompe l'oeil"
    :urban "Urban"))
 
 (def media

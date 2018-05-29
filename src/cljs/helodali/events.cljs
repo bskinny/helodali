@@ -213,7 +213,7 @@
     (when (not (empty? result))
       (let [resp (fix-response result)]
         {:db (-> db
-                (assoc :artwork (-> (map #(merge (helodali.db/default-artwork) %) (:artwork resp))
+                (assoc :artwork (-> (map #(merge (helodali.db/default-artwork db) %) (:artwork resp))
                                     (apply-artwork-signed-urls local-store-signed-urls)
                                     (into-sorted-map)))
                 (assoc :exhibitions (into-sorted-map (map #(merge (helodali.db/default-exhibition) %) (:exhibitions resp))))
@@ -355,14 +355,25 @@
                             :on-success      [:update-db-from-result (fn [db] true)]
                             :on-failure      [:bad-result {} retry-fx]}})))
 
-;; Update the app-db locally (i.e. do not propogate change to server)
-;; path is a vector pointing into :profile or items, e.g. :artwork, :contacts, etc. E.g.
+;; Update the app-db locally (i.e. do not propagate change to server)
+;; path is a vector pointing into :profile or items such as :artwork, :contacts, etc. E.g.
 ;; [:artwork 16 :purchases 0 :price] or [:exhibitions 3 :location]
+;; We take this opportunity to update the default value for the field if we are tracking
+;; defaults for this field in app-db's :ui-defaults
 (reg-event-db
   :set-local-item-val
   interceptors
   (fn [db [path val]]
-    (assoc-in db path val)))
+    ;; The path is a triple [:type num :field] and we want the path into
+    ;; ui-defaults [:artwork-defaults :dimensions]
+    (let [item-defaults-type (keyword (str (name (first path)) "-defaults")) ;; e.g. :artwork-defaults
+          item-defaults (get-in db [:ui-defaults item-defaults-type])
+          field (last path)
+          set-default? (contains? item-defaults field)
+          new-db (assoc-in db path val)]
+      (if set-default?
+        (assoc-in new-db [:ui-defaults item-defaults-type field] val)
+        new-db))))
 
 ;; Switch to edit mode for given item. Stash the current app-db to undo changes
 ;; that are canceled. 'item-path' is a path to item such as [:press 2]
@@ -474,7 +485,7 @@
                                  (if (nil? path)
                                    ;; Either a new item or an overwrite of existing
                                    (let [fixed (fix-response {type [val]})
-                                         new-item (merge (helodali.db/defaults-for-type type) (first (get fixed type)))]
+                                         new-item (merge (helodali.db/defaults-for-type db type) (first (get fixed type)))]
                                      (if (nil? id)
                                        ;; new item
                                        (let [id (next-id (get db type))]
@@ -742,7 +753,7 @@
           new-db  (-> db
                     (assoc :display-type :new-item)
                     (assoc :view type)
-                    (assoc-in [type id] (helodali.db/defaults-for-type type)) ;; This also assigns an uuid
+                    (assoc-in [type id] (helodali.db/defaults-for-type db type)) ;; This also assigns an uuid
                     (assoc-in [type id :editing] true)
                     (assoc-in [type id :expanded] true))]
       (assoc new-db :single-item-uuid (get-in new-db [type id :uuid])))))
@@ -1135,14 +1146,13 @@
     (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
       {:dispatch-later [{:ms 400 :dispatch [:add-image item-path js-file]}]}
       (let [filename (.-name js-file)
-            s3 (:aws-s3 db)
             uuid (generate-uuid)
             object-key (str (:sub (:userinfo db)) "/" (get-in db (conj item-path :uuid))
                             "/" uuid "/" filename)
             params (clj->js {:Bucket "helodali-raw-images" :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})
             images-path (conj item-path :images)
             images (get-in db images-path)]
-        {:s3-operation {:op-type :put-object :s3 s3 :params params}
+        {:s3-operation {:op-type :put-object :s3 (:aws-s3 db) :params params}
          :db (assoc-in db images-path (conj images {:uuid uuid :processing true}))}))))
 
 ;; Similar to add-image but replace the existing image
@@ -1154,7 +1164,6 @@
     (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
       {:dispatch-later [{:ms 400 :dispatch [:replace-image item-path image-uuid js-file]}]}
       (let [filename (.-name js-file)
-            s3 (:aws-s3 db)
             images-path (conj item-path :images)
             images (get-in db images-path)
             idx (find-element-by-key-value images :uuid image-uuid)
@@ -1163,7 +1172,7 @@
             object-key (str (:sub (:userinfo db)) "/" (get-in db (conj item-path :uuid))
                             "/" new-uuid "/" filename)
             params (clj->js {:Bucket "helodali-raw-images" :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})]
-        {:s3-operation {:op-type :put-object :s3 s3 :params params
+        {:s3-operation {:op-type :put-object :s3 (:aws-s3 db) :params params
                         :on-success #(dispatch [:delete-s3-objects "helodali-raw-images" [image-to-delete]])}
          :db (assoc-in db (conj images-path idx) {:uuid new-uuid :processing true})}))))
 
