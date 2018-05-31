@@ -103,15 +103,18 @@
 
 (defn- our-title [] [re-com/title :level :level1 :label "helodali"])
 
+(def cognito-base-url "https://helodali.auth.us-east-1.amazoncognito.com")
+(def cognito-client-id "7uddoehg2ov8abqro8sud6i9ag")
+(def origin (.-origin (.-location js/document)))
+
 (defn- login-button
   []
-  (let [origin (.-origin (.-location js/document))
-        state-value (rand)]
+  (let [state-value (rand)]
     ;; We are not checking the state value of the authorize request on the return visit.
     [md-icon-button :md-icon-name "zmdi zmdi-brush" :size :larger
                     :on-click #(set! (.. js/window -location -href)
-                                (str "https://helodali.auth.us-east-1.amazoncognito.com/oauth2/authorize?redirect_uri=" origin
-                                     "/login&response_type=code&client_id=7uddoehg2ov8abqro8sud6i9ag&state=" state-value
+                                (str cognito-base-url "/oauth2/authorize?redirect_uri=" origin
+                                     "/login&response_type=code&client_id=" cognito-client-id "&state=" state-value
                                      "&scope=openid%20email%20profile"))]))
 
 (defn display-message
@@ -127,6 +130,7 @@
        refresh-access-token? (subscribe [:app-key :refresh-access-token?])
        aws-s3 (subscribe [:app-key :aws-s3])
        authenticated? (subscribe [:app-key :authenticated?])
+       do-cognito-logout? (subscribe [:app-key :do-coginito-logout?])
        refresh-aws-creds? (subscribe [:app-key :refresh-aws-creds?])
        initialized? (subscribe [:app-key :initialized?])
        csrf-token (subscribe [:app-key :csrf-token])
@@ -137,6 +141,10 @@
      ;;
      ;; Perform whatever dispatching is needed depending on current state
      ;;
+     (when @do-cognito-logout?
+       (set! (.. js/window -location -href)
+             (str cognito-base-url "/logout?logout_uri=" origin "/&client_id=" cognito-client-id)))
+
      (when (and (not @authenticated?) (not (empty? @access-token)) (not (empty? @csrf-token)))
        (dispatch [:validate-access-token]))
 

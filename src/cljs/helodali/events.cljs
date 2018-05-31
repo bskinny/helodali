@@ -656,13 +656,15 @@
                              {:k "helodali.id-token" :v nil}
                              {:k "helodali.signed-urls" :v nil}]}))
 
-;; A successful logout: reset the db to the unauthenticated default but keep the csrf-token
+;; A successful logout: reset the db to the unauthenticated default but keep the csrf-token. Set the
+;; :do-cognito-logout? boolean to true to point the browser to cognito's /logout endpoint to clear cookies.
 (reg-event-fx
   :complete-logout
   manual-check-spec
   (fn [{:keys [db]} [_ result]]
     {:db (-> helodali.db/default-db
             (assoc :sit-and-spin false)
+            (assoc :do-coginito-logout? true)
             (assoc :csrf-token (:csrf-token db)))
      :route-client {:route-name helodali.routes/home :args {}}}))
 

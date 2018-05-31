@@ -177,6 +177,7 @@
    :aws-creds nil
    :access-token nil
    :id-token nil
+   :do-cognito-logout? false
    :aws-s3 nil; ;; Accesses multiple S3 buckets
    :csrf-token nil
    :userinfo nil ;; The userinfo map returned by Cognito

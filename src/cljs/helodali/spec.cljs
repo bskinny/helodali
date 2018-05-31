@@ -179,6 +179,7 @@
 (s/def ::aws-creds (s/nilable (s/keys :req-un [::accessKeyId ::secretAccessKey ::sessionToken])))
 (s/def ::initialized? boolean?)
 (s/def ::refresh-aws-creds? boolean?)
+(s/def ::do-cognito-logout? boolean?)
 (s/def ::access-token (s/nilable string?))
 (s/def ::id-token (s/nilable string?))
 (s/def ::userinfo (s/nilable (s/keys :opt-un [::sub]))) ;; From Cognito, no need to spec the complete contents of this map
@@ -198,4 +199,4 @@
 (s/def ::db (s/keys :req-un [::view ::display-type ::single-item-uuid ::artwork ::contacts ::exhibitions ::ui-defaults
                              ::press ::profile ::authenticated? ::initialized? ::access-token ::id-token
                              ::userinfo ::search-pattern ::documents ::aws-creds ::refresh-aws-creds? ::account]
-                    :opt-un [::messages ::instagram-media]))
+                    :opt-un [::messages ::instagram-media ::do-cognito-logout?]))
