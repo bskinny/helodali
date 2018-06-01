@@ -26,7 +26,7 @@
               :headers {:Accept "application/json"}})
 
 (def base-url "https://helodali.auth.us-east-1.amazoncognito.com")
-(def jwks-url "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_Xct1ioypu/.well-known/jwks.json")
+(def jwks-url "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_0cJWyWe5Z/.well-known/jwks.json")
 
 (defn get-jwks
   "Fetch public keys for verifying RSA signatures. The jwks response can look like this:
@@ -98,7 +98,7 @@
       :header {:kid \"TMd6w/1imj8aIiV0IVVKke5RyIctnQ3A750FVT0SLzk=\"
                :alg \"RS256\"}
       :claims {:sub \"c8eb9e68-ad1e-49bd-925d-e96763a7de2c\"
-               :iss \"https://cognito-idp.us-east-1.amazonaws.com/us-east-1_Xct1ioypu\"
+               :iss \"https://cognito-idp.us-east-1.amazonaws.com/us-east-1_0cJWyWe5Z\"
                :exp 1525804610
                :username \"Google_105303869357768353564\"
                :scope \"openid profile email\"
