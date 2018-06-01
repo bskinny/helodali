@@ -10,9 +10,7 @@
   {:access-key (or (System/getenv "AWS_ACCESS_KEY")
                    (System/getProperty "AWS_ACCESS_KEY"))
    :secret-key (or (System/getenv "AWS_SECRET_KEY")
-                   (System/getProperty "AWS_SECRET_KEY"))
-   :endpoint   (or (System/getenv "AWS_DYNAMODB_ENDPOINT")
-                   (System/getProperty "AWS_DYNAMODB_ENDPOINT"))})
+                   (System/getProperty "AWS_SECRET_KEY"))})
 
 
 (defn list-objects
@@ -44,7 +42,21 @@
      {:bucket-name bucket
       :prefix prefix})))  ; optional
 
+(defn put-object
+  [bucket key input-stream]
+  (aws3/put-object co bucket key input-stream {}))
+
+(defn copy-object
+  [from-bucket from-key to-bucket to-key]
+  (aws3/copy-object co from-bucket from-key to-bucket to-key))
+
 (defn delete-objects
+  "Delete objects represented by vector of keys"
+  [bucket keys]
+  (aws3/delete-objects co {:bucket-name bucket :quiet? true :keys keys}))
+
+
+(defn delete-objects-by-prefix
   "Delete the objects in a S3 bucket for all matching prefix. Be extra careful as a nil prefix will
    delete the entire bucket. Hence the nil prefix check."
   [bucket prefix]

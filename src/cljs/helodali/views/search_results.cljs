@@ -86,7 +86,8 @@
 
 (defn search-results-view
   "Display search results based on the search string already defined in app-db's :search-pattern.
-   This is a read-only derived view from data defined within artwork."
+   This is a read-only derived view from data defined within the local app-db or from DynamoDB's profile table
+   if the search is for @profiles."
   []
   (let [display-type (subscribe [:app-key :display-type])]
     (fn []

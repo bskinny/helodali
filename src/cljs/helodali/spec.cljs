@@ -88,12 +88,13 @@
 (s/def ::list-price int?)
 (s/def ::current-location (s/nilable string?))
 (s/def ::sync-with-instagram boolean?)
-(s/def ::artwork-item (s/keys :req-un [::uuid ::title ::editing ::year ::images ::medium ::created
+(s/def ::artwork-item (s/keys :req-un [::uuid ::title ::year ::images ::medium ::created
                                        ::type ::dimensions ::series ::status]
                               :opt-un [::description ::editions ::condition ::style ::associated-documents ::purchases
                                        ::list-price ::current-location ::expanded ::editing ::exhibition-history
                                        ::instagram-media-ref ::sync-with-instagram]))
 (s/def ::artwork (s/every-kv ::id ::artwork-item))
+(s/def ::artwork-defaults (s/keys :req-un [::type ::dimensions ::medium]))
 
 
 ;; Contacts
@@ -178,6 +179,7 @@
 (s/def ::aws-creds (s/nilable (s/keys :req-un [::accessKeyId ::secretAccessKey ::sessionToken])))
 (s/def ::initialized? boolean?)
 (s/def ::refresh-aws-creds? boolean?)
+(s/def ::do-cognito-logout? boolean?)
 (s/def ::access-token (s/nilable string?))
 (s/def ::id-token (s/nilable string?))
 (s/def ::userinfo (s/nilable (s/keys :opt-un [::sub]))) ;; From Cognito, no need to spec the complete contents of this map
@@ -192,8 +194,9 @@
 (s/def ::documents (s/every-kv ::id ::document))
 (s/def ::press (s/every-kv ::id ::press-ref))
 (s/def ::instagram-media (s/nilable (s/every-kv ::id ::instagram-media-ref)))
+(s/def ::ui-defaults (s/nilable (s/keys :req-un [::artwork-defaults])))
 (s/def ::messages (s/keys))  ;; The keys for ::messages are mostly random
-(s/def ::db (s/keys :req-un [::view ::display-type ::single-item-uuid ::artwork ::contacts ::exhibitions
+(s/def ::db (s/keys :req-un [::view ::display-type ::single-item-uuid ::artwork ::contacts ::exhibitions ::ui-defaults
                              ::press ::profile ::authenticated? ::initialized? ::access-token ::id-token
                              ::userinfo ::search-pattern ::documents ::aws-creds ::refresh-aws-creds? ::account]
-                    :opt-un [::messages ::instagram-media]))
+                    :opt-un [::messages ::instagram-media ::do-cognito-logout?]))
