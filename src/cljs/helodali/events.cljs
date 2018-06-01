@@ -229,6 +229,7 @@
                 (assoc :id-token (:id-token resp))
                 (assoc :authenticated? (:authenticated? resp))
                 (assoc :initialized? (:initialized? resp))
+                (assoc :display-type (if (:display-type resp) (:display-type resp) (:display-type db))) ;; Set display-type if it is present in the response
                 (assoc :instagram-media (and (:instagram-media resp) (into-sorted-map (:instagram-media resp))))
                 (assoc :initialized? true))
          :sync-to-local-storage [{:k "helodali.access-token" :v (:access-token resp)}

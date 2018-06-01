@@ -28,8 +28,6 @@
                  [clj-jwt "0.1.1"]
                  [buddy/buddy-core "1.5.0-SNAPSHOT"]
                  [cljsjs/aws-sdk-js "2.247.1-0"]  ;; This is a local build of aws-sdk-js
-                 [org.clojars.bskinny/clj-aws-s3 "0.3.11" :exclusions [joda-time com.fasterxml.jackson.core/jackson-databind
-                                                                       com.fasterxml.jackson.core/jackson-annotations]]
                  [ring/ring-defaults "0.3.1"]
                  [ring-middleware-format "0.7.2"]
                  [ring-logger "0.7.7"]
@@ -84,17 +82,17 @@
        {:hooks [leiningen.cljsbuild]  ;; This adds cljsbuild when lein does an ordinary compile
         :ring {:handler helodali.handler/handler
                :uberwar-name "helodali.war"
-               :war-exclusions []}  ;; This prevents excluding hidden files (default behavior) - if we need .ebextensions
+               :war-exclusions []}  ;; This prevents excluding hidden files (default behavior) such as .ebextensions
         :cljsbuild
          {:builds
            {:app
-            {:source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
-             :jar true
-             :compiler {:main            helodali.prod
-                        :output-to       "resources/public/js/compiled/app.js"
-                        :optimizations   :advanced
-                        :closure-defines {goog.DEBUG false}
-                        :pretty-print    false}}}}}
+             {:source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
+              :jar true
+              :compiler {:main            helodali.prod
+                         :output-to       "resources/public/js/compiled/app.js"
+                         :optimizations   :advanced
+                         :closure-defines {goog.DEBUG false}
+                         :pretty-print    false}}}}}
 
      :dbmgmt {:dependencies [[org.clojure/tools.nrepl "0.2.13"]]}}
 

@@ -3,10 +3,11 @@
             [clj-uuid :as uuid]
             [clj-time.core :refer [now year days ago]]
             [clj-time.format :refer [parse unparse formatters]]
-            [aws.sdk.s3 :as s3]
+    ;[aws.sdk.s3 :as s3]
             [clojure.java.io :as io]
             [helodali.common :refer [coerce-int fix-date keywordize-vals]]
-            [clojure.pprint :refer [pprint]])
+            [clojure.pprint :refer [pprint]]
+            [helodali.s3 :as s3])
   (:import [java.time ZonedDateTime ZoneId]
            (java.time.format DateTimeFormatter)))
 
@@ -108,17 +109,6 @@
           (far/put-item co :profiles {:uuid uuid :name (:name userinfo) :created created})
           (far/put-item co :openid {:uref uuid :sub (:sub userinfo) :email (:email userinfo)}))
         (sync-userinfo userinfo openid-item)))))
-
-(defn valid-user?
-  "Given an openid claims map, with :sub key, resolve the user against :openid and :profiles"
-  [userinfo]
-  (if (nil? (:sub userinfo))
-    false
-    (let [[openid-item profile] (get-profile-by-sub (:sub userinfo))
-          uref (:uuid profile)]
-      (if (and (not (empty? openid-item)) (not (empty? profile)))
-        true
-        false))))
 
 (defn cache-access-token
   [session-uuid token-resp userinfo]
@@ -373,8 +363,7 @@
     api does not provide the content size of images so we would have to buffer the image ourselves
     in order to determine this. Since Instagram images tend to be smallish, we'll let this slide for now."
   [uref sub media]
-  (let [cred (dissoc co :endpoint)
-        artwork-uuid (str (uuid/v1))
+  (let [artwork-uuid (str (uuid/v1))
         image-uuid (str (uuid/v1))
         item {:uref uref
               :uuid artwork-uuid
@@ -398,7 +387,7 @@
     (with-open [ig-is (io/input-stream url)]
       ;; Create the database item and copy the image to S3
       (far/put-item co :artwork item)
-      (s3/put-object cred "helodali-raw-images" object-key ig-is)
+      (s3/put-object "helodali-raw-images" object-key ig-is)
       ;; Return an updated version of the :instagram-media-ref item as well as the new :artwork item
       {:artwork [[artwork-uuid [nil (assoc item :images [{:uuid image-uuid :processing true}])]]]
        :instagram-media [[(:instagram-id media) [nil (assoc media :artwork-uuid artwork-uuid)]]]})))
@@ -473,15 +462,14 @@
    Apparently the aws command line tool's mv command uses this approach as well.
    If a failure occurs, return nil, otherwise return the new key."
   [bucket old-key new-key]
-  (let [cred (dissoc co :endpoint)
-        copy-result (try (s3/copy-object cred bucket old-key new-key)
+  (let [copy-result (try (s3/copy-object bucket old-key bucket new-key)
                       (catch Exception ex
                         (str ex)))]
     (if-not (map? copy-result)
       (do
         (pprint (str "Error attempting to copy " old-key " to " new-key " in bucket " bucket ": " copy-result))
         nil)
-      (try (s3/delete-object cred bucket old-key)
+      (try (s3/delete-objects bucket [old-key])
            new-key
         (catch Exception ex
           (do
