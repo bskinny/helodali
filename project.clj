@@ -15,6 +15,7 @@
                  [commons-codec "1.10"]
                  [org.apache.httpcomponents/httpclient "4.5.3"]
                  [ring "1.6.3"]
+                 [clj-pdf "2.2.19"]
                  [org.clojure/core.async "0.4.474"]
                  [danlentz/clj-uuid "0.1.7"]
                  [com.lucasbradstreet/cljs-uuid-utils "1.0.2"]
