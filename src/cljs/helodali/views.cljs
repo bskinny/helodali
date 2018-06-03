@@ -104,7 +104,7 @@
 (defn- our-title [] [re-com/title :level :level1 :label "helodali"])
 
 (def cognito-base-url "https://helodali.auth.us-east-1.amazoncognito.com")
-(def cognito-client-id "7uddoehg2ov8abqro8sud6i9ag")
+(def cognito-client-id "4pbu2aidkc3ev5er82j6in8q96")
 (def origin (.-origin (.-location js/document)))
 
 (defn- login-button
@@ -160,10 +160,15 @@
      (when (or (and @authenticated? @initialized? (empty? @aws-creds) (not (empty? @id-token)))
                @refresh-aws-creds?)
        ;; Fetch the AWS credentials from Cognito and initialize AWS services like S3
-       (let [aws-config (.-config js/AWS)]
+       (let [aws-config (.-config js/AWS)
+             logins {:IdentityPoolId "us-east-1:c5e15cf1-df1d-48df-85ba-f67d1ff45016"
+                     :Logins {"cognito-idp.us-east-1.amazonaws.com/us-east-1_0cJWyWe5Z" @id-token}}]
          (set! (.-region aws-config) "us-east-1")
-         (set! (.-credentials aws-config) (js/AWS.CognitoIdentityCredentials. (clj->js {:IdentityPoolId "us-east-1:c5e15cf1-df1d-48df-85ba-f67d1ff45016"
-                                                                                        :Logins {"cognito-idp.us-east-1.amazonaws.com/us-east-1_Xct1ioypu" @id-token}})))
+         (set! (.-credentials aws-config) (js/AWS.CognitoIdentityCredentials. (clj->js logins)))
+         ;; This clearCachedId and recreation of credentials is a workaround still required as of 06012018
+         ;; and described here:https://github.com/aws/aws-sdk-js/issues/609.
+         (.clearCachedId (.-credentials aws-config))
+         (set! (.-credentials aws-config) (js/AWS.CognitoIdentityCredentials. (clj->js logins)))
          (.get (.-credentials aws-config) (clj->js (fn [err] (dispatch [:set-aws-credentials (.-credentials js/AWS.config)]))))))
 
      ;;
