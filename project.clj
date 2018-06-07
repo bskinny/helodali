@@ -54,7 +54,7 @@
                                     "test/js"]
 
   :figwheel {:css-dirs ["resources/public/css"]
-             :server-logfile "/Users/brianww/github/helodali-figwheel.log"
+             :server-logfile "/Users/brianww/gitlab/helodali-figwheel.log"
              :ring-handler helodali.handler/dev-handler}
 
   :war-resources-path "war-resources" ;; Used only for packaging .ebextensions at the top level of the war
