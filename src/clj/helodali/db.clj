@@ -3,7 +3,7 @@
             [clj-uuid :as uuid]
             [clj-time.core :refer [now year days ago]]
             [clj-time.format :refer [parse unparse formatters]]
-    ;[aws.sdk.s3 :as s3]
+            [helodali.types :as types]
             [clojure.java.io :as io]
             [helodali.common :refer [coerce-int fix-date keywordize-vals]]
             [clojure.pprint :refer [pprint]]
@@ -353,6 +353,17 @@
     (pprint (str "creating cleaned item: " item))
     (far/put-item co table item)))
 
+(defn match-hashtag
+  "Given a list of hashtag strings (such as from the caption of an Instagram media post) and a list of keywords,
+   eturn the intersection. If the intersection is empty, return the default set."
+  [tags keywords default]
+  (let [names (set (map #(-> % name clojure.string/lower-case) keywords))
+        common (clojure.set/intersection (set (map clojure.string/lower-case tags)) names)]
+    (if (empty? common)
+      default
+      ;; Convert back to keyword before returning
+      (map keyword common))))
+
 (defn create-artwork-from-instragram
    "Build an artwork item from the given instagram media, copy the image from instagram to our S3
     bucket and return updates to both :artwork and :instagram-media portions of the client's app-db.
@@ -371,7 +382,8 @@
               :description (:caption media)
               :year (year (now))
               :status :for-sale
-              :type :mixed-media
+              :type (first (match-hashtag (:tags media) (keys types/media) #{:mixed-media}))
+              :style (match-hashtag (:tags media) (keys types/styles) #{})
               :series false
               :list-price 0
               :expenses 0

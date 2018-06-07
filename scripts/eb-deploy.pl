@@ -2,8 +2,11 @@
 
 # We are going to alter project.clj and resounse/public/index.html and then checkout them out again.
 # So make sure it is not currently modified.
-@diffs = qx(git diff --name-only);
-foreach $file (@diffs) {
+use strict;
+use warnings FATAL => 'all';
+
+my @diffs = qx(git diff --name-only);
+foreach my $file (@diffs) {
 	chomp($file);
 	if ($file =~ /^project.clj$/ or $file =~ /^resources\/public\/index.html$/) {
 		print STDERR "Changes to $file should be commited before deployment.\n";
@@ -11,14 +14,14 @@ foreach $file (@diffs) {
 	}
 }
 
-$ct = time(); # Seconds since epoch
+my $ct = time(); # Seconds since epoch
 qx(perl -p -i -e "s/app.js/app-$ct.js/g" project.clj);
 qx(perl -p -i -e "s/app.js/app-$ct.js/g" resources/public/index.html);
 
 # Build the war file and rename it
 qx(lein clean);
 qx(lein with-profile webapp ring uberwar);
-$war = "helodali-$ct.war";
+my $war = "helodali-$ct.war";
 qx(mv target/helodali.war "target/$war");
 
 # Deploy the war
