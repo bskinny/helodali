@@ -1,5 +1,6 @@
 (ns helodali.views.artwork
     (:require [helodali.db :as db]
+              [helodali.types :as types]
               [helodali.routes :refer [route-view-display route-single-item route-new-item route-instagram-refresh]]
               [helodali.misc :refer [trunc compute-bg-color convert-map-to-options max-string-length expired?
                                      sort-by-datetime sort-by-key-then-created uuid-label-list-to-options
@@ -22,9 +23,8 @@
                      {:id :not-for-sale :label "Not For Sale"}
                      {:id :destroyed :label "Destroyed"}])
 
-(def media-options (convert-map-to-options db/media))
-
-(def style-options (convert-map-to-options db/styles))
+(def media-options (convert-map-to-options types/media))
+(def style-options (convert-map-to-options types/styles))
 
 (defn display-exhibition-history-view
   [exhibition-history odd-row?]
@@ -413,8 +413,7 @@
             image-size (if (or (= @display-type :contact-sheet) @editing) "240px" "480px")  ;; Set image size based on contact-sheet vs. other views
             url (cond
                   @processing "/image-assets/ajax-loader.gif"
-                  ; (and (not (nil? expiration)) (not (expired? expiration))) @signed-thumb-url
-                  (not (nil? @thumb-expiration)) @signed-thumb-url
+                  (not (nil? @signed-thumb-url)) @signed-thumb-url
                   :else "/image-assets/thumb-stub.png")
             object-fit (cond
                           @processing "fit-none"
@@ -423,7 +422,7 @@
         ;; Perform some dispatching if the artwork is not in sync with S3 and database
         (if @processing
           (dispatch [:refresh-image [:artwork id :images 0]])
-          (when (and (not (nil? image)) (nil? @signed-thumb-url)) ;(or (nil? url) (expired? expiration)))
+          (when (and (not (nil? image)) (nil? @thumb-expiration))
             (dispatch [:get-signed-url [:artwork id :images 0] "helodali-images" (:key image) :signed-thumb-url :signed-thumb-url-expiration-time])))
         (when (and (:key image) (expired? @raw-expiration))
           (dispatch [:get-signed-url [:artwork id :images 0] "helodali-raw-images" (:key image) :signed-raw-url :signed-raw-url-expiration-time]))

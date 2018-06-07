@@ -930,7 +930,9 @@
                  (dissoc :filename)
                  (dissoc :size)
                  (dissoc :signed-raw-url)
-                 (dissoc :signed-raw-url-expiration-time))
+                 (dissoc :signed-raw-url-expiration-time)
+                 (dissoc :signed-thumb-url)
+                 (dissoc :signed-thumb-url-expiration-time))
           new-db (assoc-in db path-to-item val)]
       (merge (update-fx path-to-item {:key nil :filename nil :size 0} false new-db)
              {:dispatch-n dispatches}))))
