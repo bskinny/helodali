@@ -99,7 +99,7 @@
 
 (defn default-artwork
   "Define an empty artwork item with default field values provided in the 'defaults' map."
-  [defaults]
+  []
   {:uuid (generate-uuid)
    :uref nil ;; The user's uuid, part of the DB primary key
    :created (now) ;; time this item was created in helodali
@@ -107,10 +107,10 @@
    :series false ;; Whether the piece is singular or has editions (photo prints) or incarnations (installations)
    :images [] ;; One or more high resolution images (optional)
    :style #{} ;; Enumeration of styles taken from wpadc.org. E.g. :abstract :assemblage. Full list at bottom.
-   :type (:type defaults) ;; Single-valued enumeration describing category of piece, such as painting, sculpture. See 'media' map defined at bottom.
+   :type :mixed-media ;; Single-valued enumeration describing category of piece, such as painting, sculpture. See 'media' map defined at bottom.
    :year (year (now)) ;; year piece was created
-   :medium (:medium defaults) ;; free-form and provided by user. Examples include "oil on panel"
-   :dimensions (:dimensions defaults) ;; User provided. Can be "h x w x d inches" or "variable" or "21 minutes"
+   :medium nil ;; free-form and provided by user. Examples include "oil on panel"
+   :dimensions nil ;; User provided. Can be "h x w x d inches" or "variable" or "21 minutes"
    :editions 0 ;; Useful for prints
    :status :for-sale ;; Can :private :destroyed :not-for-sale :sold :for-sale
    :condition nil ;; User provided string
@@ -193,13 +193,19 @@
 (defn defaults-for-type
   [db type]
   (let [defaults (condp = type
-                    :artwork (default-artwork (get-in db [:ui-defaults :artwork-defaults]))
+                    :artwork (default-artwork)
                     :documents (default-document)
                     :exhibitions (default-exhibition)
                     :contacts (default-contact)
                     :press (default-press)
                     {})]
      (assoc defaults :uuid (generate-uuid))))
+
+(defn ui-defaults-for-type
+  [db type]
+  (condp = type
+    :artwork (get-in db [:ui-defaults :artwork-defaults])
+    {}))
 
 (defn default-view-for-type
   [type]

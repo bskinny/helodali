@@ -213,7 +213,7 @@
     (when (not (empty? result))
       (let [resp (fix-response result)]
         {:db (-> db
-                (assoc :artwork (-> (map #(merge (helodali.db/default-artwork db) %) (:artwork resp))
+                (assoc :artwork (-> (map #(merge (helodali.db/default-artwork) %) (:artwork resp))
                                     (apply-artwork-signed-urls local-store-signed-urls)
                                     (into-sorted-map)))
                 (assoc :exhibitions (into-sorted-map (map #(merge (helodali.db/default-exhibition) %) (:exhibitions resp))))
@@ -756,7 +756,7 @@
           new-db  (-> db
                     (assoc :display-type :new-item)
                     (assoc :view type)
-                    (assoc-in [type id] (helodali.db/defaults-for-type db type)) ;; This also assigns an uuid
+                    (assoc-in [type id] (merge (helodali.db/defaults-for-type db type) (helodali.db/ui-defaults-for-type db type))) ;; This also assigns an uuid
                     (assoc-in [type id :editing] true)
                     (assoc-in [type id :expanded] true))]
       (assoc new-db :single-item-uuid (get-in new-db [type id :uuid])))))

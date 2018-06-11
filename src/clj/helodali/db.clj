@@ -1,5 +1,6 @@
 (ns helodali.db
   (:require [taoensso.faraday :as far]
+            [clojure.string :as str]
             [clj-uuid :as uuid]
             [clj-time.core :refer [now year days ago]]
             [clj-time.format :refer [parse unparse formatters]]
@@ -204,7 +205,7 @@
 (defn- undash
   "Replace '-' with 'D' in given string"
   [s]
-  (clojure.string/replace s #"-" "D"))
+  (str/replace s #"-" "D"))
 
 (defn convert-path-to-expression-attribute
   "Convert path representing a clojure path for assoc-in to a dotted expression path needed
@@ -289,9 +290,9 @@
         db-changes (-> (reduce-kv build-db-changes {} indexed-changes))
         update-expression (str
                             (when (:set-update-expr db-changes)
-                              (str "SET " (clojure.string/join ", " (:set-update-expr db-changes)) " "))
+                              (str "SET " (str/join ", " (:set-update-expr db-changes)) " "))
                             (when (:remove-update-expr db-changes)
-                              (str "REMOVE " (clojure.string/join ", " (:remove-update-expr db-changes)))))
+                              (str "REMOVE " (str/join ", " (:remove-update-expr db-changes)))))
         db-changes (-> (assoc db-changes :return :all-new)
                       (assoc :update-expr update-expression)
                       (dissoc :set-update-expr)
@@ -357,8 +358,8 @@
   "Given a list of hashtag strings (such as from the caption of an Instagram media post) and a list of keywords,
    eturn the intersection. If the intersection is empty, return the default set."
   [tags keywords default]
-  (let [names (set (map #(-> % name clojure.string/lower-case) keywords))
-        common (clojure.set/intersection (set (map clojure.string/lower-case tags)) names)]
+  (let [names (set (map #(-> % name str/lower-case) keywords))
+        common (clojure.set/intersection (set (map str/lower-case tags)) names)]
     (if (empty? common)
       default
       ;; Convert back to keyword before returning
@@ -376,23 +377,30 @@
   [uref sub media]
   (let [artwork-uuid (str (uuid/v1))
         image-uuid (str (uuid/v1))
-        item {:uref uref
-              :uuid artwork-uuid
-              :created (:created media)
-              :description (:caption media)
-              :year (year (now))
-              :status :for-sale
-              :type (first (match-hashtag (:tags media) (keys types/media) #{:mixed-media}))
-              :style (match-hashtag (:tags media) (keys types/styles) #{})
-              :series false
-              :list-price 0
-              :expenses 0
-              :editions 0
-              :sync-with-instagram true
-              :instagram-media-ref media}
+        year-matched (re-find #"[^\d]([12]\d\d\d)[^\d]" (:caption media)) ;; Might look like [" 2018," "2018"] or nil
+        dimensions-matched (re-find #"(?i)[^\d](\d+[\"\']?\s*[xXby]+\s*\d+[\"\']?\s*(inches|in|feet|ft|cm|meters|m)?)" (:caption media))
+        year (if year-matched
+               (Integer/parseInt (str/trim (second year-matched)))
+               (year (now)))
+        item (cond-> {:uref uref
+                      :uuid artwork-uuid
+                      :created (:created media)
+                      :description (:caption media)
+                      :title (str/trim (first (str/split (:caption media) #"[.\-,]" 2)))
+                      :year year
+                      :status :for-sale
+                      :type (first (match-hashtag (:tags media) (keys types/media) #{:mixed-media}))
+                      :style (match-hashtag (:tags media) (keys types/styles) #{})
+                      :series false
+                      :list-price 0
+                      :expenses 0
+                      :editions 0
+                      :sync-with-instagram true
+                      :instagram-media-ref media}
+                     dimensions-matched (merge {:dimensions (str/trim (second dimensions-matched))}))
         url (java.net.URL. (:image-url media))
         filename (-> (.getPath url)
-                    (clojure.string/split #"/")
+                    (str/split #"/")
                     (last))
         object-key (str sub "/" artwork-uuid "/" image-uuid "/" filename)
         item (walk-cleaner item)]
@@ -493,7 +501,7 @@
   [uref old-sub new-sub item]
   (let [rename-keys (fn [idx image]
                       (let [old-key (:key image)
-                            new-key (clojure.string/replace-first (:key image) old-sub new-sub)]
+                            new-key (str/replace-first (:key image) old-sub new-sub)]
                         (when (not= new-key old-key)
                           ;; Rename the objects in both helodali-images and helodali-raw-images buckets
                           (do
@@ -506,7 +514,7 @@
   "Execute a copy/delete to rename the object keys in the given document"
   [uref old-sub new-sub document]
   (let [old-key (:key document)
-        new-key (clojure.string/replace-first (:key document) old-sub new-sub)]
+        new-key (str/replace-first (:key document) old-sub new-sub)]
     (when (not= new-key old-key)
       ;; Rename the objects in the helodali-documents bucket
       (do

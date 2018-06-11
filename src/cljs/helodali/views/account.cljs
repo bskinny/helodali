@@ -53,6 +53,7 @@
   [id]
   (let [cn (subscribe [:by-path [:userinfo :name]])
         created (subscribe [:by-path [:account :created]])
+        user-uuid (subscribe [:by-path [:profile :uuid]])
         instagram-user (subscribe [:by-path [:account :instagram-user]])]
         ;billing-stuff (subscribe [:by-path [:account :billing-stuff]])
         ;editing (subscribe [:by-path [:account :editing]])]
@@ -61,7 +62,10 @@
             view [[h-box :gap "8px" :align :center :justify :start
                      :children [[:span.bold "Created"]
                                 (when (not (nil? @created))
-                                  [:span (safe-date-string @created)])]]]]
+                                  [:span (safe-date-string @created)])]]
+                  [h-box :gap "8px" :align :center :justify :start
+                     :children [[:span.bold "Id"]
+                                [:span @user-uuid]]]]]
                    ;(when (not (empty? @instagram-user))
                    ;  [h-box :gap "8px" :align :center :justify :start
                    ;          :children [[:span.uppercase.light-grey ""]
