@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# We are going to alter project.clj and resounse/public/index.html and then checkout them out again.
+# We are going to alter project.clj and resources/public/index.html and then checkout them out again.
 # So make sure it is not currently modified.
 use strict;
 use warnings FATAL => 'all';
