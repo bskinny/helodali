@@ -82,6 +82,12 @@
    :images []
    :notes nil})
 
+(defn default-public-exhibition
+  "Return an public-exhibitions map"
+  []
+  {:ref nil
+   :notes nil})
+
 (defn default-purchase
   "Return a purchase with date popluated with today"
   []
@@ -163,7 +169,7 @@
    :exhibitions (sorted-map)
    :contacts (sorted-map)
    :press (sorted-map)
-   :instagram-media nil ;; This should be nil valued at time of login
+   :instagram-media nil ;; This should be nil-valued at time of login
    :ui-defaults ui-defaults
    :view :artwork
    :static-page nil
@@ -181,6 +187,7 @@
    :aws-s3 nil; ;; Accesses multiple S3 buckets
    :csrf-token nil
    :userinfo nil ;; The userinfo map returned by Cognito
+   :pages {:enabled false :editing false :public-exhibitions []}
    :sort-keys {:artwork [:year false]  ;; true/false for forward/reverse sorting
                :contacts [:name true]
                :referred-artwork [:year false]

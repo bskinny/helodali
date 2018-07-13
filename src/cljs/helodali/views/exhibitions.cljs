@@ -6,7 +6,7 @@
                                      safe-string title-string]]
               [cljs.pprint :refer [pprint]]
               [reagent.core  :as r]
-              [re-frame.core :as re-frame :refer [dispatch subscribe]]
+              [re-frame.core :refer [dispatch subscribe]]
               [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button hyperlink
                                               input-text input-textarea single-dropdown selection-list
                                               button datepicker-dropdown]]))

@@ -9,8 +9,7 @@ my @diffs = qx(git diff --name-only);
 foreach my $file (@diffs) {
 	chomp($file);
 	if ($file =~ /^project.clj$/ or $file =~ /^resources\/public\/index.html$/) {
-		print STDERR "Changes to $file should be commited before deployment.\n";
-		exit(1);
+		die "Changes to $file should be commited before deployment.\n";
 	}
 }
 

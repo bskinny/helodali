@@ -350,10 +350,6 @@
                                   :children (into [] (mapv (fn [idx bg] ^{:key (str "purchase-" idx)} [display-purchase-edit id idx bg])
                                                            (range (count @purchases)) (cycle [true false])))])
                              [re-com/gap :size "4px"]
-                             [h-box :gap "6px" :align :center :justify :start
-                                :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Add an Exhibition record"
-                                              :on-click #(dispatch [:create-local-vector-element [:artwork id :exhibition-history] (db/default-exhibition-history)])]
-                                           [:span "Exhibitions"]]]
                              (when (not (empty? @exhibition-history))
                                [v-box :gap "16px" :align :start :justify :start :align-self :stretch
                                   :children (into [] (mapv (fn [idx bg] ^{:key (str "exhibition-" idx)} [display-exhibition-history-edit id idx bg])

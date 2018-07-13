@@ -301,19 +301,19 @@
                               :on-success      [:update-db-from-result (fn [db] true)]
                               :on-failure      [:bad-result {} retry-fx]}}))))
 
-;; Similar to above but restricted to the app-db's :profile, which results to writes against
-;; the :profiles table on the server. 'path' should be [:profile] or start as such.
-(defn- update-profile-fx
-  [path val is-retry? db]
+;; Similar to above but restricted to the app-db's :profile or :pages, which results to writes against
+;; the :profiles table on the server. 'path' should be path within :pages or :profile.
+(defn- update-user-table-fx
+  [table path val is-retry? db]
   (let [_ (check-and-throw :helodali.spec/db db)
-        inside-profile-path (rest path)
-        retry-fx (or is-retry? (partial update-profile-fx path val true))
+        inside-table-path (rest path)
+        retry-fx (or is-retry? (partial update-user-table-fx path val true))
         val (walk-cleaner val)
         fx (if is-retry? {} {:db db})]
     (merge fx {:http-xhrio {:method          :post
-                            :uri             "/update-profile"
+                            :uri             "/update-user-table"
                             :params          {:uuid (get-in db [:profile :uuid])
-                                              :path inside-profile-path :val val
+                                              :table table :path path :val val
                                               :access-token (:access-token db)}
                             :headers         {:x-csrf-token (:csrf-token db)}
                             :timeout         5000
@@ -440,7 +440,8 @@
       (if (empty? changes)
         {:db new-db} ;; No changes to apply to server
         (condp = type
-          :profile (update-profile-fx item-path changes false new-db)
+          :profile (update-user-table-fx :profiles (rest item-path) changes false new-db)
+          :pages (update-user-table-fx :pages (rest item-path) changes false new-db)
           (update-fx item-path changes false new-db))))))
 
 ;; Create an artwork item from an Instagram post in our :instagram-media map.

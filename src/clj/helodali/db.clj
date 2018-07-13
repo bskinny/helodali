@@ -107,6 +107,7 @@
               created (unparse (formatters :date) (now))]
           (pprint (str "Creating user account for " (:sub userinfo)))
           (far/put-item co :accounts {:uuid uuid :created created})
+          (far/put-item co :pages {:uuid uuid :enabled false})
           (far/put-item co :profiles {:uuid uuid :name (:name userinfo) :created created})
           (far/put-item co :openid {:uref uuid :sub (:sub userinfo) :email (:email userinfo)}))
         (sync-userinfo userinfo openid-item)))))
@@ -160,11 +161,9 @@
         (recur (drop 25 items))))))
 
 (defn delete-user
-  "(batch-write-item client-opts
-                     {:users {:put    [{:user-id 1 :username \"sally\"}
-                                       {:user-id 2 :username \"jane\"}]
-                              :delete [{:user-id [3 4 5]}]}})"
+  "Delete everything except for portions of the :accounts needed for later processes."
   [uref sub]
+  ; TODO: Trigger account removal
   (let [query-opts {:proj-expr "#uref, #uuid"
                     :expr-attr-names {"#uref" "uref" "#uuid" "uuid"}}]
     (delete-items :artwork (far/query co :artwork {:uref [:eq uref]} query-opts))
@@ -173,6 +172,7 @@
     (delete-items :contacts (far/query co :contacts {:uref [:eq uref]} query-opts))
     (delete-items :press (far/query co :press {:uref [:eq uref]} query-opts))
     (delete-item :profiles {:uuid uref})
+    (delete-item :pages {:uuid uref})
     (delete-item :openid {:sub sub})))
 
 
@@ -197,6 +197,7 @@
        :initialized? true
        :access-token (:token session)
        :id-token (:id-token session)
+       :pages (far/get-item co :pages {:uuid uref})
        :account (-> account
                     (dissoc :instagram-access-token)
                     (assoc :instagram-user (select-keys (:instagram-user account) [:bio :website :full_name :profile_picture :username])))
@@ -314,7 +315,7 @@
       (apply-attribute-change table {:uref uref :uuid uuid} path val))))
 
 (defn update-user-table
-  "Update a user table, such as profiles. The method of building
+  "Update a user table, such as :profiles or :pages. The method of building
    the DynamoDB changeset depends on whether we are called with a single attribute change (path == [path to attribute])
    or multiple attribute changes within an item (path == nil and val is keyed with attribute paths)"
   [table uuid path val]
@@ -425,7 +426,7 @@
   (doseq [item items]
     (far/put-item co table item)))
 
-(defn table-and-demo-creation
+(defn table-creation
   "This recreates the database and will delete all existing data."
   []
   (let [brianw "1073c8b0-ab47-11e6-8f9d-c83ff47bbdcb"
@@ -436,10 +437,8 @@
       [:uuid :s]  ; Hash key of uuid-valued user reference, (:s => string type)
       {:throughput {:read 2 :write 2} ; Read & write capacity (units/sec)
        :block? true})
-    (far/create-table co :accounts
-      [:uuid :s]  ; Hash key of uuid-valued user reference, (:s => string type)
-      {:throughput {:read 2 :write 2} ; Read & write capacity (units/sec)
-       :block? true})
+    (far/create-table co :pages [:uuid :s] {:throughput {:read 2 :write 2} :block? true})
+    (far/create-table co :accounts [:uuid :s] {:throughput {:read 2 :write 2} :block? true})
     (far/create-table co :sessions
       [:uuid :s]  ; Hash key of uuid-valued session reference, (:s => string type)
       {:range-key [:uref :s] ; uuid user reference as second component to primary key

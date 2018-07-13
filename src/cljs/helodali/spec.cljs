@@ -143,6 +143,13 @@
                           :opt-un [::notes ::size ::processing ::filename ::last-modified ::title
                                    ::key ::signed-raw-url ::signed-raw-url-expiration-time]))
 
+;; Public Pages
+(s/def ::enabled boolean?)
+(s/def ::public-exhibition-item (s/keys :opt-un [::ref ::notes]))
+(s/def ::public-exhibitions (s/* ::public-exhibition-item))
+(s/def ::pages (s/nilable (s/keys :req-un [::enabled]
+                                  :opt-un [::public-exhibitions])))
+
 ;; User's artist profile
 (s/def ::photo (s/nilable string?))
 (s/def ::birth-year (s/and int? #(> % 1000)))
@@ -186,7 +193,7 @@
 (s/def ::csrf-token (s/nilable string?))
 (s/def ::single-item-uuid (s/nilable string?))
 (s/def ::search-pattern (s/nilable string?))
-(s/def ::view #{:show-login :artwork :contacts :exhibitions :documents :purchases :press :profile :search-results :account :static-page})
+(s/def ::view #{:show-login :artwork :contacts :exhibitions :documents :purchases :press :profile :search-results :account :pages :static-page})
 (s/def ::static-page (s/nilable #{:privacy-policy}))
 (s/def ::display-type #{:contact-sheet :single-item :new-item :list :row :instagram})
 (s/def ::contacts (s/every-kv ::id ::contact))
@@ -199,4 +206,4 @@
 (s/def ::db (s/keys :req-un [::view ::display-type ::single-item-uuid ::artwork ::contacts ::exhibitions ::ui-defaults
                              ::press ::profile ::authenticated? ::initialized? ::access-token ::id-token
                              ::userinfo ::search-pattern ::documents ::aws-creds ::refresh-aws-creds? ::account]
-                    :opt-un [::messages ::instagram-media ::do-cognito-logout?]))
+                    :opt-un [::messages ::instagram-media ::do-cognito-logout? ::pages]))
