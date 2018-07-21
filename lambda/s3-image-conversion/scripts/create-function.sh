@@ -2,7 +2,7 @@
 
 # Create the triggers on ObjectCreated/ObjectRemoved after executing this.
 
-/Users/brianww/Library/Python/2.7/bin/aws lambda create-function \
+aws lambda create-function \
 	--region us-east-1 \
 	--function-name image-conversion \
 	--zip-file fileb://image-conversion.zip \

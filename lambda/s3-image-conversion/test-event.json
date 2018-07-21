@@ -1,0 +1,38 @@
+{
+  "Records": [
+    {
+      "eventVersion": "2.0",
+      "eventSource": "aws:s3",
+      "awsRegion": "us-east-1",
+      "eventTime": "2018-07-21T12:59:06.979Z",
+      "eventName": "ObjectCreated:Put",
+      "userIdentity": {
+        "principalId": "AWS:AIDAIZCFA5SIHKY7XWUNG"
+      },
+      "requestParameters": {
+        "sourceIPAddress": "69.138.193.139"
+      },
+      "responseElements": {
+        "x-amz-request-id": "F30206AE191ACEA0",
+        "x-amz-id-2": "BMgv5fZQT1OZoE0+fWsJbonMwUgj1n+Toa2snehjK47gKu8qhtq4LlnQPdBMCAy0xHWHTPp+xVE="
+      },
+      "s3": {
+        "s3SchemaVersion": "1.0",
+        "configurationId": "386c80ca-f466-4cc8-b9cd-47997e54ab79",
+        "bucket": {
+          "name": "helodali-raw-images",
+          "ownerIdentity": {
+            "principalId": "A16TAUN12H2CHK"
+          },
+          "arn": "arn:aws:s3:::helodali-raw-images"
+        },
+        "object": {
+          "key": "BrianAndOrion.jpg",
+          "size": 237718,
+          "eTag": "52fc0951cf74b22dfb0100ba0795f56d",
+          "sequencer": "005B532E1AB5093B66"
+        }
+      }
+    }
+  ]
+}
