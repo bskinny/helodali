@@ -436,7 +436,8 @@
                      (and (= type :artwork) (or (:style diffA) (:style diffB))) (assoc :style (:style item))
                      (and (= type :artwork) (or (:images diffA) (:images diffB))) (assoc :images (:images item))
                      (and (= type :artwork) (or (:purchases diffA) (:purchases diffB))) (assoc :purchases (:purchases item))
-                     (and (= type :artwork) (or (:exhibition-history diffA) (:exhibition-history diffB))) (assoc :exhibition-history (:exhibition-history item)))]
+                     (and (= type :artwork) (or (:exhibition-history diffA) (:exhibition-history diffB))) (assoc :exhibition-history (:exhibition-history item))
+                     (and (= type :pages) (or (:public-exhibitions diffA) (:public-exhibitions diffB))) (assoc :public-exhibitions (:public-exhibitions item)))]
       ;; Ensure required fields have values
       (if (helodali.spec/invalid? (keyword "helodali.spec" type) item)
         {:db (add-message db :form-error "All required fields must have a value before changes can be saved.")}
