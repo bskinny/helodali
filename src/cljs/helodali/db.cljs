@@ -86,7 +86,8 @@
   "Return an public-exhibitions map"
   []
   {:ref nil
-   :notes nil})
+   :notes nil
+   :page-name nil})
 
 (defn default-purchase
   "Return a purchase with date popluated with today"

@@ -43,7 +43,8 @@
 (def manual-check-spec [(when ^boolean js/goog.DEBUG debug)
                         trim-v])
 
-(defn- add-message
+(defn-
+  add-message
   "Add a message to :messages (stack of warnings in the UI). If id is nil, generate
    a uuid as the id. The :messages value in app-db is a map keyed by labels which
    provide a means for clearing messages. See the :clear-message event."
@@ -223,6 +224,7 @@
                 (assoc :contacts (into-sorted-map (map #(merge (helodali.db/default-contact) %) (:contacts resp))))
                 (assoc :press (into-sorted-map (map #(merge (helodali.db/default-press) %) (:press resp))))
                 (assoc :profile (:profile resp))
+                (assoc :pages (:pages resp))
                 (assoc :account (:account resp))
                 (assoc :userinfo (:userinfo resp))
                 (assoc :access-token (:access-token resp))
@@ -363,7 +365,7 @@
 ;; defaults for this field in app-db's :ui-defaults
 (reg-event-db
   :set-local-item-val
-  interceptors
+  manual-check-spec
   (fn [db [path val]]
     ;; The path is a triple [:type num :field] and we want the path into
     ;; ui-defaults [:artwork-defaults :dimensions]
@@ -407,7 +409,9 @@
   (fn [{:keys [db]} [item-path]]
     (let [type (first item-path)
           item (get-in db item-path)
-          new-db (assoc-in db (conj item-path :editing) false)
+          new-db (-> db
+                     (clear-message :form-error)   ;; Clear any previous form error
+                     (assoc-in (conj item-path :editing) false))
           diff (clojure.data/diff (get-in db item-path) (get-in @app-db-undo item-path))
           diffA (first diff)  ;; Only in current db
           diffB (second diff) ;; Only in snapshot (app-db-undo)
@@ -433,16 +437,18 @@
                      (and (= type :artwork) (or (:images diffA) (:images diffB))) (assoc :images (:images item))
                      (and (= type :artwork) (or (:purchases diffA) (:purchases diffB))) (assoc :purchases (:purchases item))
                      (and (= type :artwork) (or (:exhibition-history diffA) (:exhibition-history diffB))) (assoc :exhibition-history (:exhibition-history item)))]
-      (pprint (str "diffA: " diffA))
-      (pprint (str "diffB: " diffB))
-      (pprint (str "CHANGES: " changes))
-      (reset! app-db-undo nil)
-      (if (empty? changes)
-        {:db new-db} ;; No changes to apply to server
-        (condp = type
-          :profile (update-user-table-fx :profiles (rest item-path) changes false new-db)
-          :pages (update-user-table-fx :pages (rest item-path) changes false new-db)
-          (update-fx item-path changes false new-db))))))
+      ;; Ensure required fields have values
+      (if (helodali.spec/invalid? (keyword "helodali.spec" type) item)
+        {:db (add-message db :form-error "All required fields must have a value before changes can be saved.")}
+        (do
+          (pprint (str "CHANGES: " changes))
+          (reset! app-db-undo nil)
+          (if (empty? changes)
+            {:db new-db} ;; No changes to apply to server
+            (condp = type
+              :profile (update-user-table-fx :profiles (rest item-path) changes false new-db)
+              :pages (update-user-table-fx :pages (rest item-path) changes false new-db)
+              (update-fx item-path changes false new-db))))))))
 
 ;; Create an artwork item from an Instagram post in our :instagram-media map.
 ;; This means we include an :instagram-media-ref map in the artwork item, set the artwork's
@@ -888,7 +894,7 @@
 ;; Apply this change only to our app-db: Push new 'defaults' element in the front of vector given by 'path'
 (reg-event-db
   :create-local-vector-element
-  interceptors
+  manual-check-spec
   (fn [db [path defaults]] ;; defaults is a map, e.g. the output of helodali.db/default-purchase, inserted at head of vector
     (let [val (into [defaults] (get-in db path))]
       (assoc-in db path val))))

@@ -145,7 +145,9 @@
 
 ;; Public Pages
 (s/def ::enabled boolean?)
-(s/def ::public-exhibition-item (s/keys :opt-un [::ref ::notes]))
+(s/def ::page-name (s/and string? #(not-empty %)))
+(s/def ::public-exhibition-item (s/keys :req-un [::ref ::page-name]
+                                        :opt-un [::notes]))
 (s/def ::public-exhibitions (s/* ::public-exhibition-item))
 (s/def ::pages (s/nilable (s/keys :req-un [::enabled]
                                   :opt-un [::public-exhibitions])))
@@ -207,3 +209,11 @@
                              ::press ::profile ::authenticated? ::initialized? ::access-token ::id-token
                              ::userinfo ::search-pattern ::documents ::aws-creds ::refresh-aws-creds? ::account]
                     :opt-un [::messages ::instagram-media ::do-cognito-logout? ::pages]))
+
+(defn invalid?
+  [spec val]
+  (s/invalid? (s/conform spec val)))
+
+(defn explain
+  [spec val]
+  (s/explain spec val))
