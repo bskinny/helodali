@@ -8,6 +8,6 @@ mkdir zip-contents
 cp index.js zip-contents
 mv node_modules zip-contents
 cd zip-contents
-zip -r ../image-conversion.zip index.js node_modules
+zip -r ../ribbon-maker.zip index.js node_modules
 cd ..
 rm -rf zip-contents

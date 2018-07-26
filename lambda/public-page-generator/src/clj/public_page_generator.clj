@@ -2,10 +2,12 @@
   (:gen-class
     :implements [com.amazonaws.services.lambda.runtime.RequestStreamHandler])
   (:require [clojure.data.json :as json]
+            [java-time :as jt]
             [clojure.string :as s]
             [clojure.java.io :as io]
             [amazonica.aws.dynamodbv2 :as ddb]
             [amazonica.aws.s3 :as aws3]
+            [amazonica.aws.sns :as sns]
             [clojure.pprint :refer [pprint]]))
 
 ;; These environment variables are only necessary when running the app locally
@@ -46,18 +48,18 @@
 
 (defn create-artwork-div
   [uref artwork-item]
-  (str "<div class=\"rc-v-box display-flex\" "
-             "style=\"align-items: center; flex-flow: column nowrap; flex: 0 0 auto; justify-content: center; width: 240px; height: 100%;\">\n"
-         "<div class=\"rc-box display-flex\" style=\"flex-flow: inherit; flex: 0 0 auto; max-width: 240px; max-height: 240px;\">\n"
-           "<img src=\"https://" pages-bucket ".s3.amazonaws.com/" (artwork-url uref artwork-item) "\" class=\"fit-cover\" width=\"240px\" height=\"240px\">\n"
-         "</div>\n"
-         "<div class=\"rc-gap \" style=\"flex: 0 0 2px; height: 2px;\"></div>\n"
-         "<div class=\"rc-v-box display-flex\" style=\"flex-flow: column nowrap; flex: 0 0 auto; justify-content: flex-start; align-items: flex-start;\">\n"
-           "<span class=\"semibold\">" (:title artwork-item) "</span>\n"
-           "<div class=\"rc-gap \" style=\"flex: 0 0 2px; height: 2px;\"></div>\n"
-           "<span>" (:year artwork-item) "</span>\n"
-         "</div>\n"
-       "</div>\n"))
+  (str "\n"
+       "       <div style=\"align-items: center; flex-flow: column nowrap; flex: 0 0 auto; justify-content: center; width: 240px; height: 100%; margin-bottom: 20px\">\n"
+       "         <div style=\"flex-flow: inherit; flex: 0 0 auto; max-width: 240px; max-height: 240px;\">\n"
+       "           <img src=\"https://" pages-bucket ".s3.amazonaws.com/" (artwork-url uref artwork-item) "\" class=\"fit-cover\" width=\"240px\" height=\"240px\">\n"
+       "         </div>\n"
+       "         <div style=\"flex: 0 0 auto; height: 8px;\"></div>\n"
+       "         <div style=\"flex-flow: column nowrap; flex: 0 0 auto; margin-left: 4px; margin-right: 4px; justify-content: flex-start; align-items: flex-start;\">\n"
+       "           <span class=\"hd-caption\">" (:title artwork-item) "</span>\n"
+       "           <div style=\"flex: 0 0 auto; height: 2px;\"></div>\n"
+       "           <span class=\"hd-subcaption\">" (:year artwork-item) "</span>\n"
+       "         </div>\n"
+       "       </div>"))
 
 (defn create-exhibition-page
   "Given the user uref, the public-exhibitions from the :pages tables, the list of all exhibition items
@@ -87,6 +89,9 @@
                                :source-key (get-in artwork-item [:images 0 :key])
                                :access-control-list {:grant-permission ["AllUsers" "Read"]}
                                :destination-key (artwork-url uref artwork-item))))
+    (sns/publish co :topic-arn "arn:aws:sns:us-east-1:676820690883:my-topic"
+                    :subject "test"
+                    :message (str))
     (aws3/put-object co :bucket-name pages-bucket
                      :key (str uref "/" exhibition-uuid ".html")
                      :input-stream (io/input-stream (.getBytes html))
@@ -94,12 +99,43 @@
                      :metadata {:content-length (count html)
                                 :content-type "text/html"})))
 
+(defn sort-by-end-date
+  "Used as a comparator to sort, comparing two datetime key values and
+   falling back to :created time of the item. If the input maps do not
+   have :created, use sort-by-datetime-only instead"
+  [k reverse? m1 m2]
+  ; (pprint (str "Sort-by-datetime: " k " of " m1 " " m2))
+  (let [before-after (if reverse? jt/after? jt/before?)]
+    (if (or (nil? m1) (nil? m2))
+      (compare m1 m2)
+      (if (or (nil? (get m1 k)) (nil? (get m2 k)) (= (get m1 k) (get m2 k)))
+        (if (or (nil? (get m1 :created)) (nil? (get m2 :created)))
+          (compare (get m1 :created) (get m2 :created))
+          (before-after (get m1 :created) (get m2 :created)))
+        (before-after (get m1 k) (get m2 k))))))
+
+(defn create-exhibition-div
+  [public-exhibitions exhibition]
+  (str "\n<div class=\"hd-exhibition-title\"><a href=\"" (:page-name public-exhibitions) "\" data-ix=\"body-fade-out-on-click\">"
+          (:title exhibition) "</a></div>"))
+
+(defn create-index-page
+  "Build the index page which lists the exhibitions which can be browsed. The public-exhibitions arg defines the
+   :uuid and :notes defined on the piblic-pages item and the exhibitions arg is a list of :exhibitions items
+   pulled from the db."
+  [page-config public-exhibitions exhibitions]
+  (let [uref (:uuid page-config)
+        template (slurp index-template)
+        public-exhibitions-set (set (keys public-exhibitions))
+        sorted-exhibitions (sort sort-by-end-date (filter #(contains? public-exhibitions-set (:uuid %)) exhibitions))
+        exhibitions-html (s/join (map (partial create-exhibition-div public-exhibitions) sorted-exhibitions))]))
+
 (defn publish-site
-  [profile]
-  (pprint (str "Publishing site for user " (:uuid profile)))
-  (let [uref (:uuid profile)
+  [pages-profile]
+  (pprint (str "Publishing site for user " (:uuid pages-profile)))
+  (let [uref (:uuid pages-profile)
         ;; Fetch the pages item from DynamoDb even though we have an image from the Lambda invocation.
-        page-config (:item (ddb/get-item co :table-name :pages :key {:uuid (:uuid profile)}))
+        page-config (:item (ddb/get-item co :table-name :pages :key {:uuid (:uuid pages-profile)}))
         ;; Create of map representation of the public exhibitions keyed by :uuid values
         public-exhibitions (reduce (fn [m e] (assoc m (get e :ref) (dissoc e :ref))) {} (:public-exhibitions page-config))
         ;; Retrieve all artwork items
@@ -115,7 +151,8 @@
 
 (defn remove-site
   [profile]
-  (pprint (str "Removing site for user " (:uuid profile))))
+  (pprint (str "Removing site for user " (:uuid profile)))
+  (delete-pages (:uuid profile)))
 
 (comment "The event passed to us looks like the following. We convert keys to lowercase keywords."
   {"Records"

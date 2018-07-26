@@ -8,7 +8,7 @@ aws lambda create-function \
 	--zip-file fileb://image-conversion.zip \
 	--role arn:aws:iam::128225160927:role/helodali-image-processing \
 	--handler index.handler \
-	--runtime nodejs6.10 \
+	--runtime nodejs8.10 \
 	--timeout 10 \
 	--memory-size 1536
 

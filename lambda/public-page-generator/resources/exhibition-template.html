@@ -2,8 +2,8 @@
 <html lang="en">
 <head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <title>{{TITLE}}</title>
-    <meta content="Brian Walker Williams" property="og:title">
-    <meta content="Artist, painter in Arlington VA" property="og:description">
+    <meta content="{{TITLE}}" property="og:title">
+    <meta content="{{DESCRIPTION}}" property="og:description">  <!-- TODO: -->
     <meta content="width=device-width, initial-scale=1" name="viewport">
     <!-- TODO: What is this?  <meta content="VaZy3oIEgTCSdOSyKAFYMCvB1Sa6X965LX3SP2KwaNQ" name="google-site-verification"> -->
     <link href="hd-public.css" rel="stylesheet" type="text/css">
@@ -39,12 +39,18 @@
 </head>
 <body class="hd-body" style="opacity: 1; display: block; transition: opacity 600ms ease-in;">
 <div class="hd-main">
-    <div class="hd-title-box">
-        <div class="hd-title">{{TITLE}}</div>
-        <div class="hd-subtitle">{{NOTES}}</div>
+    <div class="hd-header">
+        <div class="hd-title-box">
+            <div class="hd-title">{{TITLE}}</div>
+            <div class="hd-subtitle">{{NOTES}}</div>
+        </div>
+        <div style="flex-basis: 50%">
+            <div style="display: flex; flex-direction: row; justify-content: flex-end; margin-left: 20px; margin-right: 80px">
+                <span class="hd-subtitle">Username</span>
+            </div>
+        </div>
     </div>
-    <div class="list-wrapper">
-        {{ARTWORK}}
+    <div class="list-wrapper">{{ARTWORK}}
     </div>
 </div>
 
