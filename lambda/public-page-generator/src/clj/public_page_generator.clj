@@ -18,22 +18,32 @@
          :secret-key (or (System/getenv "AWS_SECRET_KEY")
                          (System/getProperty "AWS_SECRET_KEY"))
          :endpoint   (or (System/getenv "AWS_DYNAMODB_ENDPOINT")
-                         (System/getProperty "AWS_DYNAMODB_ENDPOINT"))})
+                         (System/getProperty "AWS_DYNAMODB_ENDPOINT"))
+         :create-ribbon-topic-arn (or (System/getenv "HD_CREATE_RIBBON_TOPIC_ARN")
+                                      (System/getProperty "HD_CREATE_RIBBON_TOPIC_ARN"))})
 
 (def pages-bucket "helodali-public-pages")
 (def index-template (io/resource "index-template.html"))
 (def exhibition-template (io/resource "exhibition-template.html"))
 
+(defn fix-date
+  "Called with a list of maps, converts a date valued kw from string to java-time Instant."
+  [kw l]
+  (apply vector (map #(if (get % kw)
+                        (assoc % kw (jt/local-date "yyyy-MM-dd" (get % kw)))
+                        %)
+                     l)))
+
 (defn delete-pages
   [prefix]
   ;; DO NOT INVOKE delete-objects WITH AN EMPTY STRING OR NIL
   (when (not (empty? prefix))
-    (let [object-maps (:object-summaries (aws3/list-objects co :bucket-name pages-bucket :prefix prefix))
+    (let [object-maps (:object-summaries (aws3/list-objects :bucket-name pages-bucket :prefix prefix))
           ;; object-maps is a list of maps, we want a list of keys
           object-keys (reduce (fn [l object-map] (conj l (get object-map :key))) [] object-maps)]
       (when (not (empty? object-keys))
         ;; TODO: Handle edge case when more than 1000 objects need to be deleted
-        (aws3/delete-objects co :bucket-name pages-bucket :quiet true :keys object-keys)))))
+        (aws3/delete-objects :bucket-name pages-bucket :quiet true :keys object-keys)))))
 
 (defn is-in-exhibition-history?
   "Given artwork item, look in exhibition-history for given exhibition-uuid"
@@ -43,15 +53,15 @@
 
 (defn artwork-url
   "Generate the public-pages bucket url for the image represented by artwork-item"
-  [uref artwork-item]
-  (str uref "/images/" (:uuid artwork-item) "/" (get-in artwork-item [:images 0 :filename])))
+  [uref page-name artwork-item]
+  (str uref "/" page-name "/images/" (:uuid artwork-item) "/" (get-in artwork-item [:images 0 :filename])))
 
 (defn create-artwork-div
-  [uref artwork-item]
+  [uref page-name artwork-item]
   (str "\n"
        "       <div style=\"align-items: center; flex-flow: column nowrap; flex: 0 0 auto; justify-content: center; width: 240px; height: 100%; margin-bottom: 20px\">\n"
        "         <div style=\"flex-flow: inherit; flex: 0 0 auto; max-width: 240px; max-height: 240px;\">\n"
-       "           <img src=\"https://" pages-bucket ".s3.amazonaws.com/" (artwork-url uref artwork-item) "\" class=\"fit-cover\" width=\"240px\" height=\"240px\">\n"
+       "           <img src=\"https://" pages-bucket ".s3.amazonaws.com/" (artwork-url uref page-name artwork-item) "\" class=\"fit-cover\" width=\"240px\" height=\"240px\">\n"
        "         </div>\n"
        "         <div style=\"flex: 0 0 auto; height: 8px;\"></div>\n"
        "         <div style=\"flex-flow: column nowrap; flex: 0 0 auto; margin-left: 4px; margin-right: 4px; justify-content: flex-start; align-items: flex-start;\">\n"
@@ -67,39 +77,40 @@
    a public page representing the exhibition. The public-exhibitions map is referenced for notes or other
    public information.
 
-   Create or replace the exhibition page under <bucket-name>/uref/exhibition-name.html"
+   Create or replace the exhibition page under <bucket-name>/uref/<page-name>.html
+
+   This function also copies all exhibition artwork into <bucket-name>/uref/<page-name>/images/"
   [uref public-exhibitions exhibitions artwork exhibition-uuid]
   (let [template (slurp exhibition-template)
-        ;; TODO: Use :page-name defined in public-exhibition to name the html page
         public-exhibition (get public-exhibitions exhibition-uuid)
+        page-name (:page-name public-exhibition)
         exhibition (first (filter #(= (:uuid %) exhibition-uuid) exhibitions))
         title (or (:name exhibition) "")
         notes (or (:notes public-exhibition) "")
         exhibition-artwork (filter (partial is-in-exhibition-history? exhibition-uuid) artwork)
-        artwork-html (s/join (map (partial create-artwork-div uref) exhibition-artwork))
+        artwork-html (s/join (map (partial create-artwork-div uref page-name) exhibition-artwork))
         html (-> template
                  (s/replace "{{TITLE}}" title)
                  (s/replace "{{NOTES}}" notes)
                  (s/replace "{{ARTWORK}}" artwork-html))]
-    (pprint (str "ARTWORK HTML: " artwork-html))
     (doall (for [artwork-item exhibition-artwork]
              ;; Copy artwork to bucket to uref/images/artwork-uuid/filename
-             (aws3/copy-object co :source-bucket-name "helodali-images"
+             (aws3/copy-object :source-bucket-name "helodali-images"
                                :destination-bucket-name pages-bucket
                                :source-key (get-in artwork-item [:images 0 :key])
                                :access-control-list {:grant-permission ["AllUsers" "Read"]}
-                               :destination-key (artwork-url uref artwork-item))))
-    (sns/publish co :topic-arn "arn:aws:sns:us-east-1:676820690883:my-topic"
-                    :subject "test"
-                    :message (str))
-    (aws3/put-object co :bucket-name pages-bucket
-                     :key (str uref "/" exhibition-uuid ".html")
+                               :destination-key (artwork-url uref page-name artwork-item))))
+    (sns/publish :topic-arn (:create-ribbon-topic-arn co)
+                 :subject "make-ribbon"
+                 :message (str uref "/" page-name "/images/"))
+    (aws3/put-object :bucket-name pages-bucket
+                     :key (str uref "/" page-name ".html")
                      :input-stream (io/input-stream (.getBytes html))
                      :access-control-list {:grant-permission ["AllUsers" "Read"]}
                      :metadata {:content-length (count html)
                                 :content-type "text/html"})))
 
-(defn sort-by-end-date
+(defn sort-by-date
   "Used as a comparator to sort, comparing two datetime key values and
    falling back to :created time of the item. If the input maps do not
    have :created, use sort-by-datetime-only instead"
@@ -120,34 +131,46 @@
           (:title exhibition) "</a></div>"))
 
 (defn create-index-page
-  "Build the index page which lists the exhibitions which can be browsed. The public-exhibitions arg defines the
-   :uuid and :notes defined on the piblic-pages item and the exhibitions arg is a list of :exhibitions items
+  "Build the index page which lists the exhibitions which can be browsed. The public-exhibitions is a list keyed by exhibition
+   :uuid containing :page-name, :notes, etc. defined on the piblic-pages and the exhibitions arg is a list of :exhibitions items
    pulled from the db."
   [page-config public-exhibitions exhibitions]
   (let [uref (:uuid page-config)
         template (slurp index-template)
-        public-exhibitions-set (set (keys public-exhibitions))
-        sorted-exhibitions (sort sort-by-end-date (filter #(contains? public-exhibitions-set (:uuid %)) exhibitions))
-        exhibitions-html (s/join (map (partial create-exhibition-div public-exhibitions) sorted-exhibitions))]))
+        public-exhibitions-keyset (set (keys public-exhibitions))
+        associated-exhibitions (fix-date :begin-date (filter #(contains? public-exhibitions-keyset (:uuid %)) exhibitions))
+        sorted-exhibitions-keys (sort (partial sort-by-date :begin-date false) associated-exhibitions)
+        exhibitions-html (s/join (map (partial create-exhibition-div public-exhibitions) sorted-exhibitions-keys))
+        html (-> template
+                 (s/replace "{{DISPLAYNAME}}" (:display-name page-config))
+                 (s/replace "{{DESCRIPTION}}" (:description page-config))
+                 (s/replace "{{EXHIBITIONS}}" exhibitions-html))]
+    (aws3/put-object :bucket-name pages-bucket
+                     :key (str uref "/index.html")
+                     :input-stream (io/input-stream (.getBytes html))
+                     :access-control-list {:grant-permission ["AllUsers" "Read"]}
+                     :metadata {:content-length (count html)
+                                :content-type "text/html"})))
 
 (defn publish-site
   [pages-profile]
-  (pprint (str "Publishing site for user " (:uuid pages-profile)))
-  (let [uref (:uuid pages-profile)
+  (pprint (str "Publishing site for user " (:s (:uuid pages-profile))))
+  (let [uref (:s (:uuid pages-profile))
         ;; Fetch the pages item from DynamoDb even though we have an image from the Lambda invocation.
-        page-config (:item (ddb/get-item co :table-name :pages :key {:uuid (:uuid pages-profile)}))
+        page-config (:item (ddb/get-item :table-name :pages :key {:uuid uref}))
         ;; Create of map representation of the public exhibitions keyed by :uuid values
         public-exhibitions (reduce (fn [m e] (assoc m (get e :ref) (dissoc e :ref))) {} (:public-exhibitions page-config))
         ;; Retrieve all artwork items
-        artwork (:items (ddb/query co :table-name :artwork :key-conditions {:uref {:attribute-value-list [uref]
-                                                                                   :comparison-operator "EQ"}}))
+        artwork (:items (ddb/query :table-name :artwork :key-conditions {:uref {:attribute-value-list [uref]
+                                                                                :comparison-operator "EQ"}}))
         ;; Retrieve all exhibition items
-        exhibitions (:items (ddb/query co :table-name :exhibitions :key-conditions {:uref {:attribute-value-list [uref]
-                                                                                           :comparison-operator "EQ"}}))]
+        exhibitions (:items (ddb/query :table-name :exhibitions :key-conditions {:uref {:attribute-value-list [uref]
+                                                                                        :comparison-operator "EQ"}}))]
     ;; Delete existing site
     (delete-pages uref)
     ;; Create the individual exhibition pages
-    (doall (map (partial create-exhibition-page uref public-exhibitions exhibitions artwork) (keys public-exhibitions)))))
+    (doall (map (partial create-exhibition-page uref public-exhibitions exhibitions artwork) (keys public-exhibitions)))
+    (create-index-page page-config public-exhibitions exhibitions)))
 
 (defn remove-site
   [profile]
@@ -204,7 +227,7 @@
   publish/remove the user's public pages accordingly. In addition, look for a changed value of
   :version (uuid-valued) which implies the 'publish now' request has been made."
   ;; TODO: What processes the return value?
-  (pprint event)
+  ;(pprint event)
   (map process-record (:records event)))
 
 (defn key->keyword

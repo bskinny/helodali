@@ -49,6 +49,7 @@
    a uuid as the id. The :messages value in app-db is a map keyed by labels which
    provide a means for clearing messages. See the :clear-message event."
   [db id msg]
+  (pprint (str "add-message: " id ": " msg))
   (let [k (or id (generate-uuid))]
     (assoc-in db [:messages k] msg)))
 
@@ -308,7 +309,6 @@
 (defn- update-user-table-fx
   [table path val is-retry? db]
   (let [_ (check-and-throw :helodali.spec/db db)
-        inside-table-path (rest path)
         retry-fx (or is-retry? (partial update-user-table-fx path val true))
         val (walk-cleaner val)
         fx (if is-retry? {} {:db db})]
@@ -378,6 +378,26 @@
         (assoc-in new-db [:ui-defaults item-defaults-type field] val)
         new-db))))
 
+;; Add a message to the stack, e.g. :form-error "All required fields must have a value before changes can be saved."
+(reg-event-db
+  :add-message
+  manual-check-spec
+  (fn [db [id msg]]
+    (add-message db id msg)))
+
+;; Trigger a website publishing by updating the :version key of the :pages map. Also set :processing to true.
+(reg-event-fx
+  :publish-pages
+  manual-check-spec
+  (fn [{:keys [db]} _]
+    (let [new-db (-> db
+                     (assoc-in [:pages :version] (generate-uuid))
+                     (assoc-in [:pages :processing] true))
+          changes {:version (get-in new-db [:pages :version])
+                   :processing (get-in new-db [:pages :processing])}]
+      (merge (update-user-table-fx :pages [] changes false new-db)))))
+             ;{:dispatch-later}))))
+
 ;; Switch to edit mode for given item. Stash the current app-db to undo changes
 ;; that are canceled. 'item-path' is a path to item such as [:press 2]
 ;; This can also be called with [:profile] as the item-path.
@@ -419,7 +439,8 @@
           ;; map keys/vals, diffA should contain all changes except for those made within collection-valued keys
           ;; (e.g. vector-valued :purchases of artwork or :degrees of profile). In this case, we look for any occurrence
           ;; of the key (e.g. :purchases in artwork) in either diffA or diffB and overwite the entire value instead of
-          ;; trying to pinpoint the exact change within the collection. TODO: We should reconsider vector-valued keys because of this?
+          ;; trying to pinpoint the exact change within the collection.
+          ;; TODO: Fix this approach of explicitly naming the vector-of-colls and use (type)
           changes (cond-> diffA
                      (:signed-raw-url diffA) (dissoc :signed-raw-url) ;; For :documents
                      (:signed-raw-url-expiration-time diffA) (dissoc :signed-raw-url-expiration-time) ;; For :documents
@@ -439,7 +460,7 @@
                      (and (= type :artwork) (or (:exhibition-history diffA) (:exhibition-history diffB))) (assoc :exhibition-history (:exhibition-history item))
                      (and (= type :pages) (or (:public-exhibitions diffA) (:public-exhibitions diffB))) (assoc :public-exhibitions (:public-exhibitions item)))]
       ;; Ensure required fields have values
-      (if (helodali.spec/invalid? (keyword "helodali.spec" type) item)
+      (if (helodali.spec/invalid? type item)
         {:db (add-message db :form-error "All required fields must have a value before changes can be saved.")}
         (do
           (pprint (str "CHANGES: " changes))
@@ -758,7 +779,7 @@
 
 (reg-event-db
   :display-new-item
-  interceptors
+  manual-check-spec
   (fn [db [type]]
     (let [id 0  ;; 0 is the placeholder item in the sorted map for 'type'
           new-db  (-> db
@@ -769,19 +790,16 @@
                     (assoc-in [type id :expanded] true))]
       (assoc new-db :single-item-uuid (get-in new-db [type id :uuid])))))
 
-;; Create item based on contents of placeholder iten (id == 0) but confirm
+;; Create item based on contents of placeholder item (id == 0) but confirm
 ;; the existence of values for required fields. If confirmation fails,
 ;; add a warning message.
 (reg-event-fx
   :create-from-placeholder
   manual-check-spec
   (fn [{:keys [db]} [type required-fields]]
-    (let [placeholder (get-in db [type 0])
-          required-values (map #(get placeholder %) required-fields)
-          empty-values (filter #(or (nil? %) (and (string? %) (empty? %))) required-values)]
-      (if-not (empty? empty-values)
-        ;; Return to the editing
-        {:db (add-message db :form-error (str "The following fields require a value: " (clojure.string/join ", " (map name required-fields))))}
+    (let [placeholder (get-in db [type 0])]
+      (if (helodali.spec/invalid? type placeholder)
+        {:db (add-message db :form-error "All required fields must have a value before changes can be saved.")}
         ;; Create the item
         (let [id (next-id (get db type))
               new-db (-> db

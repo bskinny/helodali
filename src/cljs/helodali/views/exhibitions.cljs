@@ -129,7 +129,7 @@
                                [input-text :width "280px" :model (str @location) :style {:border "none"}
                                     :on-change #(dispatch [:set-local-item-val [:exhibitions id :location] %])]]]
                   [h-box :gap "4px" :align :center
-                    :children [[:span.input-label (str "From ")]
+                    :children [[:span.uppercase.bold (str "From ")]
                                [datepicker-dropdown :model (goog.date.UtcDateTime. @begin-date)
                                      :on-change #(dispatch [:set-local-item-val [:exhibitions id :begin-date] %])]
                                [:span.input-label (str " to ")]

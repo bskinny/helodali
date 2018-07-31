@@ -1,4 +1,4 @@
-(defproject page-generator "0.1.0-SNAPSHOT"
+(defproject public-pages-generator "1.0.0"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
@@ -11,7 +11,6 @@
                  [com.amazonaws/aws-java-sdk-dynamodb "1.11.347"]
                  [com.amazonaws/aws-java-sdk-s3 "1.11.347"]
                  [org.clojure/data.json "0.2.1"]
-                 [quil "2.7.1"]
                  [clojure.java-time "0.3.2"]
                  [com.amazonaws/aws-java-sdk-sns "1.11.347"]]
   :min-lein-version "2.6.1"
@@ -25,5 +24,3 @@
   :profiles
     {:dbmgmt {:dependencies [[org.clojure/tools.nrepl "0.2.13"]]}}
   :omit-source true)
-
-

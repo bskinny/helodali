@@ -3,10 +3,11 @@
 use warnings FATAL => 'all';
 use strict;
 
-my $KEY = "ribbon-maker-$$";
+my $prefix = "ribbon-maker";
+my $version = "1.0.0";
 
-print qx(aws s3 cp ribbon-maker.zip s3://helodali-exports/$KEY);
+my $KEY = "${prefix}-$$.zip";
 
-print qx(aws lambda update-function-code --function-name ribbon-maker --s3-bucket "helodali-exports" --s3-key $KEY);
-
+print qx(aws s3 cp ${prefix}.zip s3://helodali-exports/$KEY);
+print qx(aws lambda update-function-code --function-name ${prefix} --s3-bucket "helodali-exports" --s3-key $KEY);
 print qx(aws s3 rm s3://helodali-exports/$KEY);

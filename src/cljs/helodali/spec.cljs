@@ -1,5 +1,6 @@
 (ns helodali.spec
-  (:require [cljs.spec.alpha :as s]))
+  (:require [cljs.spec.alpha :as s]
+            [cljs.pprint :refer [pprint]]))
 
 ;; clojure.spec definitions of the application db.
 
@@ -20,6 +21,7 @@
 (s/def ::associated-documents (s/nilable (s/* ::uuid)))
 (s/def ::associated-press (s/nilable (s/* ::uuid)))
 (s/def ::processing (s/nilable boolean?))
+(s/def ::name string?)
 
 ;; Instagram items
 (s/def ::instagram-id (s/nilable string?))
@@ -105,7 +107,6 @@
 (s/def ::role #{:person :company :dealer :agent :gallery :institution})
 (s/def ::address (s/nilable string?))
 (s/def ::url (s/nilable string?))
-(s/def ::name (s/nilable string?))
 (s/def ::instagram (s/nilable string?))
 (s/def ::facebook (s/nilable string?))
 (s/def ::contact (s/keys :req-un [::uuid ::name ::role ::created]
@@ -127,15 +128,15 @@
 
 ;; Exhibitions
 (s/def ::kind #{:solo :group :duo :other})
-(s/def ::begin-date (s/nilable ::date))
+(s/def ::begin-date ::date)
 (s/def ::end-date (s/nilable ::date))
 ;; TODO: Do we need reception broken out or can that be left as 'notes'?
 ; (s/def ::begin-time ::time)
 ; (s/def ::end-time ::time)
 ; (s/def ::reception (s/keys :req-un [::title ::start-time ::end-time]))
 ; (s/def ::receptions (s/* ::reception))
-(s/def ::exhibition (s/keys :req-un [::uuid ::name ::created]
-                            :opt-un [::kind ::location ::url ::begin-date ::end-date ::notes
+(s/def ::exhibition (s/keys :req-un [::uuid ::name ::created ::begin-date]
+                            :opt-un [::kind ::location ::url ::end-date ::notes
                                      ::images ::associated-documents ::associated-press]))
 
 ;; Document
@@ -145,12 +146,38 @@
 
 ;; Public Pages
 (s/def ::enabled boolean?)
+(s/def ::version ::uuid)
+(s/def ::display-name (s/and string? #(not-empty %)))
 (s/def ::page-name (s/and string? #(not-empty %)))
 (s/def ::public-exhibition-item (s/keys :req-un [::ref ::page-name]
                                         :opt-un [::notes]))
 (s/def ::public-exhibitions (s/* ::public-exhibition-item))
-(s/def ::pages (s/nilable (s/keys :req-un [::enabled]
-                                  :opt-un [::public-exhibitions])))
+;(s/def ::pages (s/nilable (s/keys :req-un [::enabled]
+;                                  :opt-un [::display-name ::public-exhibitions ::editing ::description])))
+
+;; This multi-method approach allows us to define the :pages spec differently based on
+;; the value of [:pages :enabled].
+(defmulti pages-multi :enabled)
+(defmethod pages-multi true [_]
+  (s/keys :req-un [::enabled ::display-name]
+          :opt-un [::processing ::version ::description ::editing ::public-exhibitions]))
+(defmethod pages-multi false [_]
+  (s/keys :req-un [::enabled]
+          :opt-un [::processing ::version ::display-name ::description ::editing ::public-exhibitions]))
+(s/def ::pages (s/nilable (s/multi-spec pages-multi :enabled)))
+
+;(s/def :hd/enabled boolean?)
+;(s/def :hd/description string?)
+;(s/def :hd/display-name string?)
+
+;(defmulti pages-multi :enabled)
+;(defmethod pages-multi true [_]
+;  (s/keys :req-un [::enabled ::display-name]
+;          :opt-un [::description ::editing ::public-exhibitions]))
+;(defmethod pages-multi false [_]
+;  (s/keys :req-un [::enabled]
+;          :opt-un [::display-name ::description ::editing ::public-exhibitions]))
+;(s/def ::test-pages (s/nilable (s/multi-spec pages-multi :enabled)))
 
 ;; User's artist profile
 (s/def ::photo (s/nilable string?))
@@ -210,10 +237,22 @@
                              ::userinfo ::search-pattern ::documents ::aws-creds ::refresh-aws-creds? ::account]
                     :opt-un [::messages ::instagram-media ::do-cognito-logout? ::pages]))
 
-(defn invalid?
-  [spec val]
-  (s/invalid? (s/conform spec val)))
+(defn spec-for-type
+  "Map the 'type' of item to a spec keyword"
+  [type]
+  (condp = type
+    :artwork ::artwork-item
+    :exhibitions ::exhibition
+    :contacts ::contact
+    :documents ::document
+    :press ::press-ref
+    (keyword "helodali.spec" type)))
 
-(defn explain
-  [spec val]
-  (s/explain spec val))
+(defn invalid?
+  "Check the given item (val) against it's spec. The incoming 'type' will be of the top-level keyword
+  key into app-db, e.g. :artwork or :contacts. We need to translate this key to the proper spec keyword,
+  e.g. :contacts -> ::contact."
+  [type val]
+  (let [spec (spec-for-type type)]
+    (s/explain spec val)
+    (s/invalid? (s/conform spec val))))

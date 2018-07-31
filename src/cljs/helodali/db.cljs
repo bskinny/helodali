@@ -1,5 +1,5 @@
 (ns helodali.db
-  (:require [cljs-time.core :refer [now year days ago date-time]]
+  (:require [cljs-time.core :refer [now year days plus date-time]]
             [helodali.misc :refer [into-sorted-map generate-uuid]]))
 
 (defn default-year-val-map
@@ -19,8 +19,8 @@
    :location nil  ;; The gallery or location
    :url nil ;; optional link to gallery or exhibition website
    :notes nil ;; A user provided paragraph
-   :begin-date nil ;; A date down to the day, e.g. 6/13/2016
-   :end-date nil
+   :begin-date (now) ;; Today's date
+   :end-date (plus (now) (days 7)) ;; Next week's date
    :associated-documents #{}
    :associated-press #{}
    ; :associated-press #{uuid1 uuid2}

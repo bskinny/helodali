@@ -1,7 +1,7 @@
 (ns helodali.views.documents
     (:require [helodali.routes :refer [route-single-item route-new-item route-view-display]]
               [helodali.misc :refer [trunc compute-bg-color convert-map-to-options max-string-length expired?
-                                     sort-by-datetime sort-by-key-then-created uuid-label-list-to-options
+                                     sort-by-key-then-created uuid-label-list-to-options
                                      safe-date-string safe-string]]
               [cljs.pprint :refer [pprint]]
               [reagent.core :as r]

@@ -55,7 +55,7 @@ function processPrefix(record, callback) {
                     if (err) {
                         console.error("Err: " + err);
                     } else {
-                        s3.putObject({Bucket: S3_BUCKET, Key: prefix + 'ribbon.jpg',
+                        s3.putObject({Bucket: S3_BUCKET, ACL: "public-read", Key: prefix + 'ribbon.jpg',
                             Body: data, ContentType: "image/" + info.format},
                             function(err, info) {
                                 if (err) {
