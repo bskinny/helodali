@@ -86,7 +86,7 @@
   "Return an public-exhibitions map"
   []
   {:ref nil
-   :notes nil
+   :statement nil
    :page-name nil})
 
 (defn default-purchase

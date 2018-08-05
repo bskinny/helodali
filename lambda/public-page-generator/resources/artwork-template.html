@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <title>{{TITLE}}</title>
+    <title>This Life Is A Simulation</title>
     <meta content="{{TITLE}}" property="og:title">
-    <meta content="{{STATEMENT}}" property="og:description">
+    <meta content="{{DESCRIPTION}}" property="og:description">  <!-- TODO: -->
     <meta content="width=device-width, initial-scale=1" name="viewport">
     <!-- TODO: What is this?  <meta content="VaZy3oIEgTCSdOSyKAFYMCvB1Sa6X965LX3SP2KwaNQ" name="google-site-verification"> -->
-    <link href="css/hd-public.css" rel="stylesheet" type="text/css">
+    <link href="../css/hd-public.css" rel="stylesheet" type="text/css">
     <!--[if lt IE 9]><script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js" type="text/javascript"></script><![endif]-->
 
     <link href="https://fonts.googleapis.com/css?family=Nunito+Sans:300,400,400i,600,700" rel="stylesheet">
@@ -42,15 +42,23 @@
     <div class="hd-header">
         <div>
             <div class="hd-title">{{TITLE}}</div>
-            <div class="hd-subtitle">{{STATEMENT}}</div>
+            <div class="hd-subtitle">{{DETAILS}}</div>
         </div>
         <div style="flex-basis: 50%">
             <div style="display: flex; flex-direction: row; justify-content: flex-end; margin-left: 20px; margin-right: 80px">
-                <span class="hd-home-nav"><a href="index.html">{{USER_DISPLAY_NAME}}</a></span>
+                <div style="display: flex; flex-flow: column nowrap; justify-content: flex-start">
+                    <span class="hd-home-nav"><a href="../index.html">{{USER_DISPLAY_NAME}}</a></span>
+                    <span class="hd-home-nav-smaller"><a href="../{{EXHIBITION_PAGE_NAME}}.html">{{EXHIBITION_DISPLAY_NAME}}</a></span>
+                </div>
             </div>
         </div>
     </div>
-    <div class="list-wrapper">{{ARTWORK}}
+    <div style="display: flex; flex-direction: row; justify-content: flex-start;">
+        <span><a href="{{PREV}}">Prev&nbsp;</a></span>
+        <div style="flex: 0 0 auto; justify-content: center; height: 100%; margin-bottom: 20px">
+            <img src="{{IMG}}">
+        </div>
+        <span><a href="{{NEXT}}">&nbsp;Next</a></span>
     </div>
 </div>
 

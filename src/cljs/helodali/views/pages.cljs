@@ -73,18 +73,18 @@
                                           [label :class "italic" :label (if (not (nil? (:page-name @exhibition)))
                                                                           (str "/" (:page-name @exhibition))
                                                                           "(undefined)")]]]
-                  ;; Display the notes from the public-exhibition, not the exhibition itself.
-                  (when (not (empty? (:notes @exhibition)))
+                  ;; Display the statement from the public-exhibition, not the exhibition itself.
+                  (when (not (empty? (:statement @exhibition)))
                     [h-box :gap "6px" :align :start ;:style {:border "dashed 1px red"}
-                     :children [[label :width "12ch" :class "uppercase light-grey" :label "Description: "]
-                                [re-com/box :max-width "360px" :child [:p (:notes @exhibition)]]]])]])))
+                     :children [[label :width "12ch" :class "uppercase light-grey" :label "Statement: "]
+                                [re-com/box :max-width "360px" :child [:p (:statement @exhibition)]]]])]])))
 
 (defn display-exhibition-edit
   [idx odd-row?]
   (let [bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
         exhibition-uuid (subscribe [:by-path [:pages :public-exhibitions idx :ref]])
         exhibitions (subscribe [:items-vals-with-uuid :exhibitions :name]) ;; this is a list of 2-tuples [uuid name]
-        notes (subscribe [:by-path [:pages :public-exhibitions idx :notes]])
+        statement (subscribe [:by-path [:pages :public-exhibitions idx :statement]])
         page-name (subscribe [:by-path [:pages :public-exhibitions idx :page-name]])]
     (fn []
       [v-box :gap "4px" :justify :start :align :start :padding "10px"
@@ -102,9 +102,9 @@
                                           [info-button :info page-name-info]]]]]
                   [h-box :gap "6px" :align :center :justify :between :align-self :stretch
                    :children [[h-box :gap "6px" :align :center
-                                 :children [[:span.uppercase.light-grey "Notes "]
-                                            [input-textarea :model (str @notes) :width "520px"
-                                             :rows 4 :on-change #(dispatch [:set-local-item-val [:pages :public-exhibitions idx :notes] %])]]]
+                                 :children [[:span.uppercase.light-grey "Statement "]
+                                            [input-textarea :model (str @statement) :width "520px"
+                                             :rows 4 :on-change #(dispatch [:set-local-item-val [:pages :public-exhibitions idx :statement] %])]]]
                               [button :label "Delete" :class "btn-default"
                                :on-click #(dispatch [:delete-local-vector-element [:pages :public-exhibitions] idx])]]]]])))
 
@@ -135,8 +135,7 @@
                      :children (into [] (mapv (fn [idx bg] ^{:key (str "exhibition-" idx)} [display-exhibition-view idx bg])
                                               (range (count @public-exhibitions)) (cycle [true false])))])]
             save-control [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
-                           :children [[button :label (if @enabled "Save and Publish" "Save") :class "btn-default"
-                                       :on-click #(dispatch [:save-changes [:pages]])]
+                           :children [[button :label "Save" :class "btn-default" :on-click #(dispatch [:save-changes [:pages]])]
                                       [button :label "Cancel" :class "btn-default" :on-click #(dispatch [:cancel-edit-item [:pages]])]]]
             edit [[checkbox :model enabled :label "Enable Website"
                    :on-change #(dispatch [:set-local-item-val [:pages :enabled] (not @enabled)])]

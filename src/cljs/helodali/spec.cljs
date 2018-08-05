@@ -149,11 +149,10 @@
 (s/def ::version ::uuid)
 (s/def ::display-name (s/and string? #(not-empty %)))
 (s/def ::page-name (s/and string? #(not-empty %)))
+(s/def ::statement (s/nilable string?))
 (s/def ::public-exhibition-item (s/keys :req-un [::ref ::page-name]
-                                        :opt-un [::notes]))
+                                        :opt-un [::statement]))
 (s/def ::public-exhibitions (s/* ::public-exhibition-item))
-;(s/def ::pages (s/nilable (s/keys :req-un [::enabled]
-;                                  :opt-un [::display-name ::public-exhibitions ::editing ::description])))
 
 ;; This multi-method approach allows us to define the :pages spec differently based on
 ;; the value of [:pages :enabled].
@@ -165,19 +164,6 @@
   (s/keys :req-un [::enabled]
           :opt-un [::processing ::version ::display-name ::description ::editing ::public-exhibitions]))
 (s/def ::pages (s/nilable (s/multi-spec pages-multi :enabled)))
-
-;(s/def :hd/enabled boolean?)
-;(s/def :hd/description string?)
-;(s/def :hd/display-name string?)
-
-;(defmulti pages-multi :enabled)
-;(defmethod pages-multi true [_]
-;  (s/keys :req-un [::enabled ::display-name]
-;          :opt-un [::description ::editing ::public-exhibitions]))
-;(defmethod pages-multi false [_]
-;  (s/keys :req-un [::enabled]
-;          :opt-un [::display-name ::description ::editing ::public-exhibitions]))
-;(s/def ::test-pages (s/nilable (s/multi-spec pages-multi :enabled)))
 
 ;; User's artist profile
 (s/def ::photo (s/nilable string?))

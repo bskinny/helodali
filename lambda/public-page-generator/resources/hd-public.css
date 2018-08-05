@@ -1,0 +1,126 @@
+
+.hd-body {
+  color: #333;
+}
+a {
+  background-color: transparent;
+  text-decoration: none;
+  color: #333;
+}
+a:active,a:hover{outline:0;border-bottom-color:#ff0030;color:#ff0030}
+
+.hd-main {
+  display: flex;
+  flex-direction: column;
+  margin-left: 120px;
+  margin-top: 120px;
+  font-family:'Nunito Sans',Arial,sans-serif;
+}
+
+.hd-display-name {
+  font-size: 36px;
+  font-weight: 300;
+}
+
+.hd-header {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.hd-title {
+  margin-bottom:8px;
+  font-size:48px;
+  line-height:60px;
+  letter-spacing:-1px;
+}
+.hd-subtitle {
+  margin-bottom:20px;
+  margin-left:2px;
+  font-weight: 300;
+  color:#333;
+  font-size:18px;
+  line-height:24px;
+}
+.hd-caption {
+  font-weight: 400;
+  color:#333;
+  font-size:16px;
+  line-height:20px;
+}
+.hd-subcaption {
+  font-weight: 400;
+  font-style: italic;
+  color:#333;
+  font-size:14px;
+  line-height:18px;
+}
+.hd-exhibition-box {
+
+}
+.hd-exhibition-title {
+  font-weight: 400;
+  font-size: 36px;
+  letter-spacing:-1px;
+  line-height:40px;
+}
+
+.hd-home-nav {
+  margin-bottom:8px;
+  font-size:28px;
+  line-height:32px;
+  letter-spacing:-1px;
+}
+.hd-home-nav-smaller {
+  margin-bottom:8px;
+  font-size:18px;
+  line-height:22px;
+  letter-spacing:-1px;
+}
+
+.list-wrapper {
+    display: flex;
+    flex-flow: row wrap;
+    align-items: flex-start;
+}
+
+.col-list-wrapper {
+    display: flex;
+    flex-flow: column nowrap;
+    justify-content: flex-start;
+    align-items: flex-start;
+}
+
+@media (max-width:800) {
+  .hd-main {
+    margin-left: 20px;
+    margin-top: 20px;
+  }
+}
+
+.fit-cover {
+  object-fit: cover;
+}
+
+.fit-contain {
+  object-fit: contain;
+}
+
+.fit-none {
+  object-fit: none;
+}
+
+
+/* iPad layouts
+
+@media only screen and (device-width: 768px) {
+  /* For general iPad layouts */
+}
+
+@media only screen and (min-device-width: 481px) and (max-device-width: 1024px) and (orientation:portrait) {
+  /* For portrait layouts only */
+}
+
+@media only screen and (min-device-width: 481px) and (max-device-width: 1024px) and (orientation:landscape) {
+  /* For landscape layouts only */
+} */

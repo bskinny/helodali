@@ -18,8 +18,6 @@ var s3 = new AWS.S3();
 
 function processPrefix(record, callback) {
 
-    console.log("processPrefix with record: " + record);
-
     let prefix = record.Sns.Message;
 
     // Append a trailing slash onto prefix if it is not already present.
@@ -61,7 +59,7 @@ function processPrefix(record, callback) {
                                 if (err) {
                                     console.error("Unable to put ribbon.jpg: " + err);
                                 } else {
-                                    console.log("Wrote ribbon.jpg: " + info);
+                                    console.log("Created ribbon.jpg");
                                 }
                             });
                     }
@@ -72,6 +70,6 @@ function processPrefix(record, callback) {
 }
 
 exports.handler = function(event, context, callback) {
-  // Read options from the event.
+  // event.Records is a list
   event.Records.map(processPrefix, callback);
 };
