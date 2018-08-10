@@ -40,9 +40,9 @@
 <body class="hd-body" style="opacity: 1; display: block; transition: opacity 600ms ease-in;">
 <div class="hd-main">
     <div class="hd-header">
-        <div>
-            <div class="hd-title">{{TITLE}}</div>
-            <div class="hd-subtitle">{{DETAILS}}</div>
+        <div style="display: flex; flex-direction: row; justify-content: flex-start;">
+            <span><a href="{{PREV}}">Prev&nbsp;</a></span>
+            <span><a href="{{NEXT}}">&nbsp;Next</a></span>
         </div>
         <div style="flex-basis: 50%">
             <div style="display: flex; flex-direction: row; justify-content: flex-end; margin-left: 20px; margin-right: 80px">
@@ -53,12 +53,12 @@
             </div>
         </div>
     </div>
-    <div style="display: flex; flex-direction: row; justify-content: flex-start;">
-        <span><a href="{{PREV}}">Prev&nbsp;</a></span>
-        <div style="flex: 0 0 auto; justify-content: center; height: 100%; margin-bottom: 20px">
-            <img src="{{IMG}}">
-        </div>
-        <span><a href="{{NEXT}}">&nbsp;Next</a></span>
+    <div style="flex: 0 0 auto; justify-content: center; height: 100%; margin-bottom: 20px">
+        <img src="{{IMG}}">
+    </div>
+    <div>
+        <div class="hd-caption">{{TITLE}}</div>
+        <div class="hd-subcaption">{{DETAILS}}</div>
     </div>
 </div>
 

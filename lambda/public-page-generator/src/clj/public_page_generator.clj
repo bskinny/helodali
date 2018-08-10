@@ -170,9 +170,9 @@
         page-name (:page-name public-exhibition)]
     (str "\n"
          "     <div style=\"align-items: center; flex-flow: column nowrap; flex: 0 0 auto; justify-content: center; width: 100%; margin-bottom: 10px\">\n"
-         "       <div class=\"hd-exhibition-title\"><a href=\"" page-name ".html\" data-ix=\"body-fade-out-on-click\">" (:name exhibition) "</a></div>"
+         "       <div class=\"hd-exhibition-title\"><a href=\"" page-name ".html\">" (:name exhibition) "</a></div>"
          "       <div style=\"flex-flow: inherit; flex: 0 0 auto; max-height: 40px;\">\n"
-         "           <img src=\"" page-name "/images/ribbon.jpg\">\n"
+         "           <a href=\"" page-name ".html\"><img src=\"" page-name "/images/ribbon.jpg\"></a>\n"
          "       </div>\n"
          "     </div>\n")))
 
