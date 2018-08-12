@@ -15,8 +15,8 @@ var sharp = require('sharp');
 var util = require('util');
 
 // constants
-var MAX_WIDTH  = 640;
-var MAX_HEIGHT = 640;
+var MAX_WIDTH  = 1640;
+var MAX_HEIGHT = 1640;
 
 // get reference to S3 client
 var s3 = new AWS.S3();
