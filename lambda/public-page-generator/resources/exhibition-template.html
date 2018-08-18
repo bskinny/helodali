@@ -38,20 +38,20 @@
     </style>
 </head>
 <body class="hd-body" style="opacity: 1; display: block; transition: opacity 600ms ease-in;">
-<div class="hd-main">
-    <div class="hd-header">
-        <div>
-            <div class="hd-title">{{TITLE}}</div>
-            <div class="hd-subtitle">{{STATEMENT}}</div>
-        </div>
-        <div style="flex-basis: 50%">
-            <div style="display: flex; flex-direction: row; justify-content: flex-end; margin-left: 20px; margin-right: 80px">
-                <span class="hd-home-nav"><a href="index.html">{{USER_DISPLAY_NAME}}</a></span>
+<div class="hd-wrapper">
+    <div style="flex: 1 auto;"></div>
+    <div class="hd-main" style="flex: 6 0px;">
+            <div style="display: flex; margin-bottom: 30px">
+                <div style="flex-basis: 60%">
+                    <div class="hd-title-2">{{TITLE}}</div>
+                    <div class="hd-subtitle">{{STATEMENT}}</div>
+                </div>
+                <div style="width: 20px"></div>
+                <div class="hd-title-1"><a href="index.html">{{USER_DISPLAY_NAME}}</a></div>
             </div>
-        </div>
+            <div class="list-wrapper">{{ARTWORK}}</div>
     </div>
-    <div class="list-wrapper">{{ARTWORK}}
-    </div>
+    <div style="flex: 1 auto;"></div>
 </div>
 
 <!--[if lte IE 9]><script src="//cdnjs.cloudflare.com/ajax/libs/placeholders/3.0.2/placeholders.min.js"></script><![endif]-->

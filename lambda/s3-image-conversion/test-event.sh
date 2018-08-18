@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# Invoke with json file as only argument.
+
 wget --header="Content-Type: application/json" \
-  --post-file test-event.json \
-  http://localhost:10000
+  --post-file $1 http://localhost:10000

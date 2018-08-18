@@ -38,14 +38,28 @@
     </style>
 </head>
 <body class="hd-body" style="opacity: 1; display: block; transition: opacity 600ms ease-in;">
-<div class="hd-main">
-    <div class="hd-title-box">
-        <div class="hd-title">{{USER_DISPLAY_NAME}}</div>
-        <div class="hd-subtitle">{{USER_DESCRIPTION}}</div>
+<div class="hd-wrapper">
+    <div class="hd-main">
+        <div style="display: flex; justify-content: center; margin-bottom: 30px">
+            <div class="col-list-wrapper">
+                <div class="hd-title-3">{{USER_DISPLAY_NAME}}</div>
+                <div style="flex: 0 0 auto; height: 18px;"></div>
+                <div class="hd-subtitle">{{USER_DESCRIPTION}}</div>
+            </div>
+        </div>
+        <div class="col-list-wrapper">
+            <div class="hd-main-width"></div>
+            {{EXHIBITIONS}}
+        </div>
+        <div style="flex: 0 0 auto; height: 42px;"></div>
+        <div style="display: flex; justify-content: center;">
+            <div><a href="https://www.instagram.com/helodali/" target="_blank" class="pi-contact-link">Instagram</a></div>
+            <div style="flex: 0 0 auto; width: 32px;"></div>
+            <div><a href="contact.html">Contact</a></div>
+            <div style="flex: 0 0 auto; width: 32px;"></div>
+            <div><a href="cv.html">CV</a></div>
+        </div>
     </div>
-    <div class="list-wrapper">{{EXHIBITIONS}}
-    </div>
-    <div class="pi-footer"><a href="https://www.instagram.com/helodali/" target="_blank" class="pi-contact-link">Instagram</a></div>
 </div>
 
 <!--[if lte IE 9]><script src="//cdnjs.cloudflare.com/ajax/libs/placeholders/3.0.2/placeholders.min.js"></script><![endif]-->

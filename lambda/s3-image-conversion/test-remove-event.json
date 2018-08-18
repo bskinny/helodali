@@ -5,7 +5,7 @@
       "eventSource": "aws:s3",
       "awsRegion": "us-east-1",
       "eventTime": "2018-07-21T12:59:06.979Z",
-      "eventName": "ObjectCreated:Put",
+      "eventName": "ObjectRemoved:Delete",
       "userIdentity": {
         "principalId": "AWS:AIDAIZCFA5SIHKY7XWUNG"
       },
@@ -27,9 +27,9 @@
           "arn": "arn:aws:s3:::helodali-raw-images"
         },
         "object": {
-          "key": "BrianAndOrion.jpg",
-          "size": 237718,
-          "eTag": "52fc0951cf74b22dfb0100ba0795f56d",
+          "key": "8bcb5043-1571-46db-b944-0c7845e08d4b/bc72a397-4624-4e2c-996b-2ec82e9ea04b/e0104284-7f18-4f68-b009-01c7d6c0142d/Me.jpg",
+          "size": 2604831,
+          "eTag": "87304bcd34719d7591da742f2f8cae3e",
           "sequencer": "005B532E1AB5093B66"
         }
       }

@@ -14,15 +14,20 @@ var AWS = require('aws-sdk');
 var sharp = require('sharp');
 var util = require('util');
 
-// constants
-var MAX_WIDTH  = 1640;
-var MAX_HEIGHT = 1640;
-
 // get reference to S3 client
 var s3 = new AWS.S3();
 var dynamoDB = new AWS.DynamoDB.DocumentClient({apiVersion: '2012-08-10',
                                                 endpoint: 'dynamodb.us-east-1.amazonaws.com',
                                                 region: 'us-east-1'});
+
+// constants
+var MAX_THUMB_DIMENSION  = 240;
+var MAX_IMAGE_DIMENSION = 480;
+var MAX_LARGE_IMAGE_DIMENSION = 960;
+
+var BUCKET_IMAGES = 'helodali-images';
+var BUCKET_THUMBS = 'helodali-thumbs';
+var BUCKET_LARGE_IMAGES = 'helodali-large-images';
 
 function isEmptyObject( obj ) {
   for ( var name in obj ) {
@@ -39,12 +44,11 @@ exports.handler = function(event, context, callback) {
   // Object key may have spaces or unicode non-ASCII characters.
   var srcKey = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, " "));
   var fileSize = event.Records[0].s3.object.size;
-  var dstBucket = "helodali-images";
   var dstKey = srcKey;
   var nameComponents = srcKey.split('/');
 
   // Sanity check: validate that source and destination are different buckets.
-  if (srcBucket == dstBucket) {
+  if (srcBucket == BUCKET_IMAGES) {
       callback("Source and destination buckets are the same.");
       return;
   }
@@ -54,8 +58,16 @@ exports.handler = function(event, context, callback) {
     async.waterfall([
         function removeFile(next) {
             // Remove the associated object in the bucket helodali-images
-            s3.deleteObject({Bucket: dstBucket, Key: dstKey}, next)
+            s3.deleteObject({Bucket: BUCKET_IMAGES, Key: dstKey}, next)
           },
+        function removeThumb(result, next) {
+            // Remove the associated object in the bucket helodali-thumbs
+            s3.deleteObject({Bucket: BUCKET_THUMBS, Key: dstKey}, next)
+        },
+        function removeLargeImage(result, next) {
+            // Remove the associated object in the bucket helodali-large-images
+            s3.deleteObject({Bucket: BUCKET_LARGE_IMAGES, Key: dstKey}, next)
+        },
         function getUref(result, next) {
             // Find the user's uuid to later reference in the artwork table
             // console.log(nameComponents[0]);
@@ -95,6 +107,7 @@ exports.handler = function(event, context, callback) {
               return;
             }
             var images = data.Item.images;
+            console.log("Images[0]: " + images[0])
             var idx = images.findIndex(function (img) {
                                          return img.key == srcKey;
                                        });
@@ -115,13 +128,12 @@ exports.handler = function(event, context, callback) {
           }
         ], function (err, result) {
                if (err) {
-                   console.error('Unable to remove ' + dstKey + ' from ' + dstBucket +
+                   console.error('Unable to remove ' + dstKey + ' from buckets' +
                                  ' due to an error: ' + err);
                    callback(err)
                } else {
-                   console.log('Successfully removed ' + dstKey +
-                               ' from ' + dstBucket + ': '  + result);
-                   callback(null);
+                   console.log('Successfully removed ' + dstKey + ' from buckets: '  + result);
+                   callback({StatusCode: 200});
                }
          }
     );
@@ -129,7 +141,7 @@ exports.handler = function(event, context, callback) {
 
   // If we are triggered on object creation
   if (eventName.match(/^ObjectCreated:/i)) {
-    // Download the image from S3, transform, and upload to a different S3 bucket.
+    // Download the image from helodali-raw-images, transform to different sizes, and upload to multiple S3 buckets.
     async.waterfall([
         function download(next) {
             // Download the image from S3 into a buffer.
@@ -139,13 +151,9 @@ exports.handler = function(event, context, callback) {
                 },
                 next);
             },
-        function transform(response, next) {
+        function transformThumb(response, next) {
             original = sharp(response.Body);
-            original
-              .metadata()
-              .then(function resizeIt(metadata) {
-                 original
-                   .resize(MAX_WIDTH, MAX_HEIGHT)
+            original.resize(MAX_THUMB_DIMENSION, MAX_THUMB_DIMENSION)
                    .max()
                    .withoutEnlargement()
                    .jpeg({"quality": 100})
@@ -153,26 +161,80 @@ exports.handler = function(event, context, callback) {
                        if (err) {
                          next(err);
                        } else {
-                         next(null, "image/" + info.format, data, metadata);
+                         next(null, response.Body, "image/" + info.format, data);
                        }
                    });
-              });
             },
-        function upload(contentType, data, metadata, next) {
-            // Stream the transformed image to a different S3 bucket.
+        function uploadThumb(rawImage, contentType, data, next) {
+            // Stream the transformed image to the target S3 bucket.
             s3.putObject({
-                    Bucket: dstBucket,
-                    Key: dstKey,
-                    Body: data,
-                    ContentType: contentType
+                    Bucket: BUCKET_THUMBS, Key: dstKey, Body: data, ContentType: contentType
                 }, function (err, info) {
                      if (err) {
                        next(err);
                      } else {
-                       next(null, info, metadata);
+                       next(null, rawImage);
                      }
                 });
             },
+        function transformImage(rawImage, next) {
+            original = sharp(rawImage);
+            original.resize(MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION)
+                    .max()
+                    .withoutEnlargement()
+                    .jpeg({"quality": 100})
+                    .toBuffer(function (err, data, info) {
+                        if (err) {
+                            next(err);
+                        } else {
+                            next(null, rawImage, "image/" + info.format, data);
+                        }
+                    });
+        },
+        function uploadImage(rawImage, contentType, data, next) {
+            // Stream the transformed image to the target S3 bucket.
+            s3.putObject({
+                Bucket: BUCKET_IMAGES, Key: dstKey, Body: data, ContentType: contentType
+            }, function (err, info) {
+                if (err) {
+                    next(err);
+                } else {
+                    next(null, rawImage);
+                }
+            });
+        },
+        function transformLargeImage(rawImage, next) {
+            // This time capture the metadata of the original (raw) image for later insertion into the db.
+            original = sharp(rawImage);
+            original
+                .metadata()
+                .then(function resizeIt(metadata) {
+                    original
+                        .resize(MAX_LARGE_IMAGE_DIMENSION, MAX_LARGE_IMAGE_DIMENSION)
+                        .max()
+                        .withoutEnlargement()
+                        .jpeg({"quality": 100})
+                        .toBuffer(function (err, data, info) {
+                            if (err) {
+                                next(err);
+                            } else {
+                                next(null, "image/" + info.format, data, metadata);
+                            }
+                        });
+                });
+        },
+        function uploadLargeImage(contentType, data, metadata, next) {
+            // Stream the transformed image to the target S3 bucket.
+            s3.putObject({
+                Bucket: BUCKET_LARGE_IMAGES, Key: dstKey, Body: data, ContentType: contentType
+            }, function (err, info) {
+                if (err) {
+                    next(err);
+                } else {
+                    next(null, info, metadata);
+                }
+            });
+        },
         function getUref(result, metadata, next) {
             // Find the user's uuid to later reference in the artwork table
             // console.log(nameComponents[0]);
@@ -215,12 +277,11 @@ exports.handler = function(event, context, callback) {
         ], function (err, result) {
             if (err) {
                 console.error('Unable to resize ' + srcBucket + '/' + srcKey +
-                              ' and upload to ' + dstBucket + '/' + dstKey +
-                              ' due to an error: ' + err);
+                              ' and upload to buckets due to an error: ' + err);
                 callback(err)
             } else {
                 console.log('Successfully resized ' + srcBucket + '/' + srcKey +
-                            ' into ' + dstBucket + '/' + dstKey + ': ' + result);
+                            ' into buckets: ' + result);
                 callback(null);
             }
         }

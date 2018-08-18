@@ -68,17 +68,17 @@
   (let [img-uri (artwork-uri page-name artwork-item)
         artwork-page-uri (str page-name "/" (:uuid artwork-item) ".html")]
     (str "\n"
-       "       <div style=\"align-items: center; flex-flow: column nowrap; flex: 0 0 auto; justify-content: center; width: 240px; height: 100%; margin-bottom: 20px\">\n"
-       "         <div style=\"flex: 0 0 auto; max-width: 240px; max-height: 240px;\">\n"
-       "           <a href=\"" artwork-page-uri "\"><img src=\"" img-uri "\" class=\"fit-cover\" width=\"240px\" height=\"240px\"></a>\n"
-       "         </div>\n"
-       "         <div style=\"flex: 0 0 auto; height: 8px;\"></div>\n"
-       "         <div style=\"flex-flow: column nowrap; flex: 0 0 auto; margin-left: 4px; margin-right: 4px; justify-content: flex-start; align-items: flex-start;\">\n"
-       "           <span class=\"hd-caption\">" (:title artwork-item) "</span>\n"
-       "           <div style=\"flex: 0 0 auto; height: 2px;\"></div>\n"
-       "           <span class=\"hd-subcaption\">" (:year artwork-item) "</span>\n"
-       "         </div>\n"
-       "       </div>")))
+       "               <div style=\"display: flex; align-items: center; flex-flow: column nowrap; margin: 20px\">\n"
+       "                  <div>\n"
+       "                     <a href=\"" artwork-page-uri "\"><img src=\"" img-uri "\" class=\"fit-contain\" width=\"360px\" height=\"360px\"></a>\n"
+       "                  </div>\n"
+       "                  <div style=\"height: 8px;\"></div>\n"
+       "                  <div style=\"margin-left: 4px; margin-right: 4px; align-self: flex-start;\">\n"
+       "                     <span>" (:title artwork-item) "</span>\n"
+       "                     <div style=\"height: 2px;\"></div>\n"
+       "                     <span class=\"hd-subcaption\">" (:year artwork-item) "</span>\n"
+       "                  </div>\n"
+       "               </div>")))
 
 (defn create-artwork-page
   [context artwork-list idx item]
@@ -89,7 +89,8 @@
                  (s/replace "{{PREV}}" (str (:uuid (nth artwork-list prev-idx)) ".html"))
                  (s/replace "{{NEXT}}" (str (:uuid (nth artwork-list next-idx)) ".html"))
                  (s/replace "{{IMG}}" (str "images/" (:uuid item) "/" (get-in item [:images 0 :filename])))
-                 (s/replace "{{DETAILS}}" (str (:year item) " " (:dimensions item) ", " (:medium item)))
+                 (s/replace "{{DETAILS}}" (cond-> (str (:year item) " " (:dimensions item))
+                                                  (:medium item) (str ", " (:medium item))))
                  (s/replace "{{TITLE}}" (:title item))
                  (s/replace "{{USER_DISPLAY_NAME}}" (:user-display-name context))
                  (s/replace "{{EXHIBITION_PAGE_NAME}}" (:exhibition-page-name context))
@@ -125,7 +126,7 @@
                  (s/replace "{{USER_DISPLAY_NAME}}" (:display-name page-config))
                  (s/replace "{{ARTWORK}}" artwork-html))]
     (doall (for [artwork-item exhibition-artwork]
-             ;; Copy artwork to bucket to uref/images/artwork-uuid/filename
+             ;; Copy artwork to bucket to uref/<page-name>/images/artwork-uuid/filename
              (aws3/copy-object :source-bucket-name "helodali-images"
                                :destination-bucket-name pages-bucket
                                :source-key (get-in artwork-item [:images 0 :key])
@@ -165,16 +166,20 @@
   argument is a map of public-exhibitions keyed by exhibition :uuid. The exhibitions argument
   is a list of all exhibitions defined in the db for the user. The exhibition-uuid is exhibition
   we are working on."
-  [public-exhibitions exhibition]
+  [public-exhibitions exhibition odd-row?]
   (let [public-exhibition (get public-exhibitions (:uuid exhibition))
         page-name (:page-name public-exhibition)]
+
     (str "\n"
-         "     <div style=\"align-items: center; flex-flow: column nowrap; flex: 0 0 auto; justify-content: center; width: 100%; margin-bottom: 10px\">\n"
-         "       <div class=\"hd-exhibition-title\"><a href=\"" page-name ".html\">" (:name exhibition) "</a></div>"
-         "       <div style=\"flex-flow: inherit; flex: 0 0 auto; max-height: 40px;\">\n"
-         "           <a href=\"" page-name ".html\"><img src=\"" page-name "/images/ribbon.jpg\"></a>\n"
-         "       </div>\n"
-         "     </div>\n")))
+      "               <div style=\"display: flex; width: 100%; margin-bottom: 16px\">\n"
+         (when (not odd-row?) "                 <div style=\"flex: 1 auto\"></div>\n")
+      "                 <div style=\"flex: 1 0px; display: flex; flex-flow: column nowrap; align-items: "
+         (if odd-row? "flex-end" "flex-start") ";\">\n"
+      "                   <div class=\"hd-title-2\"><a href=\"" page-name ".html\">" (:name exhibition) "</a></div>\n"
+      "                   <div class=\"ribbon\"><a href=\"" page-name ".html\"><img src=\"" page-name "/images/ribbon.jpg\" alt=\"" page-name "\"></a></div>\n"
+      "                 </div>\n"
+         (when odd-row? "                 <div style=\"flex: 1 auto\"></div>\n")
+      "               </div>\n")))
 
 (defn create-index-page
   "Build the index page which lists the exhibitions which can be browsed. The public-exhibitions is a list keyed by exhibition
@@ -185,8 +190,8 @@
         template (slurp index-template)
         public-exhibitions-keyset (set (keys public-exhibitions))
         associated-exhibitions (fix-date :begin-date (filter #(contains? public-exhibitions-keyset (:uuid %)) exhibitions))
-        sorted-exhibitions (sort (partial  :begin-date false) associated-exhibitions)
-        exhibitions-html (s/join (map (partial create-exhibition-div public-exhibitions) sorted-exhibitions))
+        sorted-exhibitions (sort (partial sort-by-date :begin-date true) associated-exhibitions)
+        exhibitions-html (s/join (map (partial create-exhibition-div public-exhibitions) sorted-exhibitions (cycle [true false])))
         html (-> template
                  (s/replace "{{USER_DISPLAY_NAME}}" (:display-name page-config))
                  (s/replace "{{USER_DESCRIPTION}}" (:description page-config))
