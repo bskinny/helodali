@@ -51,7 +51,8 @@
 (s/def ::metadata (s/keys :opt-un [::size ::space ::height ::width ::density ::format]))
 (s/def ::image (s/keys :req-un [::uuid]
                        :opt-un [::key ::filename ::processing ::signed-thumb-url ::signed-thumb-url-expiration-time
-                                ::signed-raw-url ::signed-raw-url-expiration-time ::metadata]))
+                                ::signed-raw-url ::signed-raw-url-expiration-time ::signed-image-url
+                                ::signed-image-url-expiration-time ::metadata]))
 (s/def ::images (s/coll-of ::image))
 (s/def ::medium (s/nilable string?))
 (s/def ::dimensions (s/nilable string?))

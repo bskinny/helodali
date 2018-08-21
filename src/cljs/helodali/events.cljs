@@ -107,11 +107,13 @@
   ;; TODO: Verify that the below works when multiple images per artwork is supported.
   (let [images (->> (vals (:artwork db))
                     (reduce (fn [a b] (into a (:images b))) [])
-                    (filter #(or (not (empty? (:signed-thumb-url %))) (not (empty? (:signed-raw-url %)))))
+                    (filter #(or (not (empty? (:signed-thumb-url %))) (not (empty? (:signed-raw-url %))) (not (empty? (:signed-image-url %)))))
                     (map (fn [image] {(:uuid image) {:signed-raw-url (:signed-raw-url image)
                                                      :signed-raw-url-expiration-time (safe-unparse-datetime (:signed-raw-url-expiration-time image))
                                                      :signed-thumb-url (:signed-thumb-url image)
-                                                     :signed-thumb-url-expiration-time (safe-unparse-datetime (:signed-thumb-url-expiration-time image))}}))
+                                                     :signed-thumb-url-expiration-time (safe-unparse-datetime (:signed-thumb-url-expiration-time image))
+                                                     :signed-image-url (:signed-image-url image)
+                                                     :signed-image-url-expiration-time (safe-unparse-datetime (:signed-image-url-expiration-time image))}}))
                     (reduce into {}))
         documents (->> (vals (:documents db))
                        (filter #(not (empty? (:signed-raw-url %))))
@@ -172,6 +174,9 @@
                                                 (merge image {:signed-thumb-url-expiration-time
                                                                 (parse-date :date-time (:signed-thumb-url-expiration-time urls))
                                                               :signed-thumb-url (:signed-thumb-url urls) ;; TODO: check expiration?
+                                                              :signed-image-url-expiration-time
+                                                              (parse-date :date-time (:signed-image-url-expiration-time urls))
+                                                              :signed-image-url (:signed-image-url urls)
                                                               :signed-raw-url-expiration-time
                                                                 (parse-date :date-time (:signed-raw-url-expiration-time urls))
                                                               :signed-raw-url (:signed-raw-url urls)})
@@ -958,7 +963,9 @@
                  (dissoc :signed-raw-url)
                  (dissoc :signed-raw-url-expiration-time)
                  (dissoc :signed-thumb-url)
-                 (dissoc :signed-thumb-url-expiration-time))
+                 (dissoc :signed-thumb-url-expiration-time)
+                 (dissoc :signed-image-url)
+                 (dissoc :signed-image-url-expiration-time))
           new-db (assoc-in db path-to-item val)]
       (merge (update-fx path-to-item {:key nil :filename nil :size 0} false new-db)
              {:dispatch-n dispatches}))))
@@ -1074,7 +1081,8 @@
   (fn [db [path-to-object-map]]
     (let [o (-> (get-in db path-to-object-map)
                 (dissoc :signed-raw-url :signed-raw-url-expiration-time
-                        :signed-thumb-url :signed-thumb-url-expiration-time))]
+                        :signed-thumb-url :signed-thumb-url-expiration-time
+                        :signed-image-url :signed-image-url-expiration-time))]
       (assoc-in db path-to-object-map o))))
 
 (reg-event-fx
@@ -1088,7 +1096,7 @@
       ;; else merge the map into the artwork and unset :processing
       (let [image (-> (get-in db path-to-image)
                      (merge result)
-                     (dissoc :signed-raw-url-expiration-time :signed-thumb-url-expiration-time)
+                     (dissoc :signed-raw-url-expiration-time :signed-thumb-url-expiration-time :signed-image-url-expiration-time)
                      (coerce-int [:density :size :width :height])
                      (dissoc :processing))]
         {:db (-> db

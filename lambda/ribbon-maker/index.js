@@ -1,5 +1,5 @@
 //
-// This function is responsible for create a ribbon.img for a set of exhibition images. Given a s3 path
+// This function is responsible for creating a ribbon.img for a set of exhibition images. Given a s3 path
 // prefix, all images under the prefix are fetched, resized, and composited into a ribbon image and put
 // back on s3 with the key = prefix/ribbon.jpg
 

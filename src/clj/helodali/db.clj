@@ -379,7 +379,7 @@
   (let [artwork-uuid (str (uuid/v1))
         image-uuid (str (uuid/v1))
         year-matched (re-find #"[^\d]([12]\d\d\d)[^\d]" (:caption media)) ;; Might look like [" 2018," "2018"] or nil
-        dimensions-matched (re-find #"(?i)[^\d](\d+[\"\']?\s*[xXby]+\s*\d+[\"\']?\s*(inches|in|feet|ft|cm|meters|m)?)" (:caption media))
+        dimensions-matched (re-find #"(?i)[^\d]*(\d+[\"\']?\s*[xXby]+\s*\d+[\"\']?\s*(inches|in|feet|ft|cm|meters|m)?)" (:caption media))
         year (if year-matched
                (Integer/parseInt (str/trim (second year-matched)))
                (year (now)))

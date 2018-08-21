@@ -43,9 +43,9 @@
         <div class="hd-header-24">
             <div class="hd-left-right-nav">
                 <div style="display: flex;">
-                    <div><a href="{{PREV}}"><---</a></div>
+                    <div><a href="{{PREV}}"><img src="../assets/Arrows-Left-icon.png" alt="previous" /></a></div>
                     <div style="width: 20px;"></div>
-                    <div><a href="{{NEXT}}">---></a></div>
+                    <div><a href="{{NEXT}}"><img src="../assets/Arrows-Right-icon.png" alt="next" /></a></div>
                 </div>
             </div>
             <div style="width: 20px;"></div>
@@ -55,10 +55,12 @@
                 <div><a href="../{{EXHIBITION_PAGE_NAME}}.html">{{EXHIBITION_DISPLAY_NAME}}</a></div>
             </div>
         </div>
-        <div style="width: 100%; margin-bottom: 20px">
-            <img src="{{IMG}}">
-        </div>
-        <div style="display: flex; margin-left: 20px; margin-bottom: 20px">
+        <picture>
+            <source media="(min-width: 960px)" srcset="large-images/{{IMG}}">
+            <source media="(min-width: 480px)" srcset="images/{{IMG}}">
+            <img src="thumbs/{{IMG}}" alt="artwork-image">
+        </picture>
+        <div style="display: flex; margin: 20px">
             <div>
                 <div class="hd-title-1">{{TITLE}}</div>
                 <div class="hd-subtitle">{{DETAILS}}</div>
@@ -66,6 +68,8 @@
         </div>
     </div>
 </div>
-
 <!--[if lte IE 9]><script src="//cdnjs.cloudflare.com/ajax/libs/placeholders/3.0.2/placeholders.min.js"></script><![endif]-->
-</body></html>
+</body>
+
+</html>
+

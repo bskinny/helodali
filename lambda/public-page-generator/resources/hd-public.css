@@ -12,6 +12,7 @@ a:active,a:hover{outline:0;border-bottom-color:#ff0030;color:#ff0030}
 
 .hd-wrapper {
   display: flex;
+  width: 100%;
   justify-content: center;
 }
 
@@ -21,7 +22,7 @@ a:active,a:hover{outline:0;border-bottom-color:#ff0030;color:#ff0030}
 }
 
 .hd-main-width {
-  width: 800px;
+  width: 100%;
   height: 2px;
 }
 
@@ -46,7 +47,7 @@ a:active,a:hover{outline:0;border-bottom-color:#ff0030;color:#ff0030}
 
 .hd-breadcrumb {
   display: flex;
-  flex: row nowrap;
+  flex: row wrap;
   font-size: 1.1rem;
 }
 
@@ -103,13 +104,6 @@ a:active,a:hover{outline:0;border-bottom-color:#ff0030;color:#ff0030}
   opacity: 1.0;
 }
 
-@media (max-width:800) {
-  .hd-main {
-    margin-left: 20px;
-    margin-top: 20px;
-  }
-}
-
 .fit-cover {
   object-fit: cover;
 }
@@ -123,24 +117,10 @@ a:active,a:hover{outline:0;border-bottom-color:#ff0030;color:#ff0030}
 }
 
 
-@media only screen and (max-device-width:480px) {
-  /* styles for mobile browsers smaller than 480px; (iPhone) */
-  .hd-main-width {
-    width: 400px;
+@media (max-width: 768px) {
+  .hd-main {
+    width: 100%;
+    margin-left: 20px;
+    margin-top: 20px;
   }
-}
-
-@media only screen and (device-width: 768px) {
-  /* For general iPad layouts */
-  .hd-main-width {
-    width: 600px;
-  }
-}
-
-@media only screen and (min-device-width: 481px) and (max-device-width: 1024px) and (orientation:portrait) {
-  /* For portrait layouts only */
-}
-
-@media only screen and (min-device-width: 481px) and (max-device-width: 1024px) and (orientation:landscape) {
-  /* For landscape layouts only */
 }

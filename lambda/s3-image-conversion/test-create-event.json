@@ -27,8 +27,8 @@
           "arn": "arn:aws:s3:::helodali-raw-images"
         },
         "object": {
-          "key": "8bcb5043-1571-46db-b944-0c7845e08d4b/bc72a397-4624-4e2c-996b-2ec82e9ea04b/e0104284-7f18-4f68-b009-01c7d6c0142d/Me.jpg",
-          "size": 2604831,
+          "key": "8bcb5043-1571-46db-b944-0c7845e08d4b/d2c63d80-8f6b-11e8-89bd-a6f9d0613929/d2c63d81-8f6b-11e8-89bd-a6f9d0613929/37357175_1023420544488102_7493790519231774720_n.jpg",
+          "size": 9135250,
           "eTag": "52fc0951cf74b22dfb0100ba0795f56d",
           "sequencer": "005B532E1AB5093B66"
         }

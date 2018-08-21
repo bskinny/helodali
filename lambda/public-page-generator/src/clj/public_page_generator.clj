@@ -9,7 +9,8 @@
             [amazonica.aws.dynamodbv2 :as ddb]
             [amazonica.aws.s3 :as aws3]
             [amazonica.aws.sns :as sns]
-            [clojure.pprint :refer [pprint]]))
+            [clojure.pprint :refer [pprint]])
+  (:import (java.net URLEncoder)))
 
 ;; These environment variables are only necessary when running the app locally
 ;; or outside AWS. Within AWS, we assign an IAM role to the ElasticBeanstalk
@@ -28,6 +29,12 @@
 (def exhibition-template (io/resource "exhibition-template.html"))
 (def artwork-template (slurp (io/resource "artwork-template.html")))
 (def hd-public-css "hd-public.css")
+(def Arrows-Left-icon-png "Arrows-Left-icon.png")
+(def Arrows-Right-icon-png "Arrows-Right-icon.png")
+
+(def THUMBS "thumbs")
+(def IMAGES "images")
+(def LARGE-IMAGES "large-images")
 
 (defn fix-date
   "Called with a list of maps, converts a date valued kw from string to java-time Instant."
@@ -55,28 +62,48 @@
     (not (empty? (filter #(= (:ref %) exhibition-uuid) exhibition-history)))))
 
 (defn artwork-uri
-  [exhibition-page-name item]
-  (str exhibition-page-name "/images/" (:uuid item) "/" (get-in item [:images 0 :filename])))
+  [exhibition-page-name image-type item]
+  (str exhibition-page-name "/" image-type "/" (:uuid item) "/" (get-in item [:images 0 :filename])))
 
 (defn artwork-key
   "Generate the public-pages bucket url for the image represented by artwork-item"
-  [uref exhibition-page-name artwork-item]
-  (str uref "/" (artwork-uri exhibition-page-name artwork-item)))
+  [uref exhibition-page-name image-type artwork-item]
+  (str uref "/" (artwork-uri exhibition-page-name image-type artwork-item)))
+
+(defn url-encode
+  [string]
+  (-> string
+      (URLEncoder/encode "UTF-8")
+      (.replace "+" "%20")))
 
 (defn create-artwork-div
   [page-name artwork-item]
-  (let [img-uri (artwork-uri page-name artwork-item)
-        artwork-page-uri (str page-name "/" (:uuid artwork-item) ".html")]
+  (let [img-uri (url-encode (artwork-uri page-name IMAGES artwork-item))
+        thumb-uri (url-encode (artwork-uri page-name THUMBS artwork-item))
+        artwork-page-uri (str page-name "/" (:uuid artwork-item) ".html")
+        dimensions-matched (re-matches #"(?i)[^\d]*(\d+)[\"\']?\s*[xXby]+\s*(\d+)[\"\']?\s*(inches|in|feet|ft|cm|meters|m)?" (:dimensions artwork-item))
+        width (get dimensions-matched 1 0)
+        height (get dimensions-matched 2 0)]
     (str "\n"
-       "               <div style=\"display: flex; align-items: center; flex-flow: column nowrap; margin: 20px\">\n"
-       "                  <div>\n"
-       "                     <a href=\"" artwork-page-uri "\"><img src=\"" img-uri "\" class=\"fit-contain\" width=\"360px\" height=\"360px\"></a>\n"
-       "                  </div>\n"
+       "               <div style=\"display: flex; align-items: center; flex-flow: column nowrap; margin: 32px\">\n"
+       "                   <a href=\"" artwork-page-uri "\"><picture>\n"
+       "                      <source media=\"(min-width: 480px)\" srcset=\"" img-uri "\"/>\n"
+       "                      <img src=\"" thumb-uri "\"/>\n"
+       "                   </picture></a>\n"
+       ;"                  <div>\n"
+       ;"                     <a href=\"" artwork-page-uri "\"><img src=\"" img-uri "\" class=\"fit-contain\" height=\"360px\"></a>\n"
+       ;"                  </div>\n"
        "                  <div style=\"height: 8px;\"></div>\n"
-       "                  <div style=\"margin-left: 4px; margin-right: 4px; align-self: flex-start;\">\n"
-       "                     <span>" (:title artwork-item) "</span>\n"
-       "                     <div style=\"height: 2px;\"></div>\n"
-       "                     <span class=\"hd-subcaption\">" (:year artwork-item) "</span>\n"
+       "                  <div style=\"width: 100%; display: flex; justify-content: space-between;\">\n"
+       "                     <div style=\"margin-left: 4px; margin-right: 4px;\">\n"
+       "                        <div style=\"max-width: " (- 360 (Integer/parseInt width) 10) "px;\">" (:title artwork-item) "</div>\n"
+       "                        <div style=\"height: 2px;\"></div>\n"
+       "                        <div class=\"hd-subcaption\">" (:year artwork-item) "</div>\n"
+       "                     </div>\n"
+       "                     <div style=\"width: " width "px; height: " height "px; margin-right: 4px;\">\n"
+       "                        <svg viewBox=\"0 0 " width " " height "\" xmlns=\"http://www.w3.org/2000/svg\">\n"
+       "                           <rect x=\"0\" y=\"0\" width=\"100%\" height=\"100%\" fill=\"none\" stroke=\"black\" /></svg>\n"
+       "                     </div>\n"
        "                  </div>\n"
        "               </div>")))
 
@@ -88,7 +115,8 @@
         html (-> artwork-template
                  (s/replace "{{PREV}}" (str (:uuid (nth artwork-list prev-idx)) ".html"))
                  (s/replace "{{NEXT}}" (str (:uuid (nth artwork-list next-idx)) ".html"))
-                 (s/replace "{{IMG}}" (str "images/" (:uuid item) "/" (get-in item [:images 0 :filename])))
+                 ;; For {{IMG}}, the template must provide the iamges/, thumbs/, or large-images/ prefix.
+                 (s/replace "{{IMG}}" (url-encode (str (:uuid item) "/" (get-in item [:images 0 :filename]))))
                  (s/replace "{{DETAILS}}" (cond-> (str (:year item) " " (:dimensions item))
                                                   (:medium item) (str ", " (:medium item))))
                  (s/replace "{{TITLE}}" (:title item))
@@ -125,13 +153,14 @@
                  (s/replace "{{STATEMENT}}" statement)
                  (s/replace "{{USER_DISPLAY_NAME}}" (:display-name page-config))
                  (s/replace "{{ARTWORK}}" artwork-html))]
-    (doall (for [artwork-item exhibition-artwork]
+    (doall (for [artwork-item exhibition-artwork
+                 target [THUMBS IMAGES LARGE-IMAGES]]
              ;; Copy artwork to bucket to uref/<page-name>/images/artwork-uuid/filename
-             (aws3/copy-object :source-bucket-name "helodali-images"
+             (aws3/copy-object :source-bucket-name (str "helodali-" target)
                                :destination-bucket-name pages-bucket
                                :source-key (get-in artwork-item [:images 0 :key])
                                :access-control-list {:grant-permission ["AllUsers" "Read"]}
-                               :destination-key (artwork-key uref page-name artwork-item))))
+                               :destination-key (artwork-key uref page-name target artwork-item))))
     (doall (map-indexed (partial create-artwork-page {:user-display-name (:display-name page-config)
                                                       :uref uref
                                                       :exhibition-page-name page-name
@@ -139,7 +168,7 @@
                                  exhibition-artwork) exhibition-artwork))
     (sns/publish :topic-arn (:create-ribbon-topic-arn co)
                  :subject "make-ribbon"
-                 :message (str uref "/" page-name "/images/"))
+                 :message (str uref "/" page-name "/" THUMBS "/"))
     (aws3/put-object :bucket-name pages-bucket
                      :key (str uref "/" page-name ".html")
                      :input-stream (io/input-stream (.getBytes html))
@@ -176,7 +205,7 @@
       "                 <div style=\"flex: 1 0px; display: flex; flex-flow: column nowrap; align-items: "
          (if odd-row? "flex-end" "flex-start") ";\">\n"
       "                   <div class=\"hd-title-2\"><a href=\"" page-name ".html\">" (:name exhibition) "</a></div>\n"
-      "                   <div class=\"ribbon\"><a href=\"" page-name ".html\"><img src=\"" page-name "/images/ribbon.jpg\" alt=\"" page-name "\"></a></div>\n"
+      "                   <div class=\"ribbon\"><a href=\"" page-name ".html\"><img src=\"" page-name "/" THUMBS "/ribbon.jpg\" alt=\"" page-name "\"></a></div>\n"
       "                 </div>\n"
          (when odd-row? "                 <div style=\"flex: 1 auto\"></div>\n")
       "               </div>\n")))
@@ -207,12 +236,15 @@
         (pprint (ex->map e))))))
 
 (defn copy-resources
-  "Copy the css/hd-public.css file from the bucket's root level to user's path."
+  "Copy asset files from the bucket's root level to user's path."
   [uref]
-  (aws3/copy-object :source-bucket-name pages-bucket :destination-bucket-name pages-bucket
-                    :source-key (str "css/" hd-public-css)
-                    :destination-key (str uref "/css/" hd-public-css)
-                    :access-control-list {:grant-permission ["AllUsers" "Read"]}))
+  (doall (for [resource-object [(str "css/" hd-public-css)
+                                (str "assets/" Arrows-Left-icon-png)
+                                (str "assets/" Arrows-Right-icon-png)]]
+           (aws3/copy-object :source-bucket-name pages-bucket :destination-bucket-name pages-bucket
+                             :source-key resource-object
+                             :destination-key (str uref "/" resource-object)
+                             :access-control-list {:grant-permission ["AllUsers" "Read"]}))))
 
 (defn publish-site
   [pages-profile]

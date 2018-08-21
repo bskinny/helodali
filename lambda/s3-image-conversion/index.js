@@ -282,7 +282,7 @@ exports.handler = function(event, context, callback) {
             } else {
                 console.log('Successfully resized ' + srcBucket + '/' + srcKey +
                             ' into buckets: ' + result);
-                callback(null);
+                callback({StatusCode: 200});
             }
         }
     );
