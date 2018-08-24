@@ -119,7 +119,7 @@
    :medium nil ;; free-form and provided by user. Examples include "oil on panel"
    :dimensions nil ;; User provided. Can be "h x w x d inches" or "variable" or "21 minutes"
    :editions 0 ;; Useful for prints
-   :status :for-sale ;; Can :private :destroyed :not-for-sale :sold :for-sale
+   :status :for-sale ;; Can be :private :destroyed :not-for-sale :sold :for-sale
    :condition nil ;; User provided string
    :description nil ;; User provided paragraph
    :expenses 0 ;; A number representing cost. No units are attached

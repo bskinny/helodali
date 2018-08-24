@@ -445,7 +445,7 @@
           ;; (e.g. vector-valued :purchases of artwork or :degrees of profile). In this case, we look for any occurrence
           ;; of the key (e.g. :purchases in artwork) in either diffA or diffB and overwite the entire value instead of
           ;; trying to pinpoint the exact change within the collection.
-          ;; TODO: Fix this approach of explicitly naming the vector-of-colls and use (type)
+          ;; TODO: Improve this approach of explicitly naming the vector-of-colls by using (type)
           changes (cond-> diffA
                      (:signed-raw-url diffA) (dissoc :signed-raw-url) ;; For :documents
                      (:signed-raw-url-expiration-time diffA) (dissoc :signed-raw-url-expiration-time) ;; For :documents
@@ -877,7 +877,6 @@
                        (reflect-item-deletion db type id)
                        (add-message db :form-error refint))
                      (clear-message :form-error))]  ;; Clear possible validation error
-
       ;; Submit change to server for all deletes except those to the placeholder item
       (if (or (= 0 id) (not (empty? refint)))
         {:db new-db}

@@ -26,6 +26,7 @@
 
 (def pages-bucket "helodali-public-pages")
 (def index-template (io/resource "index-template.html"))
+(def contact-form-template (io/resource "contact-form-template.html"))
 (def exhibition-template (io/resource "exhibition-template.html"))
 (def artwork-template (slurp (io/resource "artwork-template.html")))
 (def hd-public-css "hd-public.css")
@@ -76,34 +77,44 @@
       (URLEncoder/encode "UTF-8")
       (.replace "+" "%20")))
 
+(defn artwork-details-string
+  [item]
+  (cond-> (str (:year item))
+          (:dimensions item) (str ", " (:dimensions item))
+          (:medium item) (str ", " (:medium item))
+          (and (not-empty (:status item)) (not= (:status item) (name :for-sale))) (str " - " (name (:status item)))))
+
 (defn create-artwork-div
   [page-name artwork-item]
   (let [img-uri (url-encode (artwork-uri page-name IMAGES artwork-item))
         thumb-uri (url-encode (artwork-uri page-name THUMBS artwork-item))
         artwork-page-uri (str page-name "/" (:uuid artwork-item) ".html")
-        dimensions-matched (re-matches #"(?i)[^\d]*(\d+)[\"\']?\s*[xXby]+\s*(\d+)[\"\']?\s*(inches|in|feet|ft|cm|meters|m)?" (:dimensions artwork-item))
-        width (get dimensions-matched 1 0)
-        height (get dimensions-matched 2 0)]
+        dimensions-matched (if (:dimensions artwork-item)
+                             (re-matches #"(?i)[^\d]*(\d+)[\"\']?\s*[xXby]+\s*(\d+)[\"\']?\s*(inches|in|feet|ft|cm|meters|m)?" (:dimensions artwork-item)))
+        width (if dimensions-matched (get dimensions-matched 1 0) "24")
+        height (if dimensions-matched (get dimensions-matched 2 0) "24")]
     (str "\n"
        "               <div style=\"display: flex; align-items: center; flex-flow: column nowrap; margin: 32px\">\n"
        "                   <a href=\"" artwork-page-uri "\"><picture>\n"
        "                      <source media=\"(min-width: 480px)\" srcset=\"" img-uri "\"/>\n"
        "                      <img src=\"" thumb-uri "\"/>\n"
        "                   </picture></a>\n"
-       ;"                  <div>\n"
-       ;"                     <a href=\"" artwork-page-uri "\"><img src=\"" img-uri "\" class=\"fit-contain\" height=\"360px\"></a>\n"
-       ;"                  </div>\n"
-       "                  <div style=\"height: 8px;\"></div>\n"
+       "                  <div style=\"height: 4px;\"></div>\n"
        "                  <div style=\"width: 100%; display: flex; justify-content: space-between;\">\n"
-       "                     <div style=\"margin-left: 4px; margin-right: 4px;\">\n"
+       "                     <div style=\"margin: 4px;\">\n"
        "                        <div style=\"max-width: " (- 360 (Integer/parseInt width) 10) "px;\">" (:title artwork-item) "</div>\n"
        "                        <div style=\"height: 2px;\"></div>\n"
-       "                        <div class=\"hd-subcaption\">" (:year artwork-item) "</div>\n"
+       "                        <div id=\"" (:uuid artwork-item) "\" style=\"visibility: hidden;\" class=\"hd-subcaption\">" (artwork-details-string artwork-item) "</div>\n"
        "                     </div>\n"
-       "                     <div style=\"width: " width "px; height: " height "px; margin-right: 4px;\">\n"
-       "                        <svg viewBox=\"0 0 " width " " height "\" xmlns=\"http://www.w3.org/2000/svg\">\n"
-       "                           <rect x=\"0\" y=\"0\" width=\"100%\" height=\"100%\" fill=\"none\" stroke=\"black\" /></svg>\n"
-       "                     </div>\n"
+         (if dimensions-matched
+           (str
+             "                     <div style=\"width: " width "px; height: " height "px; margin-right: 4px;\"\n"
+             "                          onmouseover=\"document.getElementById('" (:uuid artwork-item) "').style.visibility='visible';\""
+             "                          onmouseout=\"document.getElementById('" (:uuid artwork-item) "').style.visibility='hidden';\">\n"
+             "                        <svg viewBox=\"0 0 " width " " height "\" xmlns=\"http://www.w3.org/2000/svg\">\n"
+             "                           <rect x=\"0\" y=\"0\" width=\"100%\" height=\"100%\" fill=\"none\" stroke=\"black\" /></svg>\n"
+             "                     </div>\n")
+           (str "                     <div style=\"width: 24px;\"></div>\n"))
        "                  </div>\n"
        "               </div>")))
 
@@ -117,8 +128,7 @@
                  (s/replace "{{NEXT}}" (str (:uuid (nth artwork-list next-idx)) ".html"))
                  ;; For {{IMG}}, the template must provide the iamges/, thumbs/, or large-images/ prefix.
                  (s/replace "{{IMG}}" (url-encode (str (:uuid item) "/" (get-in item [:images 0 :filename]))))
-                 (s/replace "{{DETAILS}}" (cond-> (str (:year item) " " (:dimensions item))
-                                                  (:medium item) (str ", " (:medium item))))
+                 (s/replace "{{DETAILS}}" (artwork-details-string item))
                  (s/replace "{{TITLE}}" (:title item))
                  (s/replace "{{USER_DISPLAY_NAME}}" (:user-display-name context))
                  (s/replace "{{EXHIBITION_PAGE_NAME}}" (:exhibition-page-name context))
@@ -166,15 +176,21 @@
                                                       :exhibition-page-name page-name
                                                       :exhibition-title title}
                                  exhibition-artwork) exhibition-artwork))
-    (sns/publish :topic-arn (:create-ribbon-topic-arn co)
-                 :subject "make-ribbon"
-                 :message (str uref "/" page-name "/" THUMBS "/"))
     (aws3/put-object :bucket-name pages-bucket
                      :key (str uref "/" page-name ".html")
                      :input-stream (io/input-stream (.getBytes html))
                      :access-control-list {:grant-permission ["AllUsers" "Read"]}
                      :metadata {:content-length (count html)
                                 :content-type "text/html"})))
+
+(defn create-ribbon
+  "Invoke the lambda which creates the ribbon image with name <bucket-name>/uref/<page-name>/ribbon.png."
+  [uref public-exhibitions exhibition-uuid]
+  (let [public-exhibition (get public-exhibitions exhibition-uuid)
+        page-name (:page-name public-exhibition)]
+    (sns/publish :topic-arn (:create-ribbon-topic-arn co)
+                 :subject "make-ribbon"
+                 :message (str uref "/" page-name "/"))))
 
 (defn sort-by-date
   "Used as a comparator to sort, comparing two datetime key values and
@@ -205,10 +221,29 @@
       "                 <div style=\"flex: 1 0px; display: flex; flex-flow: column nowrap; align-items: "
          (if odd-row? "flex-end" "flex-start") ";\">\n"
       "                   <div class=\"hd-title-2\"><a href=\"" page-name ".html\">" (:name exhibition) "</a></div>\n"
-      "                   <div class=\"ribbon\"><a href=\"" page-name ".html\"><img src=\"" page-name "/" THUMBS "/ribbon.jpg\" alt=\"" page-name "\"></a></div>\n"
+      "                   <div class=\"ribbon\"><a href=\"" page-name ".html\"><img src=\"" page-name "/ribbon.jpg\" alt=\"" page-name "\"></a></div>\n"
       "                 </div>\n"
          (when odd-row? "                 <div style=\"flex: 1 auto\"></div>\n")
       "               </div>\n")))
+
+(defn create-contact-form-page
+  "Build the simple page which contains the contact form."
+  [uref page-config]
+  (let [uref (:uuid page-config)
+        template (slurp contact-form-template)
+        html (-> template
+                 (s/replace "{{USER_DISPLAY_NAME}}" (:display-name page-config))
+                 (s/replace "{{USER_UUID}}" uref)
+                 (s/replace "{{USER_DESCRIPTION}}" (:description page-config)))]
+    (try
+      (aws3/put-object :bucket-name pages-bucket
+                       :key (str uref "/contact.html")
+                       :input-stream (io/input-stream (.getBytes html))
+                       :access-control-list {:grant-permission ["AllUsers" "Read"]}
+                       :metadata {:content-length (count html)
+                                  :content-type "text/html"})
+      (catch Exception e
+        (pprint (ex->map e))))))
 
 (defn create-index-page
   "Build the index page which lists the exhibitions which can be browsed. The public-exhibitions is a list keyed by exhibition
@@ -240,7 +275,8 @@
   [uref]
   (doall (for [resource-object [(str "css/" hd-public-css)
                                 (str "assets/" Arrows-Left-icon-png)
-                                (str "assets/" Arrows-Right-icon-png)]]
+                                (str "assets/" Arrows-Right-icon-png)
+                                "favicon.ico"]]
            (aws3/copy-object :source-bucket-name pages-bucket :destination-bucket-name pages-bucket
                              :source-key resource-object
                              :destination-key (str uref "/" resource-object)
@@ -264,8 +300,11 @@
     (delete-pages uref)
     ;; Copy in css
     (copy-resources uref)
+    ;; Create contact form
+    (create-contact-form-page uref page-config)
     ;; Create the individual exhibition pages
     (doall (map (partial create-exhibition-page uref page-config public-exhibitions exhibitions artwork) (keys public-exhibitions)))
+    (doall (map (partial create-ribbon uref public-exhibitions) (keys public-exhibitions)))
     (create-index-page page-config public-exhibitions exhibitions)))
 
 (defn remove-site
