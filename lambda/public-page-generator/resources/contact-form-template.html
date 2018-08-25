@@ -3,6 +3,7 @@
 <html lang="en">
 <head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <title>{{USER_DISPLAY_NAME}} contact form</title>
+    <link rel="icon" type="image/png" href="assets/favicon.ico">
     <meta content="{{USER_DISPLAY_NAME}}" property="og:title">
     <meta content="{{USER_DESCRIPTION}}" property="og:description">
     <meta content="width=device-width, initial-scale=1" name="viewport">
@@ -46,27 +47,22 @@
 
 <body class="hd-body" style="opacity: 1; display: block; transition: opacity 600ms ease-in;">
 <div class="hd-wrapper">
-    <div class="hd-main" style="width: 100%">
-        <div style="display: flex; justify-content: center; margin-bottom: 30px">
-            <form id="contact-form">
-                <div class="col-list-wrapper">
-                    <div class="hd-title-3" style="align-self: center;"><a href="index.html">{{USER_DISPLAY_NAME}}</a></div>
-                    <div style="flex: 0 0 auto; height: 18px;"></div>
-                    <div class="hd-subtitle">Leave me a message. I am particularly interested in Russian spam.</div>
+    <div class="hd-main col-list-wrapper">
+        <div class="hd-title-3" style="align-self: center;"><a href="index.html">{{USER_DISPLAY_NAME}}</a></div>
+        <div style="flex: 0 0 auto; height: 18px;"></div>
+        <div class="hd-subtitle">Leave me a message. I am particularly interested in Russian spam.</div>
 
-                    <div style="flex: 0 0 auto; height: 14px;"></div>
-                    <div id=success-msg style="color: green;"></div>
-                    <div id="error-msg" style="color: red;"></div>
-                    <div style="flex: 0 0 auto; height: 14px;"></div>
-
-                    <input type="text" id="email" size="60" maxLength="256" placeholder="Email Address (optional)">
-                    <div style="flex: 0 0 auto; height: 20px;"></div>
-                    <textarea rows="8" cols="100" id="message" maxLength="2048" placeholder="Say what?"></textarea>
-                    <div style="flex: 0 0 auto; height: 20px;"></div>
-                    <input type="button" name="submit" value="Really" onclick="doSubmit()">
-                </div>
-            </form>
-        </div>
+        <div style="flex: 0 0 auto; height: 14px;"></div>
+        <div id=success-msg style="color: green;"></div>
+        <div id="error-msg" style="color: red;"></div>
+        <div style="flex: 0 0 auto; height: 14px;"></div>
+        <form id="contact-form">
+            <input type="text" id="email" size="40" maxLength="256" placeholder="Email Address (optional)">
+            <div style="flex: 0 0 auto; height: 20px;"></div>
+            <textarea rows="8" cols="60" id="message" maxLength="2048" placeholder="Say what?"></textarea>
+            <div style="flex: 0 0 auto; height: 20px;"></div>
+            <input type="button" name="submit" value="Really" onclick="doSubmit()">
+        </form>
     </div>
 </div>
 

@@ -32,6 +32,7 @@
 (def hd-public-css "hd-public.css")
 (def Arrows-Left-icon-png "Arrows-Left-icon.png")
 (def Arrows-Right-icon-png "Arrows-Right-icon.png")
+(def favicon "favicon.ico")
 
 (def THUMBS "thumbs")
 (def IMAGES "images")
@@ -276,7 +277,7 @@
   (doall (for [resource-object [(str "css/" hd-public-css)
                                 (str "assets/" Arrows-Left-icon-png)
                                 (str "assets/" Arrows-Right-icon-png)
-                                "favicon.ico"]]
+                                (str "assets/" favicon)]]
            (aws3/copy-object :source-bucket-name pages-bucket :destination-bucket-name pages-bucket
                              :source-key resource-object
                              :destination-key (str uref "/" resource-object)

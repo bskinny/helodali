@@ -2,6 +2,7 @@
 <html lang="en">
 <head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <title>This Life Is A Simulation</title>
+    <link rel="icon" type="image/png" href="../assets/favicon.ico">
     <meta content="{{TITLE}}" property="og:title">
     <meta content="{{DESCRIPTION}}" property="og:description">  <!-- TODO: -->
     <meta content="width=device-width, initial-scale=1" name="viewport">
@@ -41,12 +42,10 @@
 <div class="hd-wrapper">
     <div class="hd-main">
         <div class="hd-header-24">
-            <div class="hd-left-right-nav">
-                <div style="display: flex;">
-                    <div><a href="{{PREV}}"><img src="../assets/Arrows-Left-icon.png" alt="previous" /></a></div>
-                    <div style="width: 20px;"></div>
-                    <div><a href="{{NEXT}}"><img src="../assets/Arrows-Right-icon.png" alt="next" /></a></div>
-                </div>
+            <div style="display: flex; align-items: center;">
+                <div><a href="{{PREV}}"><img src="../assets/Arrows-Left-icon.png" alt="previous" /></a></div>
+                <div style="width: 10px;"></div>
+                <div><a href="{{NEXT}}"><img src="../assets/Arrows-Right-icon.png" alt="next" /></a></div>
             </div>
             <div style="width: 20px;"></div>
             <div class="hd-breadcrumb">
@@ -57,8 +56,8 @@
         </div>
         <picture>
             <source media="(min-width: 960px)" srcset="large-images/{{IMG}}">
-            <source media="(min-width: 480px)" srcset="images/{{IMG}}">
-            <img src="thumbs/{{IMG}}" alt="artwork-image">
+            <!--<source media="(min-width: 480px)" srcset="images/{{IMG}}">-->
+            <img src="images/{{IMG}}" class="image-to-resize" alt="artwork-image">
         </picture>
         <div style="display: flex; margin: 20px">
             <div>
