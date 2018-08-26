@@ -9,7 +9,7 @@
               [re-frame.core :refer [dispatch subscribe]]
               [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button hyperlink
                                               input-text input-textarea single-dropdown selection-list
-                                              button datepicker-dropdown]]))
+                                              button datepicker-dropdown checkbox]]))
 
 (def kind-options [{:id :solo :label "Solo"}
                    {:id :duo :label "Duo"}
@@ -60,6 +60,7 @@
         begin-date (subscribe [:item-key :exhibitions id :begin-date])
         end-date (subscribe [:item-key :exhibitions id :end-date])
         url (subscribe [:item-key :exhibitions id :url])
+        include-in-cv? (subscribe [:item-key :exhibitions id :include-in-cv])
         associated-documents (subscribe [:by-path-and-deref-set-sorted-by [:exhibitions id :associated-documents] :documents (partial sort-by-key-then-created :title false)])
         associated-press (subscribe [:by-path-and-deref-set-sorted-by [:exhibitions id :associated-press] :press (partial sort-by-datetime :publication-date true)])
         documents (subscribe [:items-vals-with-uuid :documents :title]) ;; TODO: a document may not have a title, resulting in an empty string in the selection list
@@ -93,6 +94,9 @@
                     [h-box :gap "8px" :align :center :justify :start
                             :children [[:span.uppercase.light-grey "url"]
                                        [re-com/hyperlink-href :label (trunc @url 50) :href (url-to-href @url) :target "_blank"]]])
+                  (if @include-in-cv?
+                    [:span.italics "Included in your CV"]
+                    [:span.italics "Excluded from your CV"])
                   (when (not (empty? @associated-press))
                     [h-box :gap "8px" :align :center :justify :start
                             :children [[:span.uppercase.light-grey "Press"]
@@ -139,6 +143,8 @@
                     :children [[:span.uppercase.light-grey "url"]
                                [input-text :width "280px" :model (str @url) :style {:border "none"}
                                     :on-change #(dispatch [:set-local-item-val [:exhibitions id :url] %])]]]
+                  [checkbox :model include-in-cv? :label "Include in your CV?"
+                            :on-change #(dispatch [:set-local-item-val [:exhibitions id :include-in-cv] (not @include-in-cv?)])]
                   [h-box :gap "6px" :align :center
                      :children [[:span.input-label "Press"]
                                 [selection-list :choices (uuid-label-list-to-options @press false) :model (if (empty? @associated-press) #{} (set @associated-press)) ;:height "140px"
@@ -173,7 +179,7 @@
         location (subscribe [:item-key :exhibitions id :location])
         begin-date (subscribe [:item-key :exhibitions id :begin-date])
         end-date (subscribe [:item-key :exhibitions id :end-date])
-        url (subscribe [:item-key :exhibitions id :url])
+        include-in-cv? (subscribe [:item-key :exhibitions id :include-in-cv])
         kind (subscribe [:item-key :exhibitions id :kind])]
     (fn []
       [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
@@ -183,8 +189,12 @@
                    [label :width (str (max 18 (:location widths)) "ch") :label (trunc @location (:location widths))]
                    [label :width "15ch" :label (safe-date-string @begin-date)]
                    [label :width "15ch" :label (safe-date-string @end-date)]
-                   [re-com/hyperlink-href :style {:width (str (max 18 (get widths :url)) "ch")}
-                                :label (trunc (str @url) (:url widths)) :href (str (url-to-href @url)) :target "_blank"]
+                   ; In case we want to display url in the future
+                   ;[re-com/hyperlink-href :style {:width (str (max 18 (get widths :url)) "ch")}
+                   ;             :label (trunc (str @url) (:url widths)) :href (str (url-to-href @url)) :target "_blank"]
+                   (if @include-in-cv?
+                     [box :width "16ch" :align :center :justify :center :child [md-icon-button :md-icon-name "zmdi zmdi-check mdc-text-green"]]
+                     [label :width "16ch" :label ""])
                    [h-box :gap "2px" :justify :center :align :center :style {:font-size "18px"}
                       :children [[row-button :md-icon-name "zmdi zmdi-copy"
                                    :mouse-over-row? true :tooltip "Copy this item"
@@ -231,11 +241,16 @@
                                     :on-click #(if (= (first @sort-key) :end-date)
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:end-date true]]))]
-                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:url @widths)) "ch")}
-                                    :label "url" :tooltip "Sort by URL"
-                                    :on-click #(if (= (first @sort-key) :url)
-                                                 (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
-                                                 (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:url true]]))]]]]
+                                 ;[hyperlink :class "uppercase" :style {:width (str (max 18 (:url @widths)) "ch")}
+                                 ;   :label "url" :tooltip "Sort by URL"
+                                 ;   :on-click #(if (= (first @sort-key) :url)
+                                 ;                (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
+                                 ;                (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:url true]]))]
+                                 [hyperlink :class "uppercase" :style {:width "16ch"}
+                                  :label "Included in CV" :tooltip "Sort by Included in CV?"
+                                  :on-click #(if (= (first @sort-key) :include-in-cv)
+                                               (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
+                                               (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:include-in-cv true]]))]]]]
         [v-box :gap "4px" :align :center :justify :start
            :children (into [header]
                            (mapv (fn [id bg] ^{:key (str id "-" (:name @widths))} [item-list-view @widths id bg]) @ids (cycle [true false])))]))))

@@ -21,6 +21,7 @@
    :notes nil ;; A user provided paragraph
    :begin-date (now) ;; Today's date
    :end-date (plus (now) (days 7)) ;; Next week's date
+   :include-in-cv false
    :associated-documents #{}
    :associated-press #{}
    ; :associated-press #{uuid1 uuid2}

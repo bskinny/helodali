@@ -137,7 +137,7 @@
 ; (s/def ::reception (s/keys :req-un [::title ::start-time ::end-time]))
 ; (s/def ::receptions (s/* ::reception))
 (s/def ::exhibition (s/keys :req-un [::uuid ::name ::created ::begin-date]
-                            :opt-un [::kind ::location ::url ::end-date ::notes
+                            :opt-un [::kind ::location ::url ::end-date ::notes ::include-in-cv
                                      ::images ::associated-documents ::associated-press]))
 
 ;; Document
