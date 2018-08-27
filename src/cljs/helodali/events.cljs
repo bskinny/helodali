@@ -43,8 +43,7 @@
 (def manual-check-spec [(when ^boolean js/goog.DEBUG debug)
                         trim-v])
 
-(defn-
-  add-message
+(defn- add-message
   "Add a message to :messages (stack of warnings in the UI). If id is nil, generate
    a uuid as the id. The :messages value in app-db is a map keyed by labels which
    provide a means for clearing messages. See the :clear-message event."

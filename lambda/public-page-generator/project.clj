@@ -12,7 +12,8 @@
                  [com.amazonaws/aws-java-sdk-s3 "1.11.347"]
                  [org.clojure/data.json "0.2.1"]
                  [clojure.java-time "0.3.2"]
-                 [com.amazonaws/aws-java-sdk-sns "1.11.347"]]
+                 [com.amazonaws/aws-java-sdk-sns "1.11.347"]
+                 [com.amazonaws/aws-java-sdk-cloudfront "1.11.347"]]
   :min-lein-version "2.6.1"
 
   :source-paths ["src/clj"]

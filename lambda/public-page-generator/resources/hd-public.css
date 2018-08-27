@@ -33,6 +33,7 @@ a:active,a:hover{outline:0;border-bottom-color:#ff0030;color:#ff0030}
 
 .hd-header-24 {
   display: flex;
+  justify-content: space-between;
   margin-left: 20px;
   margin-bottom: 24px;
   align-items: center;
@@ -52,15 +53,12 @@ a:active,a:hover{outline:0;border-bottom-color:#ff0030;color:#ff0030}
 
 .hd-title-1 {
   font-size:1.5rem;
-  letter-spacing:-1px;
 }
 .hd-title-2 {
   font-size:2rem;
-  letter-spacing:-1px;
 }
 .hd-title-3 {
   font-size:2.5rem;
-  letter-spacing:-1px;
 }
 .hd-subtitle {
   font-weight: 300;

@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <title>{{USER_DISPLAY_NAME}} - {{TITLE}}</title>
+    <title>{{USER_DISPLAY_NAME}} Artist CV</title>
     <link rel="icon" type="image/png" href="../assets/favicon.ico">
-    <meta content="{{USER_DISPLAY_NAMR}} - {{TITLE}}" property="og:title">
-    <meta content="Artwork" property="og:description">
+    <meta content="{{USER_DISPLAY_NAMR}} Artist CV" property="og:title">
+    <meta content="Exhibitions, education, and other art related activities" property="og:description">
     <meta content="width=device-width, initial-scale=1" name="viewport">
     <!-- TODO: What is this?  <meta content="VaZy3oIEgTCSdOSyKAFYMCvB1Sa6X965LX3SP2KwaNQ" name="google-site-verification"> -->
     <link href="../css/hd-public.css" rel="stylesheet" type="text/css">
@@ -40,30 +40,14 @@
 </head>
 <body class="hd-body" style="opacity: 1; display: block; transition: opacity 600ms ease-in;">
 <div class="hd-wrapper">
-    <div class="hd-main">
-        <div class="hd-header-24">
-            <div style="display: flex; align-items: center; margin-right: 20px;">
-                <div><a href="{{PREV}}"><img src="../assets/Arrows-Left-icon.png" alt="previous" /></a></div>
-                <div style="width: 10px;"></div>
-                <div><a href="{{NEXT}}"><img src="../assets/Arrows-Right-icon.png" alt="next" /></a></div>
-            </div>
-            <div class="hd-breadcrumb">
-                <div><a href="../index.html">{{USER_DISPLAY_NAME}}</a></div>
-                <div class="hd-dash">—</div>
-                <div><a href="../{{EXHIBITION_PAGE_NAME}}.html">{{EXHIBITION_DISPLAY_NAME}}</a></div>
-            </div>
-        </div>
-        <picture>
-            <source media="(min-width: 960px)" srcset="large-images/{{IMG}}">
-            <!--<source media="(min-width: 480px)" srcset="images/{{IMG}}">-->
-            <img src="images/{{IMG}}" class="image-to-resize" alt="artwork-image">
-        </picture>
-        <div style="display: flex; margin: 20px">
-            <div>
-                <div class="hd-title-1">{{TITLE}}</div>
-                <div class="hd-subtitle">{{DETAILS}}</div>
-            </div>
-        </div>
+    <div class="hd-main col-list-wrapper">
+        <div class="hd-title-3" style="align-self: center; margin-bottom: 22px"><a href="index.html">{{USER_DISPLAY_NAME}}</a></div>
+
+        <div class="hd-title-1" style="margin: 18px 0px 6px 0px;">Solo Exhibitions</div>{{SOLO_EXHIBITIONS}}
+        <div class="hd-title-1" style="margin: 18px 0px 6px 0px;">Two Person Exhibitions</div>{{DUO_EXHIBITIONS}}
+        <div class="hd-title-1" style="margin: 18px 0px 6px 0px;">Selected Group Shows</div>{{GROUP_EXHIBITIONS}}
+
+        <div style="flex: 0 0 auto; height: 14px;"></div>
     </div>
 </div>
 <!--[if lte IE 9]><script src="//cdnjs.cloudflare.com/ajax/libs/placeholders/3.0.2/placeholders.min.js"></script><![endif]-->

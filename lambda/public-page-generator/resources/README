@@ -1,2 +1,5 @@
 
 Before executing this lambda, the helodali-public-pages bucket should have the css/hd-public.css and assets/* files placed at the root level.
+
+When using the aws cli to place these files on s3, include the READ grant like so:
+aws s3 cp hd-public.css s3://helodali-public-pages/css/hd-public.css --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers

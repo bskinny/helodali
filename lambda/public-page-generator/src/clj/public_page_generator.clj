@@ -9,6 +9,7 @@
             [amazonica.aws.dynamodbv2 :as ddb]
             [amazonica.aws.s3 :as aws3]
             [amazonica.aws.sns :as sns]
+            [amazonica.aws.cloudfront :as cf]
             [clojure.pprint :refer [pprint]])
   (:import (java.net URLEncoder)))
 
@@ -29,6 +30,7 @@
 (def contact-form-template (io/resource "contact-form-template.html"))
 (def exhibition-template (io/resource "exhibition-template.html"))
 (def artwork-template (slurp (io/resource "artwork-template.html")))
+(def cv-template (io/resource "cv-template.html"))
 (def hd-public-css "hd-public.css")
 (def Arrows-Left-icon-png "Arrows-Left-icon.png")
 (def Arrows-Right-icon-png "Arrows-Right-icon.png")
@@ -47,6 +49,7 @@
                      l)))
 
 (defn delete-pages
+  "Delete all existing content for uref."
   [prefix]
   ;; DO NOT INVOKE delete-objects WITH AN EMPTY STRING OR NIL
   (when (not (empty? prefix))
@@ -141,6 +144,50 @@
                       :metadata {:content-length (count html)
                                  :content-type "text/html"})))
 
+(defn sort-by-date
+  "Used as a comparator to sort, comparing two datetime key values and
+   falling back to :created time of the item. If the input maps do not
+   have :created, use sort-by-datetime-only instead"
+  [k reverse? m1 m2]
+  (let [before-after (if reverse? jt/after? jt/before?)]
+    (if (or (nil? m1) (nil? m2))
+      (compare m1 m2)
+      (if (or (nil? (get m1 k)) (nil? (get m2 k)) (= (get m1 k) (get m2 k)))
+        (if (or (nil? (get m1 :created)) (nil? (get m2 :created)))
+          (compare (get m1 :created) (get m2 :created))
+          (before-after (get m1 :created) (get m2 :created)))
+        (before-after (get m1 k) (get m2 k))))))
+
+(defn show-description
+  "Create the string representation of the form 'YEAR, TITLE, LOCATION"
+  [exhibition]
+  (let [year (jt/year (:begin-date exhibition))]
+    (str "        <div>" year ", <span style=\"font-style: italic;\">" (:name exhibition) "</span>, " (:location exhibition) "</div>\n")))
+
+(defn create-cv-page
+  [uref page-config exhibitions]
+  (let [template (slurp cv-template)
+        included-exhibitions (fix-date :begin-date (filter #(= (:include-in-cv %) true) exhibitions))
+        sorted-exhibitions (sort (partial sort-by-date :begin-date true) included-exhibitions)
+        solo-shows (filter #(= (:kind %) (name :solo)) sorted-exhibitions)
+        duo-shows (filter #(= (:kind %) (name :duo)) sorted-exhibitions)
+        group-shows (filter #(= (:kind %) (name :group)) sorted-exhibitions)
+        html (-> template
+                 (s/replace "{{USER_DISPLAY_NAME}}" (:display-name page-config))
+                 (s/replace "{{SOLO_EXHIBITIONS}}" (s/join (map show-description solo-shows)))
+                 (s/replace "{{DUO_EXHIBITIONS}}" (s/join (map show-description duo-shows)))
+                 (s/replace "{{GROUP_EXHIBITIONS}}" (s/join (map show-description group-shows))))]
+    (try
+      (aws3/put-object :bucket-name pages-bucket
+                       :key (str uref "/cv.html")
+                       :input-stream (io/input-stream (.getBytes html))
+                       :access-control-list {:grant-permission ["AllUsers" "Read"]}
+                       :metadata {:content-length (count html)
+                                  :content-type "text/html"})
+      (catch Exception e
+        (pprint (ex->map e))))))
+
+
 (defn create-exhibition-page
   "Given the user uref, the public-exhibitions from the :pages tables keyed by exhibition :uuid,
    the list of all exhibition items in the db, the list of all artwork in the db, and lastly the uuid of the
@@ -192,20 +239,6 @@
     (sns/publish :topic-arn (:create-ribbon-topic-arn co)
                  :subject "make-ribbon"
                  :message (str uref "/" page-name "/"))))
-
-(defn sort-by-date
-  "Used as a comparator to sort, comparing two datetime key values and
-   falling back to :created time of the item. If the input maps do not
-   have :created, use sort-by-datetime-only instead"
-  [k reverse? m1 m2]
-  (let [before-after (if reverse? jt/after? jt/before?)]
-    (if (or (nil? m1) (nil? m2))
-      (compare m1 m2)
-      (if (or (nil? (get m1 k)) (nil? (get m2 k)) (= (get m1 k) (get m2 k)))
-        (if (or (nil? (get m1 :created)) (nil? (get m2 :created)))
-          (compare (get m1 :created) (get m2 :created))
-          (before-after (get m1 :created) (get m2 :created)))
-        (before-after (get m1 k) (get m2 k))))))
 
 (defn create-exhibition-div
   "Create the list element in the index.html representing an exhibition. The public-exhibitions
@@ -283,6 +316,16 @@
                              :destination-key (str uref "/" resource-object)
                              :access-control-list {:grant-permission ["AllUsers" "Read"]}))))
 
+(defn invalidate-web-distribution
+  [uref distribution-id]
+  (try
+    (cf/create-invalidation {:distribution-id distribution-id
+                             :invalidation-batch {:paths {:items ["/*"]
+                                                          :quantity 1}
+                                                  :caller-reference (jt/to-millis-from-epoch (jt/instant))}})
+    (catch Exception e
+      (pprint (ex->map e)))))
+
 (defn publish-site
   [pages-profile]
   (pprint (str "Publishing site for user " (:s (:uuid pages-profile))))
@@ -303,10 +346,16 @@
     (copy-resources uref)
     ;; Create contact form
     (create-contact-form-page uref page-config)
+    ;; Create CV page
+    (create-cv-page uref page-config exhibitions)
     ;; Create the individual exhibition pages
     (doall (map (partial create-exhibition-page uref page-config public-exhibitions exhibitions artwork) (keys public-exhibitions)))
+    ;; This next step could have also been performed within the the previous function but an occasional s3 race condition surfaces (missing Key)
     (doall (map (partial create-ribbon uref public-exhibitions) (keys public-exhibitions)))
-    (create-index-page page-config public-exhibitions exhibitions)))
+    (create-index-page page-config public-exhibitions exhibitions)
+    ; If Cloudront is enabled for this site, invalidate the files in the Cloudfront cache
+    (if (:cloudfront-distribution-id page-config)
+      (invalidate-web-distribution uref (:cloudfront-distribution-id page-config)))))
 
 (defn remove-site
   [profile]

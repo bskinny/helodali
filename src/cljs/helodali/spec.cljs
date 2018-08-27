@@ -160,10 +160,10 @@
 (defmulti pages-multi :enabled)
 (defmethod pages-multi true [_]
   (s/keys :req-un [::enabled ::display-name]
-          :opt-un [::processing ::version ::description ::editing ::public-exhibitions]))
+          :opt-un [::processing ::version ::description ::editing ::public-exhibitions :cloudfront-distribution-id]))
 (defmethod pages-multi false [_]
   (s/keys :req-un [::enabled]
-          :opt-un [::processing ::version ::display-name ::description ::editing ::public-exhibitions]))
+          :opt-un [::processing ::version ::display-name ::description ::editing ::public-exhibitions :cloudfront-distribution-id]))
 (s/def ::pages (s/nilable (s/multi-spec pages-multi :enabled)))
 
 ;; User's artist profile
