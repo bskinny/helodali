@@ -22,45 +22,6 @@
                  [:p "The following characters are allowed in the page name:"]
                  [:code "a-z A-Z 0-9 . _ -"]]])
 
-(defn delete-account-dialog-markup
-  [form-data process-ok process-cancel]
-  [v-box :padding  "0px" ;:style    {:background-color "cornsilk"}
-   :children [[title :label "Delete My Account" :level :level2]
-              [p "Taking this action will result in the permanent deletion of all data associated with
-                            your account."]
-              [checkbox
-               :label     "Please confirm your request to delete all account data"
-               :model     (:confirmation @form-data)
-               :on-change #(swap! form-data assoc :confirmation %)]
-              [line :color "#ddd" :style {:margin "10px 0 10px"}]
-              [h-box :gap "12px"
-                   :children [[button :label "Delete" :on-click process-ok :disabled? (not (:confirmation @form-data))]
-                              [button :label "Cancel" :on-click process-cancel]]]]])
-
-(defn delete-account-modal-dialog
-  "A modal dialog to capture confirmation of account deletion"
-  []
-  (let [show? (r/atom false)
-        initial-form-data {:confirmation false}
-        form-data (r/atom initial-form-data)
-        process-ok (fn [event]
-                     (reset! show? false)
-                     ;; Process the deletion
-                     (dispatch [:delete-account])
-                     false) ;; Prevent default "GET" form submission (if used)
-        process-cancel (fn [event]
-                         (reset! form-data initial-form-data)
-                         (reset! show? false)
-                         false)]
-    (fn []
-      [v-box
-       :children [[button :label "Delete Account" :class "btn-info"
-                   :on-click #(do
-                                (reset! show? true))]
-                  (when @show?
-                    [modal-panel :backdrop-color "grey" :backdrop-opacity 0.4
-                     :child [delete-account-dialog-markup form-data process-ok process-cancel]])]])))
-
 (defn display-exhibition-view
   [idx odd-row?]
   (let [bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
@@ -161,12 +122,14 @@
 (defn pages-view
   "Display the user's public page form."
   []
-  (fn []
-    [v-box :gap "16px" :align :center :justify :center
-     :children [[title :level :level2 :label "Publish as a Website"]
-                [p "Enabling this feature creates a publicly accessible copy of your data organized as a website
-                    with a list of exhibitions. Only the images you assign to exhibitions are visible to the public
-                    and only relevant artwork information such as title, date, sold, etc. is included."]
-                [item-view]
-                [re-com/gap :size "24px"]]]))
-                ;[delete-account-modal-dialog]]]))
+  (let [pages-enabled? (subscribe [:by-path [:account :pages-enabled]])]
+    (fn []
+      (let [enabled-view [[title :level :level2 :label "Publish as a Website"]
+                          [p "Enabling this feature creates a publicly accessible copy of your data organized as a website
+                           with a list of exhibitions. Only the images you assign to exhibitions are visible to the public
+                           and only relevant artwork information such as title, date, sold, etc. is included."]
+                          [item-view]
+                          [re-com/gap :size "24px"]]
+            disabled-view [[title :level :level2 :label "This feature is not enabled for your account."]]]
+        [v-box :gap "16px" :align :center :justify :center
+         :children (if @pages-enabled? enabled-view disabled-view)]))))

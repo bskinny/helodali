@@ -68,8 +68,7 @@
 (defn get-account
   "Get the user's account item."
   [uuid]
-  (let [account (far/get-item co :accounts {:uuid uuid})]
-    account))
+  (far/get-item co :accounts {:uuid uuid}))
 
 (defn query-by-uref
   "Query on items and clean results"

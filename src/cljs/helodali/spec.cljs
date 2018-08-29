@@ -160,10 +160,10 @@
 (defmulti pages-multi :enabled)
 (defmethod pages-multi true [_]
   (s/keys :req-un [::enabled ::display-name]
-          :opt-un [::processing ::version ::description ::editing ::public-exhibitions :cloudfront-distribution-id]))
+          :opt-un [::processing ::version ::description ::editing ::public-exhibitions ::cloudfront-distribution-id]))
 (defmethod pages-multi false [_]
   (s/keys :req-un [::enabled]
-          :opt-un [::processing ::version ::display-name ::description ::editing ::public-exhibitions :cloudfront-distribution-id]))
+          :opt-un [::processing ::version ::display-name ::description ::editing ::public-exhibitions ::cloudfront-distribution-id]))
 (s/def ::pages (s/nilable (s/multi-spec pages-multi :enabled)))
 
 ;; User's artist profile
@@ -189,8 +189,9 @@
 (s/def ::website (s/nilable string?))
 (s/def ::username (s/nilable string?))
 (s/def ::is_business boolean?)
+(s/def ::pages-enabled boolean?)
 (s/def ::instagram-user (s/keys :opt-un [::bio ::is_business ::full_name ::profile_picture ::website ::username]))
-(s/def ::account (s/nilable (s/keys :opt-un [::created ::instagram-user ::uuid])))
+(s/def ::account (s/nilable (s/keys :opt-un [::created ::instagram-user ::uuid ::pages-enabled])))
 
 ;; AWS Credentials for access S3
 (s/def ::accessKeyId (s/nilable string?))
