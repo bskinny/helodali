@@ -1,14 +1,18 @@
 ﻿AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
-Description: An AWS Serverless Specification template describing your function.
+Description: >-
+  Triggered by a create/delete s3 event on the helodali-raw-images bucket, this
+  function creates resized versions of the image.
 Resources:
   imageconversion:
     Type: 'AWS::Serverless::Function'
     Properties:
       Handler: index.handler
-      Runtime: nodejs6.10
+      Runtime: nodejs8.10
       CodeUri: .
-      Description: ''
+      Description: >-
+        Triggered by a create/delete s3 event on the helodali-raw-images bucket,
+        this function creates resized versions of the image.
       MemorySize: 1536
       Timeout: 80
       Role: 'arn:aws:iam::128225160927:role/helodali-image-processing'
@@ -19,14 +23,14 @@ Resources:
             Bucket:
               Ref: Bucket1
             Events:
-              - 's3:ObjectCreated:*'
+              - 's3:ObjectRemoved:*'
         BucketEvent2:
           Type: S3
           Properties:
             Bucket:
               Ref: Bucket2
             Events:
-              - 's3:ObjectRemoved:*'
+              - 's3:ObjectCreated:*'
   Bucket1:
     Type: 'AWS::S3::Bucket'
   Bucket2:

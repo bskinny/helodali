@@ -1,8 +1,9 @@
 ﻿AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
 Description: >-
-  A simple backend (read/write to DynamoDB) with a RESTful API endpoint using
-  Amazon API Gateway.
+  Handle the contact form submission from the public pages. A search against
+  DynamoDB is required and if the user is found an email is sent to the profile
+  email address.
 Resources:
   contactform:
     Type: 'AWS::Serverless::Function'
@@ -11,10 +12,11 @@ Resources:
       Runtime: nodejs8.10
       CodeUri: .
       Description: >-
-        A simple backend (read/write to DynamoDB) with a RESTful API endpoint
-        using Amazon API Gateway.
+        Handle the contact form submission from the public pages. A search
+        against DynamoDB is required and if the user is found an email is sent
+        to the profile email address.
       MemorySize: 512
-      Timeout: 10
+      Timeout: 30
       Role: 'arn:aws:iam::128225160927:role/service-role/ses-contact-form-lambda'
       Events:
         Api1:

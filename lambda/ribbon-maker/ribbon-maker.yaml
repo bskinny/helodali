@@ -1,0 +1,26 @@
+﻿AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: >-
+  Triggered by a SNS message from the public-page-generator, this function
+  creates a ribbon image for an exhibition.
+Resources:
+  ribbonmaker:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: index.handler
+      Runtime: nodejs8.10
+      CodeUri: .
+      Description: >-
+        Triggered by a SNS message from the public-page-generator, this function
+        creates a ribbon image for an exhibition.
+      MemorySize: 1536
+      Timeout: 80
+      Role: 'arn:aws:iam::128225160927:role/helodali-image-processing'
+      Events:
+        SNS1:
+          Type: SNS
+          Properties:
+            Topic:
+              Ref: SNSTopic1
+  SNSTopic1:
+    Type: 'AWS::SNS::Topic'

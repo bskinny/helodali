@@ -1,0 +1,49 @@
+﻿AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: >-
+  Triggered on a change to the pages table in DynamoDB, this function creates or
+  removes the user's static website on the helodali-pages public s3 bucket. It
+  triggers the ribbon making lambda via SNS.
+Resources:
+  publicpagesgenerator:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: public_page_generator
+      Runtime: java8
+      CodeUri: .
+      Description: >-
+        Triggered on a change to the pages table in DynamoDB, this function
+        creates or removes the user's static website on the helodali-pages
+        public s3 bucket. It triggers the ribbon making lambda via SNS.
+      MemorySize: 1536
+      Timeout: 210
+      Role: 'arn:aws:iam::128225160927:role/helodali-image-processing'
+      Events:
+        DynamoDB1:
+          Type: DynamoDB
+          Properties:
+            Stream:
+              'Fn::GetAtt':
+                - Table1
+                - StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 100
+      Environment:
+        Variables:
+          HD_CREATE_RIBBON_TOPIC_ARN: 'arn:aws:sns:us-east-1:128225160927:hd-create-ribbon'
+      Tags:
+        'lambda-console:blueprint': dynamodb-process-stream
+  Table1:
+    Type: 'AWS::DynamoDB::Table'
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
