@@ -1,5 +1,5 @@
 (ns helodali.db
-  (:require [cljs-time.core :refer [now year days ago date-time]]
+  (:require [cljs-time.core :refer [now year days plus date-time]]
             [helodali.misc :refer [into-sorted-map generate-uuid]]))
 
 (defn default-year-val-map
@@ -19,8 +19,9 @@
    :location nil  ;; The gallery or location
    :url nil ;; optional link to gallery or exhibition website
    :notes nil ;; A user provided paragraph
-   :begin-date nil ;; A date down to the day, e.g. 6/13/2016
-   :end-date nil
+   :begin-date (now) ;; Today's date
+   :end-date (plus (now) (days 7)) ;; Next week's date
+   :include-in-cv false
    :associated-documents #{}
    :associated-press #{}
    ; :associated-press #{uuid1 uuid2}
@@ -82,6 +83,13 @@
    :images []
    :notes nil})
 
+(defn default-public-exhibition
+  "Return an public-exhibitions map"
+  []
+  {:ref nil
+   :statement nil
+   :page-name nil})
+
 (defn default-purchase
   "Return a purchase with date popluated with today"
   []
@@ -112,7 +120,7 @@
    :medium nil ;; free-form and provided by user. Examples include "oil on panel"
    :dimensions nil ;; User provided. Can be "h x w x d inches" or "variable" or "21 minutes"
    :editions 0 ;; Useful for prints
-   :status :for-sale ;; Can :private :destroyed :not-for-sale :sold :for-sale
+   :status :for-sale ;; Can be :private :destroyed :not-for-sale :sold :for-sale
    :condition nil ;; User provided string
    :description nil ;; User provided paragraph
    :expenses 0 ;; A number representing cost. No units are attached
@@ -163,7 +171,7 @@
    :exhibitions (sorted-map)
    :contacts (sorted-map)
    :press (sorted-map)
-   :instagram-media nil ;; This should be nil valued at time of login
+   :instagram-media nil ;; This should be nil-valued at time of login
    :ui-defaults ui-defaults
    :view :artwork
    :static-page nil
@@ -181,6 +189,7 @@
    :aws-s3 nil; ;; Accesses multiple S3 buckets
    :csrf-token nil
    :userinfo nil ;; The userinfo map returned by Cognito
+   :pages {:enabled false :editing false :public-exhibitions []}
    :sort-keys {:artwork [:year false]  ;; true/false for forward/reverse sorting
                :contacts [:name true]
                :referred-artwork [:year false]

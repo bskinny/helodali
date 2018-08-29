@@ -351,9 +351,9 @@
                                                            (range (count @purchases)) (cycle [true false])))])
                              [re-com/gap :size "4px"]
                              [h-box :gap "6px" :align :center :justify :start
-                                :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Add an Exhibition record"
-                                              :on-click #(dispatch [:create-local-vector-element [:artwork id :exhibition-history] (db/default-exhibition-history)])]
-                                           [:span "Exhibitions"]]]
+                               :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Add an Exhibition record"
+                                             :on-click #(dispatch [:create-local-vector-element [:artwork id :exhibition-history] (db/default-exhibition-history)])]
+                                          [:span "Exhibitions"]]]
                              (when (not (empty? @exhibition-history))
                                [v-box :gap "16px" :align :start :justify :start :align-self :stretch
                                   :children (into [] (mapv (fn [idx bg] ^{:key (str "exhibition-" idx)} [display-exhibition-history-edit id idx bg])
@@ -381,6 +381,8 @@
         editing (subscribe [:item-key :artwork id :editing])
         signed-thumb-url (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url]])
         thumb-expiration (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url-expiration-time]])
+        signed-image-url (subscribe [:by-path [:artwork id :images 0 :signed-image-url]])
+        image-expiration (subscribe [:by-path [:artwork id :images 0 :signed-image-url-expiration-time]])
         raw-expiration (subscribe [:by-path [:artwork id :images 0 :signed-raw-url-expiration-time]])
         raw-image-url (subscribe [:by-path [:artwork id :images 0 :signed-raw-url]])
         processing (subscribe [:by-path [:artwork id :images 0 :processing]])
@@ -410,10 +412,13 @@
                                      [md-icon-button :md-icon-name "zmdi zmdi-more mdc-text-blue"  :tooltip "Show more..."
                                         :on-click #(route-single-item :artwork @uuid)])]]
             image (first @images) ;; Note that images may be empty, hence image is nil
-            image-size (if (or (= @display-type :contact-sheet) @editing) "240px" "480px")  ;; Set image size based on contact-sheet vs. other views
+            ;; Set image size and source based on contact-sheet vs. other views
+            [image-size image-bucket signed-url url-expiration signed-url-key signed-url-expiration-key] (if (or (= @display-type :contact-sheet) @editing)
+                                                                                                           ["240px" "helodali-thumbs" signed-thumb-url thumb-expiration :signed-thumb-url :signed-thumb-url-expiration-time]
+                                                                                                           ["480px" "helodali-images" signed-image-url image-expiration :signed-image-url :signed-image-url-expiration-time])
             url (cond
                   @processing "/image-assets/ajax-loader.gif"
-                  (not (nil? @signed-thumb-url)) @signed-thumb-url
+                  (not (nil? @signed-url)) @signed-url
                   :else "/image-assets/thumb-stub.png")
             object-fit (cond
                           @processing "fit-none"
@@ -422,8 +427,8 @@
         ;; Perform some dispatching if the artwork is not in sync with S3 and database
         (if @processing
           (dispatch [:refresh-image [:artwork id :images 0]])
-          (when (and (not (nil? image)) (nil? @thumb-expiration))
-            (dispatch [:get-signed-url [:artwork id :images 0] "helodali-images" (:key image) :signed-thumb-url :signed-thumb-url-expiration-time])))
+          (when (and (not (nil? image)) (nil? @url-expiration))
+            (dispatch [:get-signed-url [:artwork id :images 0] image-bucket (:key image) signed-url-key signed-url-expiration-key])))
         (when (and (:key image) (expired? @raw-expiration))
           (dispatch [:get-signed-url [:artwork id :images 0] "helodali-raw-images" (:key image) :signed-raw-url :signed-raw-url-expiration-time]))
 
@@ -436,7 +441,7 @@
             :children [[v-box :gap "2px" :width image-size :align :center :justify :center :height "100%"
                          :children [[v-box ;:max-width image-size :max-height image-size ;:style {:margin-top "10px" :z-index 0 :position "relative"}
                                        :children [[box :max-width image-size :max-height image-size
-                                                    :child [:img {:src url :class object-fit :width image-size :height image-size ;:style {:object-fit "cover"}
+                                                    :child [:img {:src url :class object-fit ;; :width image-size :height image-size ;:style {:object-fit "cover"}
                                                                   :on-error #(dispatch [:flush-signed-urls [:artwork id :images 0]])
                                                                   :on-click #(if (not (= @display-type :new-item)) ;; Don't toggle 'expanded' when in :new-item mode
                                                                                (dispatch [:set-local-item-val [:artwork id :expanded] (not @expanded)])

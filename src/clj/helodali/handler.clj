@@ -79,9 +79,9 @@
       ;; Stash instruction for the UI to display the Instagram view.
       (assoc-in [:session :set-display-type] :instagram)))
 
-  (POST "/update-profile" [uuid path val access-token :as req]
-    (pprint (str "update-profile uuid/path/val: " uuid "/" path "/" val))
-    (process-request req uuid access-token #(db/update-user-table :profiles uuid path val)))
+  (POST "/update-user-table" [uuid table path val access-token :as req]
+    (pprint (str "update-profile uuid/table/path/val: " uuid "/" table "/" path "/" val))
+    (process-request req uuid access-token #(db/update-user-table table uuid path val)))
 
   (POST "/update-item" [uref uuid table path val access-token :as req]
     (pprint (str "update-item uref/uuid/path/val: " uref "/" uuid "/" path "/" val))
@@ -121,6 +121,7 @@
           ;; Making sure the prefix to s3/delete-objects is not nil
           (s3/delete-objects-by-prefix :helodali-raw-images (:sub session))
           (s3/delete-objects-by-prefix :helodali-documents (:sub session))))
+          ; TODO: Remove public pages
       (-> (response {})
         ;; Clear the user's information in the session cookie
         (assoc :session (vary-meta session-cookie assoc :recreate true)))))

@@ -8,6 +8,7 @@
               [helodali.views.documents :refer [documents-view]]
               [helodali.views.profile :refer [profile-view]]
               [helodali.views.account :refer [account-view]]
+              [helodali.views.pages :refer [pages-view]]
               [helodali.views.purchases :refer [purchases-view]]
               [helodali.views.exhibitions :refer [exhibitions-view]]
               [helodali.views.search-results :refer [search-results-view]]
@@ -56,6 +57,7 @@
         :body [v-box
                 :children [[label :label "Artist Profile" :on-click #(select-fn :profile)]
                            [label :label "My Account" :on-click #(select-fn :account)]
+                           [label :label "Publishing" :on-click #(select-fn :pages)]
                            [label :label "Logout" :on-click (fn []
                                                                (dispatch [:logout])
                                                                (reset! showing-account-popover? false))]]]])))
@@ -209,6 +211,7 @@
                                     :profile [profile-view]
                                     :static-page [static-pages-view]
                                     :account [account-view]
+                                    :pages [pages-view]
                                     :purchases [purchases-view]
                                     :documents [documents-view]
                                     :exhibitions [exhibitions-view]

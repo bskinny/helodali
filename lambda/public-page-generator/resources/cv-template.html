@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>{{USER_DISPLAY_NAME}} Artist CV</title>
+    <link rel="icon" type="image/png" href="../assets/favicon.ico">
+    <meta content="{{USER_DISPLAY_NAMR}} Artist CV" property="og:title">
+    <meta content="Exhibitions, education, and other art related activities" property="og:description">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <!-- TODO: What is this?  <meta content="VaZy3oIEgTCSdOSyKAFYMCvB1Sa6X965LX3SP2KwaNQ" name="google-site-verification"> -->
+    <link href="../css/hd-public.css" rel="stylesheet" type="text/css">
+    <!--[if lt IE 9]><script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js" type="text/javascript"></script><![endif]-->
+
+    <link href="https://fonts.googleapis.com/css?family=Nunito+Sans:300,400,400i,600,700" rel="stylesheet">
+    <style>
+       ::-moz-selection {
+        color: white;
+        background: #ff0030;
+      }
+
+      ::selection {
+        color: white;
+        background: #ff0030;
+      }
+
+      -webkit-font-smoothing: subpixel-antialiased;
+      text-rendering: optimizeLegibility;
+      image-rendering: -moz-crisp-edges;
+      /* Firefox */
+
+      image-rendering : -o-crisp-edges;
+      /* Opera */
+
+      image-rendering: -webkit-optimize-contrast;
+      /* Webkit (non-standard naming) */
+
+      image-rendering: crisp-edges;
+      -ms-interpolation-mode: nearest-neighbor;
+      /* IE (non-standard property) */
+    </style>
+</head>
+<body class="hd-body" style="opacity: 1; display: block; transition: opacity 600ms ease-in;">
+<div class="hd-wrapper">
+    <div class="hd-main col-list-wrapper">
+        <div class="hd-title-3" style="align-self: center; margin-bottom: 22px"><a href="index.html">{{USER_DISPLAY_NAME}}</a></div>
+
+        <div class="hd-title-1" style="margin: 18px 0px 6px 0px;">Solo Exhibitions</div>{{SOLO_EXHIBITIONS}}
+        <div class="hd-title-1" style="margin: 18px 0px 6px 0px;">Two Person Exhibitions</div>{{DUO_EXHIBITIONS}}
+        <div class="hd-title-1" style="margin: 18px 0px 6px 0px;">Selected Group Shows</div>{{GROUP_EXHIBITIONS}}
+
+        <div style="flex: 0 0 auto; height: 14px;"></div>
+    </div>
+</div>
+<!--[if lte IE 9]><script src="//cdnjs.cloudflare.com/ajax/libs/placeholders/3.0.2/placeholders.min.js"></script><![endif]-->
+</body>
+
+</html>
+

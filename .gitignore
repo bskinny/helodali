@@ -1,5 +1,7 @@
 /*.log
-/target
+**/target
+**/node_modules
+lambda/**/*.zip
 /*-init.clj
 /resources/public/js/compiled
 out

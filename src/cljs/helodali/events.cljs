@@ -48,6 +48,7 @@
    a uuid as the id. The :messages value in app-db is a map keyed by labels which
    provide a means for clearing messages. See the :clear-message event."
   [db id msg]
+  (pprint (str "add-message: " id ": " msg))
   (let [k (or id (generate-uuid))]
     (assoc-in db [:messages k] msg)))
 
@@ -105,11 +106,13 @@
   ;; TODO: Verify that the below works when multiple images per artwork is supported.
   (let [images (->> (vals (:artwork db))
                     (reduce (fn [a b] (into a (:images b))) [])
-                    (filter #(or (not (empty? (:signed-thumb-url %))) (not (empty? (:signed-raw-url %)))))
+                    (filter #(or (not (empty? (:signed-thumb-url %))) (not (empty? (:signed-raw-url %))) (not (empty? (:signed-image-url %)))))
                     (map (fn [image] {(:uuid image) {:signed-raw-url (:signed-raw-url image)
                                                      :signed-raw-url-expiration-time (safe-unparse-datetime (:signed-raw-url-expiration-time image))
                                                      :signed-thumb-url (:signed-thumb-url image)
-                                                     :signed-thumb-url-expiration-time (safe-unparse-datetime (:signed-thumb-url-expiration-time image))}}))
+                                                     :signed-thumb-url-expiration-time (safe-unparse-datetime (:signed-thumb-url-expiration-time image))
+                                                     :signed-image-url (:signed-image-url image)
+                                                     :signed-image-url-expiration-time (safe-unparse-datetime (:signed-image-url-expiration-time image))}}))
                     (reduce into {}))
         documents (->> (vals (:documents db))
                        (filter #(not (empty? (:signed-raw-url %))))
@@ -170,6 +173,9 @@
                                                 (merge image {:signed-thumb-url-expiration-time
                                                                 (parse-date :date-time (:signed-thumb-url-expiration-time urls))
                                                               :signed-thumb-url (:signed-thumb-url urls) ;; TODO: check expiration?
+                                                              :signed-image-url-expiration-time
+                                                              (parse-date :date-time (:signed-image-url-expiration-time urls))
+                                                              :signed-image-url (:signed-image-url urls)
                                                               :signed-raw-url-expiration-time
                                                                 (parse-date :date-time (:signed-raw-url-expiration-time urls))
                                                               :signed-raw-url (:signed-raw-url urls)})
@@ -223,6 +229,7 @@
                 (assoc :contacts (into-sorted-map (map #(merge (helodali.db/default-contact) %) (:contacts resp))))
                 (assoc :press (into-sorted-map (map #(merge (helodali.db/default-press) %) (:press resp))))
                 (assoc :profile (:profile resp))
+                (assoc :pages (:pages resp))
                 (assoc :account (:account resp))
                 (assoc :userinfo (:userinfo resp))
                 (assoc :access-token (:access-token resp))
@@ -301,19 +308,18 @@
                               :on-success      [:update-db-from-result (fn [db] true)]
                               :on-failure      [:bad-result {} retry-fx]}}))))
 
-;; Similar to above but restricted to the app-db's :profile, which results to writes against
-;; the :profiles table on the server. 'path' should be [:profile] or start as such.
-(defn- update-profile-fx
-  [path val is-retry? db]
+;; Similar to above but restricted to the app-db's :profile or :pages, which results to writes against
+;; the :profiles table on the server. 'path' should be path within :pages or :profile.
+(defn- update-user-table-fx
+  [table path val is-retry? db]
   (let [_ (check-and-throw :helodali.spec/db db)
-        inside-profile-path (rest path)
-        retry-fx (or is-retry? (partial update-profile-fx path val true))
+        retry-fx (or is-retry? (partial update-user-table-fx path val true))
         val (walk-cleaner val)
         fx (if is-retry? {} {:db db})]
     (merge fx {:http-xhrio {:method          :post
-                            :uri             "/update-profile"
+                            :uri             "/update-user-table"
                             :params          {:uuid (get-in db [:profile :uuid])
-                                              :path inside-profile-path :val val
+                                              :table table :path path :val val
                                               :access-token (:access-token db)}
                             :headers         {:x-csrf-token (:csrf-token db)}
                             :timeout         5000
@@ -363,7 +369,7 @@
 ;; defaults for this field in app-db's :ui-defaults
 (reg-event-db
   :set-local-item-val
-  interceptors
+  manual-check-spec
   (fn [db [path val]]
     ;; The path is a triple [:type num :field] and we want the path into
     ;; ui-defaults [:artwork-defaults :dimensions]
@@ -375,6 +381,26 @@
       (if set-default?
         (assoc-in new-db [:ui-defaults item-defaults-type field] val)
         new-db))))
+
+;; Add a message to the stack, e.g. :form-error "All required fields must have a value before changes can be saved."
+(reg-event-db
+  :add-message
+  manual-check-spec
+  (fn [db [id msg]]
+    (add-message db id msg)))
+
+;; Trigger a website publishing by updating the :version key of the :pages map. Also set :processing to true.
+(reg-event-fx
+  :publish-pages
+  manual-check-spec
+  (fn [{:keys [db]} _]
+    (let [new-db (-> db
+                     (assoc-in [:pages :version] (generate-uuid))
+                     (assoc-in [:pages :processing] true))
+          changes {:version (get-in new-db [:pages :version])
+                   :processing (get-in new-db [:pages :processing])}]
+      (merge (update-user-table-fx :pages [] changes false new-db)))))
+             ;{:dispatch-later}))))
 
 ;; Switch to edit mode for given item. Stash the current app-db to undo changes
 ;; that are canceled. 'item-path' is a path to item such as [:press 2]
@@ -407,7 +433,9 @@
   (fn [{:keys [db]} [item-path]]
     (let [type (first item-path)
           item (get-in db item-path)
-          new-db (assoc-in db (conj item-path :editing) false)
+          new-db (-> db
+                     (clear-message :form-error)   ;; Clear any previous form error
+                     (assoc-in (conj item-path :editing) false))
           diff (clojure.data/diff (get-in db item-path) (get-in @app-db-undo item-path))
           diffA (first diff)  ;; Only in current db
           diffB (second diff) ;; Only in snapshot (app-db-undo)
@@ -415,7 +443,8 @@
           ;; map keys/vals, diffA should contain all changes except for those made within collection-valued keys
           ;; (e.g. vector-valued :purchases of artwork or :degrees of profile). In this case, we look for any occurrence
           ;; of the key (e.g. :purchases in artwork) in either diffA or diffB and overwite the entire value instead of
-          ;; trying to pinpoint the exact change within the collection. TODO: We should reconsider vector-valued keys because of this?
+          ;; trying to pinpoint the exact change within the collection.
+          ;; TODO: Improve this approach of explicitly naming the vector-of-colls by using (type)
           changes (cond-> diffA
                      (:signed-raw-url diffA) (dissoc :signed-raw-url) ;; For :documents
                      (:signed-raw-url-expiration-time diffA) (dissoc :signed-raw-url-expiration-time) ;; For :documents
@@ -432,16 +461,20 @@
                      (and (= type :artwork) (or (:style diffA) (:style diffB))) (assoc :style (:style item))
                      (and (= type :artwork) (or (:images diffA) (:images diffB))) (assoc :images (:images item))
                      (and (= type :artwork) (or (:purchases diffA) (:purchases diffB))) (assoc :purchases (:purchases item))
-                     (and (= type :artwork) (or (:exhibition-history diffA) (:exhibition-history diffB))) (assoc :exhibition-history (:exhibition-history item)))]
-      (pprint (str "diffA: " diffA))
-      (pprint (str "diffB: " diffB))
-      (pprint (str "CHANGES: " changes))
-      (reset! app-db-undo nil)
-      (if (empty? changes)
-        {:db new-db} ;; No changes to apply to server
-        (condp = type
-          :profile (update-profile-fx item-path changes false new-db)
-          (update-fx item-path changes false new-db))))))
+                     (and (= type :artwork) (or (:exhibition-history diffA) (:exhibition-history diffB))) (assoc :exhibition-history (:exhibition-history item))
+                     (and (= type :pages) (or (:public-exhibitions diffA) (:public-exhibitions diffB))) (assoc :public-exhibitions (:public-exhibitions item)))]
+      ;; Ensure required fields have values
+      (if (helodali.spec/invalid? type item)
+        {:db (add-message db :form-error "All required fields must have a value before changes can be saved.")}
+        (do
+          (pprint (str "CHANGES: " changes))
+          (reset! app-db-undo nil)
+          (if (empty? changes)
+            {:db new-db} ;; No changes to apply to server
+            (condp = type
+              :profile (update-user-table-fx :profiles (rest item-path) changes false new-db)
+              :pages (update-user-table-fx :pages (rest item-path) changes false new-db)
+              (update-fx item-path changes false new-db))))))))
 
 ;; Create an artwork item from an Instagram post in our :instagram-media map.
 ;; This means we include an :instagram-media-ref map in the artwork item, set the artwork's
@@ -750,7 +783,7 @@
 
 (reg-event-db
   :display-new-item
-  interceptors
+  manual-check-spec
   (fn [db [type]]
     (let [id 0  ;; 0 is the placeholder item in the sorted map for 'type'
           new-db  (-> db
@@ -761,19 +794,16 @@
                     (assoc-in [type id :expanded] true))]
       (assoc new-db :single-item-uuid (get-in new-db [type id :uuid])))))
 
-;; Create item based on contents of placeholder iten (id == 0) but confirm
+;; Create item based on contents of placeholder item (id == 0) but confirm
 ;; the existence of values for required fields. If confirmation fails,
 ;; add a warning message.
 (reg-event-fx
   :create-from-placeholder
   manual-check-spec
   (fn [{:keys [db]} [type required-fields]]
-    (let [placeholder (get-in db [type 0])
-          required-values (map #(get placeholder %) required-fields)
-          empty-values (filter #(or (nil? %) (and (string? %) (empty? %))) required-values)]
-      (if-not (empty? empty-values)
-        ;; Return to the editing
-        {:db (add-message db :form-error (str "The following fields require a value: " (clojure.string/join ", " (map name required-fields))))}
+    (let [placeholder (get-in db [type 0])]
+      (if (helodali.spec/invalid? type placeholder)
+        {:db (add-message db :form-error "All required fields must have a value before changes can be saved.")}
         ;; Create the item
         (let [id (next-id (get db type))
               new-db (-> db
@@ -846,7 +876,6 @@
                        (reflect-item-deletion db type id)
                        (add-message db :form-error refint))
                      (clear-message :form-error))]  ;; Clear possible validation error
-
       ;; Submit change to server for all deletes except those to the placeholder item
       (if (or (= 0 id) (not (empty? refint)))
         {:db new-db}
@@ -887,7 +916,7 @@
 ;; Apply this change only to our app-db: Push new 'defaults' element in the front of vector given by 'path'
 (reg-event-db
   :create-local-vector-element
-  interceptors
+  manual-check-spec
   (fn [db [path defaults]] ;; defaults is a map, e.g. the output of helodali.db/default-purchase, inserted at head of vector
     (let [val (into [defaults] (get-in db path))]
       (assoc-in db path val))))
@@ -932,7 +961,9 @@
                  (dissoc :signed-raw-url)
                  (dissoc :signed-raw-url-expiration-time)
                  (dissoc :signed-thumb-url)
-                 (dissoc :signed-thumb-url-expiration-time))
+                 (dissoc :signed-thumb-url-expiration-time)
+                 (dissoc :signed-image-url)
+                 (dissoc :signed-image-url-expiration-time))
           new-db (assoc-in db path-to-item val)]
       (merge (update-fx path-to-item {:key nil :filename nil :size 0} false new-db)
              {:dispatch-n dispatches}))))
@@ -1048,7 +1079,8 @@
   (fn [db [path-to-object-map]]
     (let [o (-> (get-in db path-to-object-map)
                 (dissoc :signed-raw-url :signed-raw-url-expiration-time
-                        :signed-thumb-url :signed-thumb-url-expiration-time))]
+                        :signed-thumb-url :signed-thumb-url-expiration-time
+                        :signed-image-url :signed-image-url-expiration-time))]
       (assoc-in db path-to-object-map o))))
 
 (reg-event-fx
@@ -1062,7 +1094,7 @@
       ;; else merge the map into the artwork and unset :processing
       (let [image (-> (get-in db path-to-image)
                      (merge result)
-                     (dissoc :signed-raw-url-expiration-time :signed-thumb-url-expiration-time)
+                     (dissoc :signed-raw-url-expiration-time :signed-thumb-url-expiration-time :signed-image-url-expiration-time)
                      (coerce-int [:density :size :width :height])
                      (dissoc :processing))]
         {:db (-> db

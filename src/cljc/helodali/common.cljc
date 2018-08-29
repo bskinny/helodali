@@ -41,7 +41,9 @@
 (defn parse-date
   "Called with timestamp and converted to clj(s) object"
   [format-kw ts]
-  (parse (formatters format-kw) ts))
+  (if (not-empty ts)
+    (parse (formatters format-kw) ts)
+    nil))
 
 (defn unparse-date
   "Called with clj-time or cljs-time object, convert to string"
