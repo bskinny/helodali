@@ -1,10 +1,11 @@
 (defproject helodali "0.1.0-SNAPSHOT"
   :dependencies [[org.clojure/clojure "1.9.0"]
-                 [org.clojure/clojurescript "1.10.238"]
+                 [org.clojure/clojurescript "1.10.339"]
                  [reagent "0.8.0"]
                  [re-frame "0.10.5"]
                  [cljs-ajax "0.7.3"]
-                 [day8.re-frame/http-fx "0.1.6"]
+                 [day8.re-frame/http
+                  -fx "0.1.6"]
                  [joda-time "2.9.9"]
                  [amazonica "0.3.125" :exclusions [com.amazonaws/aws-java-sdk
                                                    com.amazonaws/amazon-kinesis-client]]
