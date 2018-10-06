@@ -96,6 +96,11 @@ a:active,a:hover{outline:0;border-bottom-color:#ff0030;color:#ff0030}
   opacity: 1.0;
 }
 
+img {
+  max-width: 95vw;
+  max-height: 95vh;
+}
+
 .fit-cover {
   object-fit: cover;
 }
