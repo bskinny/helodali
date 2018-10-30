@@ -428,6 +428,6 @@
 (defn -handleRequest [this is os context]
   (let [w (io/writer os)]
     (-> (json/read (io/reader is) :key-fn key->keyword)
-        (handle-event)
-        (json/write w))
+        (handle-event))
+        ;; In case there is a need to write a response, use (json/write w))
     (.flush w)))
