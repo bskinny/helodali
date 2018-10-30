@@ -5,7 +5,9 @@
 use warnings FATAL => 'all';
 use strict;
 my $prefix = "public-pages-generator";
-my $version = "1.0.0";
+
+# The version should be the same as that of the project defined in project.clj
+my $version = "1.0.1";
 
 my $KEY = "${prefix}-${version}-standalone-$$.jar";
 

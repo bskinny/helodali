@@ -66,8 +66,12 @@ function processPrefix(record, callback) {
                         var left = OVERLAY_WIDTH * (currentIndex % IMAGES_PER_ROW);
                         var top = OVERLAY_HEIGHT * Math.trunc(currentIndex / IMAGES_PER_ROW);
                         return sharp(data, options).overlayWith(overlay, {left: left, top: top}).raw().toBuffer();
-                    });
-                });
+                    }).catch((err) => {
+                        console.log('Error adding image to ribbon: ' + err);
+                      });
+                }).catch((err) => {
+                    console.log('Error processing images when creating ribbon: ' + err);
+                  });
             }, ribbon.raw().toBuffer());
 
             composite.then(function(data) {
@@ -86,7 +90,9 @@ function processPrefix(record, callback) {
                             });
                     }
                 });
-            });
+            }).catch((err) => {
+                console.log('Error putting ribbon to s3: ' + err);
+              });
         });
     });
 }
