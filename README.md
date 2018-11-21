@@ -2,7 +2,7 @@
 
 An artist inventory system with Instagram integration
 
-![Helodali Screenshot](https://github.com/bskinny/helodali/resources/doc/images/helodali-screenshot.png)
+![Helodali Screenshot](https://raw.githubusercontent.com/bskinny/helodali/master/resources/doc/images/helodali-screenshot.png)
 
 Helodali is a SPA style webapp using [re-frame](https://github.com/Day8/re-frame) backed by server-side clojure, AWS DynamoDB, S3, and Lambda.
 The application is served via jetty in src/clj/server.clj and depends on a session cookie at time of login and a client-provided access
