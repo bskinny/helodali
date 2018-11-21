@@ -10,10 +10,10 @@
   "license": "ISC",
   "dependencies": {
     "dependencies": "0.0.1",
-    "sharp": "^0.20.2"
+    "sharp": "^0.21.0"
   },
   "devDependencies": {
-    "aws-sdk": "^2.279.1",
-    "bespoken-tools": "^1.2.11"
+    "aws-sdk": "^2.361.0",
+    "bespoken-tools": "^2.1.1"
   }
 }
