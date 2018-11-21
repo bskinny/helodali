@@ -16,6 +16,7 @@ multiple AWS Lambda functions: public-page-generator, ribbon-maker, and contact-
 
 Define the following environment variables before proceeding (the INSTAGRAM values are optional):
 
+```
 export AWS_ACCESS_KEY=...
 export AWS_SECRET_KEY=...
 export AWS_DYNAMODB_ENDPOINT=dynamodb.us-east-1.amazonaws.com
@@ -29,6 +30,7 @@ export HD_COGNITO_CLIENT_SECRET=...
 export HD_COGNITO_REDIRECT_URI=http://localhost:9500/login
 
 export HD_CREATE_RIBBON_TOPIC_ARN=<arn for hd-create-ribbon only needed for website deployment>
+```
 
 Once the environment is defined, you can run figwheel in one of two ways. With lein:
 
