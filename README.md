@@ -2,7 +2,7 @@
 
 An artist inventory system with Instagram integration
 
-![Helodali Screenshot](https://github.com/bskinny/helodali/resources/doc/images/helodali-screenshot.png)
+![Helodali Screenshot](https://raw.githubusercontent.com/bskinny/helodali/master/resources/doc/images/helodali-screenshot.png)
 
 Helodali is a SPA style webapp using [re-frame](https://github.com/Day8/re-frame) backed by server-side clojure, AWS DynamoDB, S3, and Lambda.
 The application is served via jetty in src/clj/server.clj and depends on a session cookie at time of login and a client-provided access
@@ -16,6 +16,7 @@ multiple AWS Lambda functions: public-page-generator, ribbon-maker, and contact-
 
 Define the following environment variables before proceeding (the INSTAGRAM values are optional):
 
+```
 export AWS_ACCESS_KEY=...
 export AWS_SECRET_KEY=...
 export AWS_DYNAMODB_ENDPOINT=dynamodb.us-east-1.amazonaws.com
@@ -29,6 +30,7 @@ export HD_COGNITO_CLIENT_SECRET=...
 export HD_COGNITO_REDIRECT_URI=http://localhost:9500/login
 
 export HD_CREATE_RIBBON_TOPIC_ARN=<arn for hd-create-ribbon only needed for website deployment>
+```
 
 Once the environment is defined, you can run figwheel in one of two ways. With lein:
 
