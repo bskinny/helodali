@@ -128,7 +128,7 @@
       (if (verify jwt (keyword (:alg jwt-header)) public-key)
         ;; Signature is valid
         (let [tn (ZonedDateTime/now (ZoneId/of "Z"))]
-          (pprint (str "Comparing " (.toEpochSecond tn) " and " (get-in jwt [:claims :exp])))
+          ;(pprint (str "Comparing " (.toEpochSecond tn) " and " (get-in jwt [:claims :exp])))
           (if (> (.toEpochSecond tn) (get-in jwt [:claims :exp]))
             ;; Expired token, try to refresh
             (refresh-token session)

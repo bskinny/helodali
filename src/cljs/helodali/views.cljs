@@ -4,6 +4,7 @@
               [helodali.routes :refer [route route-profile route-search]]
               [helodali.views.artwork :refer [artwork-view]]
               [helodali.views.contacts :refer [contacts-view]]
+              [helodali.views.expenses :refer [expenses-view]]
               [helodali.views.press :refer [press-view]]
               [helodali.views.documents :refer [documents-view]]
               [helodali.views.profile :refer [profile-view]]
@@ -42,6 +43,7 @@
         :body [v-box
                 :children [[label :label "Exhibitions" :on-click #(select-fn :exhibitions)]
                            [label :label "Contacts" :on-click #(select-fn :contacts)]
+                           [label :label "Expenses" :on-click #(select-fn :expenses)]
                            [label :label "Documents" :on-click #(select-fn :documents)]
                            [label :label "Press" :on-click #(select-fn :press)]
                            [label :label "Purchases" :on-click #(select-fn :purchases)]]]])))
@@ -207,6 +209,7 @@
                                   (condp = @view
                                     :artwork [artwork-view]
                                     :contacts [contacts-view]
+                                    :expenses [expenses-view]
                                     :press [press-view]
                                     :profile [profile-view]
                                     :static-page [static-pages-view]

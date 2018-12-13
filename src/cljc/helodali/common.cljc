@@ -1,5 +1,6 @@
 (ns helodali.common
-  (:require #?(:clj  [clj-uuid :as uuid]
+  (:require #?(:cljs [cljs.reader :as cljsr])
+            #?(:clj  [clj-uuid :as uuid]
                :cljs [cljs-uuid-utils.core :as uuid])
             #?(:clj  [clj-time.core :refer [now days ago date-time]]
                :cljs [cljs-time.core :refer [now days ago date-time]])
@@ -12,6 +13,24 @@
   [m ks]
   (let [ks (set ks)]
     (into {} (map (fn [[k, v]] (if (contains? ks k) [k, (int v)] [k, v])) m))))
+
+(defn coerce-decimal
+  "Given map and set of keys, coerce the values associated with keys to decimal
+   E.g. {:price 100.99N} => {:price \"100.99\"}"
+  [m ks]
+  (let [ks (set ks)
+        convert-to-decimal #?(:clj bigdec
+                              :cljs cljsr/read-string)]
+    (into {} (map (fn [[k, v]] (if (contains? ks k) [k, (convert-to-decimal v)] [k, v])) m))))
+
+(defn coerce-decimal-string
+  "Given map and set of keys, coerce the values associated with keys to decimal
+   E.g. {:price 100.99N} => {:price \"100.99\"}"
+  [m ks]
+  (let [ks (set ks)
+        convert-to-decimal #?(:clj bigdec
+                              :cljs cljsr/read-string)]
+    (into {} (map (fn [[k, v]] (if (contains? ks k) [k, (str (convert-to-decimal v))] [k, v])) m))))
 
 (defn empty-string-to-nil
   [v]

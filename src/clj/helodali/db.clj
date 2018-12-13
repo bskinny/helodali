@@ -6,7 +6,7 @@
             [clj-time.format :refer [parse unparse formatters]]
             [helodali.types :as types]
             [clojure.java.io :as io]
-            [helodali.common :refer [coerce-int fix-date keywordize-vals]]
+            [helodali.common :refer [coerce-int coerce-decimal-string fix-date keywordize-vals]]
             [clojure.pprint :refer [pprint]]
             [helodali.s3 :as s3])
   (:import [java.time ZonedDateTime ZoneId]
@@ -40,6 +40,9 @@
                                                       (coerce-int [:likes])
                                                       (assoc :media-type (keyword (:media-type (:instagram-media-ref m))))))))
     :contacts (keywordize-vals m [:role])
+    :expenses (-> m
+                  (keywordize-vals [:expense-type])
+                  (coerce-decimal-string [:price]))
     :exhibitions (keywordize-vals m [:kind])
     :documents (coerce-int m [:size])
     :profile (-> m
@@ -107,7 +110,7 @@
           (pprint (str "Creating user account for " (:sub userinfo)))
           (far/put-item co :accounts {:uuid uuid :created created})
           (far/put-item co :pages {:uuid uuid :enabled false})
-          (far/put-item co :profiles {:uuid uuid :name (:name userinfo) :created created})
+          (far/put-item co :profiles {:uuid uuid :fullname (:name userinfo) :created created})
           (far/put-item co :openid {:uref uuid :sub (:sub userinfo) :email (:email userinfo)}))
         (sync-userinfo userinfo openid-item)))))
 
@@ -169,6 +172,7 @@
     (delete-items :documents (far/query co :documents {:uref [:eq uref]} query-opts))
     (delete-items :exhibitions (far/query co :exhibitions {:uref [:eq uref]} query-opts))
     (delete-items :contacts (far/query co :contacts {:uref [:eq uref]} query-opts))
+    (delete-items :expenses (far/query co :expenses {:uref [:eq uref]} query-opts))
     (delete-items :press (far/query co :press {:uref [:eq uref]} query-opts))
     (delete-item :profiles {:uuid uref})
     (delete-item :pages {:uuid uref})
@@ -190,6 +194,7 @@
        :documents (query-by-uref :documents uref)
        :exhibitions (query-by-uref :exhibitions uref)
        :contacts (query-by-uref :contacts uref)
+       :expenses (query-by-uref :expenses uref)
        :press (query-by-uref :press uref)
        :profile profile
        :authenticated? true
@@ -247,7 +252,7 @@
       :else in))
 
 (defn apply-attribute-change
-  "Update artwork, press, exhibitions, documents, or contacts table. The 'path'
+  "Update artwork, press, exhibitions, documents, expenses, or contacts table. The 'path'
    argument is a keyword or vector path into the item in given 'table'. E.g. :notes or
    [:purchases 1 :date]
   If the val is nil or an empty set, then perform a REMOVE of the attribute as opposed to a SET of a nil value."
@@ -280,7 +285,7 @@
                 :expr-attr-vals  (merge (:expr-attr-vals m) {(str ":val" idx) val})}))))
 
 (defn apply-attribute-changes
-  "Update artwork, press, exhibitions, documents, or contacts table. The 'changes'
+  "Update artwork, press, exhibitions, documents, expenses, or contacts table. The 'changes'
    argument is a map of changes to apply with keys representing paths, or attribute names, see DynamoDB
    UpdateExpressions (http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.Modifying.html).
    Any nil values will result in REMOVE UpdateExpression."
@@ -303,7 +308,7 @@
       (far/update-item co table primary-key db-changes))))
 
 (defn update-item
-  "Update items in artwork, press, exhibitions, documents, or contacts tables. The method of building
+  "Update items in artwork, press, exhibitions, documents, expenses, or contacts tables. The method of building
    the DynamoDB changeset depends on whether we are called with a single attribute change (path == [path to attribute])
    or multiple attribute changes within an item (path == nil and val is keyed with attribute paths)"
   [table uref uuid path val]
@@ -323,7 +328,7 @@
     (apply-attribute-change table {:uuid uuid} path val)))
 
 (defn refresh-item-path
-  "Fetch item from artwork, press, exhibitions, documents, or contacts table. The 'path'
+  "Fetch item from artwork, press, exhibitions, documents, expenses, or contacts table. The 'path'
    argument is a keyword or vector path into the item and can be nil to return the entire item."
   ;; TODO: think about optimizing the get-item call with projections
   [table uref item-uuid path]
@@ -431,7 +436,7 @@
   (let [brianw "1073c8b0-ab47-11e6-8f9d-c83ff47bbdcb"
         tables (far/list-tables co)]
     (doall (map #(far/delete-table co %) tables))
-    (doall (map #(create-table %) [:press :exhibitions :documents :artwork :contacts]))
+    (doall (map #(create-table %) [:press :exhibitions :documents :artwork :contacts :expenses]))
     (far/create-table co :profiles
       [:uuid :s]  ; Hash key of uuid-valued user reference, (:s => string type)
       {:throughput {:read 2 :write 2} ; Read & write capacity (units/sec)

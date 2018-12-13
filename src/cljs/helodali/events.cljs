@@ -1,7 +1,7 @@
 (ns helodali.events
   (:require
     [ajax.core :as ajax]
-    [helodali.common :refer [coerce-int empty-string-to-nil fix-date parse-date unparse-date unparse-datetime]]
+    [helodali.common :refer [coerce-int coerce-decimal empty-string-to-nil fix-date parse-date unparse-date unparse-datetime]]
     [helodali.spec :as hs] ;; Keep this here even though we refer to the namespace directly below
     [helodali.misc :refer [expired? generate-uuid find-element-by-key-value find-item-by-key-value
                            remove-vector-element into-sorted-map trunc search-item-by-key-value]]
@@ -201,6 +201,10 @@
                            (fixer :publication-date)))
         (assoc :contacts (->> (:contacts resp)
                               (fixer :created)))
+        (assoc :expenses (->> (:expenses resp)
+                              (map (fn [m] (coerce-decimal m [:price])))
+                              (fixer :created)
+                              (fixer :date)))
         (assoc :documents (->> (:documents resp)
                                (fixer :created)
                                (fixer :last-modified)))
@@ -227,6 +231,7 @@
                                       (apply-document-signed-urls local-store-signed-urls)
                                       (into-sorted-map)))
                 (assoc :contacts (into-sorted-map (map #(merge (helodali.db/default-contact) %) (:contacts resp))))
+                (assoc :expenses (into-sorted-map (map #(merge (helodali.db/default-expense) %) (:expenses resp))))
                 (assoc :press (into-sorted-map (map #(merge (helodali.db/default-press) %) (:press resp))))
                 (assoc :profile (:profile resp))
                 (assoc :pages (:pages resp))
@@ -645,7 +650,6 @@
   :set-aws-credentials
   interceptors
   (fn [db [aws-creds-js]]
-    (pprint (str "In set-aws-credentials with " (js->clj aws-creds-js)))
     (let [aws-creds {:accessKeyId (.-accessKeyId aws-creds-js)
                      :secretAccessKey (.-secretAccessKey aws-creds-js)
                      :sessionToken (.-sessionToken aws-creds-js)}]
