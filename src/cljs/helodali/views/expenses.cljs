@@ -4,7 +4,7 @@
               [cljs.pprint :refer [pprint]]
               [reagent.core  :as r]
               [re-frame.core :as re-frame :refer [dispatch subscribe]]
-              [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button hyperlink
+              [re-com.core :as re-com :refer [box gap v-box h-box label md-icon-button row-button hyperlink
                                               input-text input-textarea single-dropdown selection-list
                                               button datepicker-dropdown]]))
 
@@ -85,16 +85,18 @@
   (let [uuid (subscribe [:item-key :expenses id :uuid])
         bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
         date (subscribe [:item-key :expenses id :date])
+        notes (subscribe [:item-key :expenses id :notes])
         expense-type (subscribe [:item-key :expenses id :expense-type])
         price (subscribe [:item-key :expenses id :price])]
     (fn []
       [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
-        :children [[hyperlink :style {:width (str (max 18 (get widths :date)) "ch")} :label (safe-date-string @date)
+        :children [[hyperlink :style {:width (str (get widths :date) "ch")} :label (safe-date-string @date)
                        :on-click #(route-single-item :expenses @uuid)]
-                   [h-box :width (str (+ (:expense-type widths) (:price widths)) "ch") :gap "0px" :align :center :justify :between
-                      :children [[label :class "all-small-caps" :label (get expense-type-to-display-string @expense-type)]  ; :width (str (:expense-type widths) "ch")
-                                 [label :class "all-small-caps" :label (str @price)]]]  ; :width (str (:expense-type widths) "ch")
-                   [re-com/gap :size "20px"]
+                   [h-box :gap "0px" :align :center :justify :between
+                      :children [[label :width (str (:expense-type widths) "ch") :class "all-small-caps" :label (get expense-type-to-display-string @expense-type)]
+                                 [label :width (str (:notes widths) "ch") :label (trunc (safe-string @notes "") (:notes widths))]
+                                 [box :width (str (:price widths) "ch") :justify :end :class "all-small-caps" :child (str @price)]]]
+                   [gap :size "22px"]
                    [h-box :gap "2px" :justify :center :align :center :style {:font-size "18px"}
                       :children [[row-button :md-icon-name "zmdi zmdi-copy"
                                    :mouse-over-row? true :tooltip "Copy this item"
@@ -107,27 +109,35 @@
   "Display list of items, one per line"
   []
   (let [sort-key (subscribe [:by-path [:sort-keys :expenses]])
-        items (subscribe [:items-keys-sorted-by-key :expenses sort-by-key-then-created])]
+        items (subscribe [:items-keys-sorted-by-key :expenses sort-by-key-then-created])
+        notes (subscribe [:items-vals :expenses :notes])]
     (fn []
-      (let [widths {:date 15 :expense-type 32 :price 8}
+      (let [widths (r/atom {:date 12 :expense-type 20 :price 5
+                            :notes (max 10 (+ 2 (max-string-length @notes 40)))})
             header [h-box :align :center :justify :start :width "100%"
-                      :children [[hyperlink :class "uppercase" :style {:width (str (:date widths) "ch")}
+                      :children [[hyperlink :class "uppercase" :style {:width (str (:date @widths) "ch")}
                                   :label "Date" :tooltip "Sort by Date"
                                   :on-click #(if (= (first @sort-key) :date)
                                                (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
                                                (dispatch [:set-local-item-val [:sort-keys :expenses] [:date true]]))]
-                                 [hyperlink :class "uppercase" :style {:width (str (:expense-type widths) "ch")}
+                                 [hyperlink :class "uppercase" :style {:width (str (:expense-type @widths) "ch")}
                                   :label "Type" :tooltip "Sort by Type"
                                   :on-click #(if (= (first @sort-key) :expense-type)
                                                (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
                                                (dispatch [:set-local-item-val [:sort-keys :expenses] [:expense-type true]]))]
-                                 [hyperlink :class "uppercase" :style {:width (str (:price widths) "ch")}
+                                 ;; (trunc (safe-string @cn "(no name)") (get widths :name))
+                                 [hyperlink :class "uppercase" :style {:width (str (:notes @widths) "ch")}
+                                  :label "Notes" :tooltip "Sort by Notes"
+                                  :on-click #(if (= (first @sort-key) :notes)
+                                               (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
+                                               (dispatch [:set-local-item-val [:sort-keys :expenses] [:notes true]]))]
+                                 [hyperlink :class "uppercase" :style {:width (str (:price @widths) "ch")}
                                   :label "Price" :tooltip "Sort by Price"
                                   :on-click #(if (= (first @sort-key) :price)
                                                (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
                                                (dispatch [:set-local-item-val [:sort-keys :expenses] [:price true]]))]]]]
         [v-box :gap "4px" :align :center :justify :start
-           :children (into [header] (mapv (fn [id bg] ^{:key (str id "-expenses")} [item-list-view widths id bg]) @items (cycle [true false])))]))))
+           :children (into [header] (mapv (fn [id bg] ^{:key (str id "-expenses")} [item-list-view @widths id bg]) @items (cycle [true false])))]))))
 
 (defn view-selection
   "The row of view selection controls: list new-item"
