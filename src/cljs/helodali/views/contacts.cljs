@@ -142,8 +142,7 @@
         phone (subscribe [:item-key :contacts id :phone])
         role (subscribe [:item-key :contacts id :role])
         url (subscribe [:item-key :contacts id :url])
-        instagram (subscribe [:item-key :contacts id :instagram])
-        facebook (subscribe [:item-key :contacts id :facebook])]
+        instagram (subscribe [:item-key :contacts id :instagram])]
     (fn []
       [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
         :children [[hyperlink :style {:width (str (max 18 (get widths :name)) "ch")} :label (trunc (safe-string @cn "(no name)") (get widths :name))
@@ -154,7 +153,6 @@
                    [re-com/hyperlink-href :style {:width (str (max 18 (get widths :url)) "ch")}
                                :label (trunc (str @url) (:url widths)) :href (str (url-to-href @url)) :target "_blank"]
                    [label :width "18ch" :label (str @instagram)]
-                   [label :width "18ch" :label (str @facebook)]
                    [h-box :gap "2px" :justify :center :align :center :style {:font-size "18px"}
                       :children [[row-button :md-icon-name "zmdi zmdi-copy"
                                    :mouse-over-row? true :tooltip "Copy this item"
@@ -172,9 +170,9 @@
         emails (subscribe [:items-vals :contacts :email])
         urls (subscribe [:items-vals :contacts :url])]
     (fn []
-      (let [widths (r/atom {:name (+ 13 (max-string-length @names 80))
-                            :email (+ 4 (max-string-length @emails 40))
-                            :url (+ 4(max-string-length @urls 40))})
+      (let [widths (r/atom {:name (+ 2 (max-string-length @names 80))
+                            :email (+ 2 (max-string-length @emails 40))
+                            :url (+ 2 (max-string-length @urls 40))})
             header [h-box :align :center :justify :start :width "100%"
                       :children [[hyperlink :class "uppercase" :style {:width (str (max 18 (:name @widths)) "ch")}
                                      :label "Contact" :tooltip "Sort by Title"
@@ -205,12 +203,7 @@
                                      :label "instagram" :tooltip "Sort by Instagram Name"
                                      :on-click #(if (= (first @sort-key) :instagram)
                                                   (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
-                                                  (dispatch [:set-local-item-val [:sort-keys :contacts] [:instagram true]]))]
-                                 [hyperlink :class "uppercase" :style {:width "18ch"}
-                                     :label "facebook" :tooltip "Sort by Facebook Name"
-                                     :on-click #(if (= (first @sort-key) :facebook)
-                                                  (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
-                                                  (dispatch [:set-local-item-val [:sort-keys :contacts] [:facebook true]]))]]]]
+                                                  (dispatch [:set-local-item-val [:sort-keys :contacts] [:instagram true]]))]]]]
         [v-box :gap "4px" :align :center :justify :start
            :children (into [header] (mapv (fn [id bg] ^{:key (str id "-" (:name @widths))} [item-list-view @widths id bg]) @items (cycle [true false])))]))))
 

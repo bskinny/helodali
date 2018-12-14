@@ -44,6 +44,17 @@
    :editing false
    :expanded false})
 
+(defn default-expense
+  []
+  {:uuid (generate-uuid)
+   :created (now)
+   :date (now)
+   :expense-type :materials
+   :notes nil
+   :price 0
+   :editing false
+   :expanded false})
+
 (defn default-document
   []
   {:uuid (generate-uuid)
@@ -170,6 +181,7 @@
    :account {}
    :exhibitions (sorted-map)
    :contacts (sorted-map)
+   :expenses (sorted-map)
    :press (sorted-map)
    :instagram-media nil ;; This should be nil-valued at time of login
    :ui-defaults ui-defaults
@@ -192,6 +204,7 @@
    :pages {:enabled false :editing false :public-exhibitions []}
    :sort-keys {:artwork [:year false]  ;; true/false for forward/reverse sorting
                :contacts [:name true]
+               :expenses [:date false]
                :referred-artwork [:year false]
                :exhibitions [:name true]
                :documents [:title true]
@@ -206,6 +219,7 @@
                     :documents (default-document)
                     :exhibitions (default-exhibition)
                     :contacts (default-contact)
+                    :expenses (default-expense)
                     :press (default-press)
                     {})]
      (assoc defaults :uuid (generate-uuid))))

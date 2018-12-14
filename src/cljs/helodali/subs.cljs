@@ -184,10 +184,11 @@
             pattern (re-pattern (str "(?im).*" (:search-pattern db) ".*"))
             artwork (filter #(not (empty? (:match %))) (map #(search-acc :artwork pattern % :title) (vals (get db :artwork))))
             contacts (filter #(not (empty? (:match %))) (map #(search-acc :contacts pattern % :name) (vals (get db :contacts))))
-            exhibitions (filter #(not (empty? (:match %))) (map #(search-acc :exhibitions pattern % :name) (vals (get db :exhibitions))))
+            expenses (filter #(not (empty? (:match %))) (map #(search-acc :expenses pattern % :name) (vals (get db :expenses))))
+            exhibitions (filter #(not (empty? (:match %))) (map #(search-acc :exhibitions pattern % :expense-type) (vals (get db :exhibitions))))
             press (filter #(not (empty? (:match %))) (map #(search-acc :press pattern % :title) (vals (get db :press))))
-            profile (filter #(not (empty? (:match %))) (list (search-acc :profile pattern (get db :profile) :name)))
-            matches (concat artwork contacts exhibitions press profile)]
+            profile (filter #(not (empty? (:match %))) (list (search-acc :profile pattern (get db :profile) :fullname)))
+            matches (concat artwork contacts expenses exhibitions press profile)]
         (if (= kw :match) ;; Handle the sorting on 'Match' column differently than the others
           (let [reverse (if reverse? -1 1)]
             (sort #(* reverse (compare (first (:match %1)) (first (:match %2)))) matches))

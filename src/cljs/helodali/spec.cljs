@@ -127,6 +127,12 @@
                            :opt-un [::title ::author-first-name ::author-last-name ::publication ::url ::volume
                                     ::publication-date ::page-numbers ::include-in-cv ::notes ::associated-documents ::notes]))
 
+;; Expenses
+(s/def ::expense-type #{:materials :advertising :packaging-shipping :other
+                        :miscellaneous :dues-subscriptions})
+(s/def ::expense (s/keys :req-un [::date ::price ::created]
+                         :opt-un [::notes ::expense-type]))
+
 ;; Exhibitions
 (s/def ::kind #{:solo :group :duo :other})
 (s/def ::begin-date ::date)
@@ -178,8 +184,9 @@
 (s/def ::residencies (s/* ::year-and-string))
 (s/def ::lectures-and-talks (s/* ::year-and-string))
 (s/def ::collections (s/* string?))
-(s/def ::profile (s/nilable (s/keys :opt-un [::uuid ::name ::birth-year ::birth-place ::currently-resides ::email ::phone
-                                             ::url ::degrees ::awards-and-grants ::residencies ::lectures-and-talks
+(s/def ::fullname (s/nilable string?))
+(s/def ::profile (s/nilable (s/keys :opt-un [::uuid ::birth-year ::birth-place ::currently-resides ::email ::phone
+                                             ::url ::fullname ::degrees ::awards-and-grants ::residencies ::lectures-and-talks
                                              ::collections ::photo])))
 
 ;; User's account - mostly read-only information
@@ -210,10 +217,12 @@
 (s/def ::csrf-token (s/nilable string?))
 (s/def ::single-item-uuid (s/nilable string?))
 (s/def ::search-pattern (s/nilable string?))
-(s/def ::view #{:show-login :artwork :contacts :exhibitions :documents :purchases :press :profile :search-results :account :pages :static-page})
+(s/def ::view #{:show-login :artwork :contacts :exhibitions :documents :purchases :press :profile
+                :search-results :account :pages :static-page :expenses})
 (s/def ::static-page (s/nilable #{:privacy-policy}))
 (s/def ::display-type #{:contact-sheet :single-item :new-item :list :row :instagram})
 (s/def ::contacts (s/every-kv ::id ::contact))
+(s/def ::expenses (s/every-kv ::id ::expense))
 (s/def ::exhibitions (s/every-kv ::id ::exhibition))
 (s/def ::documents (s/every-kv ::id ::document))
 (s/def ::press (s/every-kv ::id ::press-ref))
@@ -232,6 +241,7 @@
     :artwork ::artwork-item
     :exhibitions ::exhibition
     :contacts ::contact
+    :expenses ::expense
     :documents ::document
     :press ::press-ref
     (keyword "helodali.spec" type)))

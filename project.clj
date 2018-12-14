@@ -60,7 +60,9 @@
   :war-resources-path "war-resources" ;; Used only for packaging .ebextensions at the top level of the war
 
   :profiles
-    {:dev
+    {:dbmgmt {:dependencies [[org.clojure/tools.nrepl "0.2.13"]]}
+
+     :dev
        {:hooks [leiningen.cljsbuild]  ;; This adds cljsbuild when lein does an ordinary compile
         :dependencies [[binaryage/devtools "0.9.10"]]
         :plugins      [[lein-figwheel "0.5.16"]
@@ -93,14 +95,11 @@
                          :output-to       "resources/public/js/compiled/app.js" ;; This filename is changed by eb-deploy.pl for cache busting
                          :optimizations   :advanced
                          :closure-defines {goog.DEBUG false}
-                         :pretty-print    false}}}}}
+                         :pretty-print    false}}}}}}
 
-     :dbmgmt {:dependencies [[org.clojure/tools.nrepl "0.2.13"]]}}
-
-    :api
-    {:ring {:handler helodali.handler/api-handler
-            :uberwar-name "helodali-api.war"}
-     :cljsbuild {:builds []}}
+    :api {:ring {:handler helodali.handler/api-handler
+                 :uberwar-name "helodali-api.war"}
+          :cljsbuild {:builds []}}
 
   :main helodali.server
 

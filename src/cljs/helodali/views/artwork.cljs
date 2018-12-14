@@ -236,7 +236,6 @@
         style (subscribe [:item-key :artwork id :style])
         type (subscribe [:item-key :artwork id :type])
         title (subscribe [:item-key :artwork id :title])
-        expenses (subscribe [:item-key :artwork id :expenses])
         purchases (subscribe [:by-path-sorted-by [:artwork id :purchases] (partial sort-by-datetime :date true)])
         exhibition-history (subscribe [:by-path-and-deref-sorted-by [:artwork id :exhibition-history] :exhibitions (partial sort-by-datetime :begin-date true)])
         condition (subscribe [:item-key :artwork id :condition])
@@ -261,8 +260,7 @@
                                                       [label :label (str " | " (clojure.string/join ", " (map name @style)))])]]
                                      [:span.italic @medium]
                                      [:span @dimensions]
-                                     [:span (str "List Price: $" @list-price)]
-                                     (when (not (= 0 @expenses)) [:span (str "Expenses: $" @expenses)])]]
+                                     [:span (str "List Price: $" @list-price)]]]
             view [[v-box :gap "6px" :align :start :justify :start :padding "8px" ;:max-width "300px"
                        :children [[re-com/box :max-width "360px" :child [:p.bold (title-string @title)]]
                                   ;; The placement of view-basics depends on an existence of description
@@ -326,15 +324,10 @@
                                  :children [[:span.uppercase.light-grey "condition"]
                                             [input-text :width "148px" :model (str @condition) :style {:border "none"}
                                                  :on-change #(dispatch [:set-local-item-val [:artwork id :condition] %])]]]
-                               [h-box :gap "10px" :align :center :justify :start
-                                 :children [[h-box :gap "4px" :align :center
-                                              :children [[:span.uppercase.light-grey "list price"]
-                                                         [input-text :width "80px" :model (str @list-price) :style {:border "none"} :validation-regex #"^\d*$"
-                                                             :attr {:max-length 12} :on-change #(dispatch [:set-local-item-val [:artwork id :list-price] (js/Number %)])]]]
-                                            [h-box :gap "4px" :align :center
-                                              :children [[:span.uppercase.light-grey "expenses"]
-                                                         [input-text :width "70px" :model (str @expenses) :style {:border "none"} :validation-regex #"^\d*$"
-                                                             :attr {:max-length 12} :on-change #(dispatch [:set-local-item-val [:artwork id :expenses] (js/Number %)])]]]]]]]
+                               [h-box :gap "4px" :align :center
+                                 :children [[:span.uppercase.light-grey "list price"]
+                                            [input-text :width "80px" :model (str @list-price) :style {:border "none"} :validation-regex #"^\d*$"
+                                                :attr {:max-length 12} :on-change #(dispatch [:set-local-item-val [:artwork id :list-price] (js/Number %)])]]]]]
                   [h-box :gap "6px" :align :center
                      :children [[:span.uppercase.light-grey "style"]
                                 [selection-list :choices style-options :model (if (empty? @style) #{} (set @style)) :height "210px"
@@ -568,7 +561,6 @@
         year (subscribe [:item-key :artwork id :year])
         status (subscribe [:item-key :artwork id :status])
         type (subscribe [:item-key :artwork id :type])
-        expenses (subscribe [:item-key :artwork id :expenses])
         list-price (subscribe [:item-key :artwork id :list-price])
         current-location (subscribe [:item-key :artwork id :current-location])
         instagram (subscribe [:item-key :artwork id :instagram])
@@ -585,7 +577,6 @@
                    [label :width (str (max 8 (:medium widths)) "ch") :label (trunc @medium (:medium widths))]
                    [label :width "20ch" :label (str @dimensions)]
                    [label :width "12ch" :label (str @list-price)]
-                   [label :width "12ch" :label (str @expenses)]
                    [label :width "12ch" :label (name @type)]
                    [h-box :gap "2px" :justify :center :align :center :style {:font-size "18px"}
                        :children [[row-button :md-icon-name "zmdi zmdi-copy"
@@ -645,10 +636,6 @@
                                     :tooltip "Sort by Price" :on-click #(if (= (first @sort-key) :list-price)
                                                                           (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
                                                                           (dispatch [:set-local-item-val [:sort-keys :artwork] [:list-price false]]))]
-                                 [hyperlink :class "uppercase" :style {:width "12ch"} :label "expenses"
-                                    :tooltip "Sort by Expenses" :on-click #(if (= (first @sort-key) :expenses)
-                                                                             (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
-                                                                             (dispatch [:set-local-item-val [:sort-keys :artwork] [:expenses false]]))]
                                  [hyperlink :class "uppercase" :style {:width "12ch"} :label "type"
                                     :tooltip "Sort by Type" :on-click #(if (= (first @sort-key) :type)
                                                                          (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])

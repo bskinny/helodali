@@ -62,7 +62,6 @@
        (content-type "text/html")))
 
   (GET "/csrf-token" []
-    (pprint "Getting csrf-token.")
     (response {:csrf-token *anti-forgery-token*}))
 
   (POST "/refresh-instagram" [uref access-token max-id :as req]
