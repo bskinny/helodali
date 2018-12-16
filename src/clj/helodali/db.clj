@@ -382,16 +382,17 @@
   [uref sub media]
   (let [artwork-uuid (str (uuid/v1))
         image-uuid (str (uuid/v1))
-        year-matched (re-find #"[^\d]([12]\d\d\d)[^\d]" (:caption media)) ;; Might look like [" 2018," "2018"] or nil
-        dimensions-matched (re-find #"(?i)[^\d]*(\d+[\"\']?\s*[xXby]+\s*\d+[\"\']?\s*(inches|in|feet|ft|cm|meters|m)?)" (:caption media))
+        caption (or (:caption media) "")
+        year-matched (re-find #"[^\d]([12]\d\d\d)[^\d]" caption) ;; Might look like [" 2018," "2018"] or nil
+        dimensions-matched (re-find #"(?i)[^\d]*(\d+[\"\']?\s*[xXby]+\s*\d+[\"\']?\s*(inches|in|feet|ft|cm|meters|m)?)" caption)
         year (if year-matched
                (Integer/parseInt (str/trim (second year-matched)))
                (year (now)))
         item (cond-> {:uref uref
                       :uuid artwork-uuid
                       :created (:created media)
-                      :description (:caption media)
-                      :title (str/trim (first (str/split (:caption media) #"[.\-,]" 2)))
+                      :description caption
+                      :title (str/trim (first (str/split caption #"[.\-,]" 2)))
                       :year year
                       :status :for-sale
                       :type (first (match-hashtag (:tags media) (keys types/media) #{:mixed-media}))
