@@ -675,11 +675,13 @@
   []
   (let [uuid (subscribe [:app-key :single-item-uuid])
         item-path (subscribe [:item-path-by-uuid :artwork @uuid])
+        item (subscribe [:by-path @item-path])
         id (last @item-path)]
     (fn []
       (when (not (empty? @item-path))
         [v-box :gap "10px" :margin "40px" ;:style {:flex-flow "row wrap"}
            :children [[item-view id]]]))))
+                      ;[:pre [:code (with-out-str (pprint @item))]]]]))))
 
 (defn new-item-view
   []

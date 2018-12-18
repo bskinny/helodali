@@ -185,35 +185,37 @@
        (map #(update-images %) artwork))))
 
 (defn- fix-response
-  "Comb through a response from the server and fix problematic formats such as dates"
+  "Comb through a response from the server and fix problematic formats such as dates. The resp is expected to be a map
+   representing the entire app-db."
   [resp]
-  (let [fixer (partial fix-date :parse)]
-    (-> resp
-        (assoc :artwork (->> (:artwork resp)
-                             (fixer :created)
-                             (map #(assoc % :instagram-media-ref (and (:instagram-media-ref %)
-                                                                      (first (fixer :created [(:instagram-media-ref %)])))))
-                             (map #(assoc % :purchases (fixer :date (:purchases %))))))
-        (assoc :account (if (:account resp)
-                          (assoc-in (:account resp) [:created] (parse-date :date (get-in resp [:account :created])))))
-        (assoc :press (->> (:press resp)
-                           (fixer :created)
-                           (fixer :publication-date)))
-        (assoc :contacts (->> (:contacts resp)
-                              (fixer :created)))
-        (assoc :expenses (->> (:expenses resp)
-                              (map (fn [m] (coerce-decimal m [:price])))
-                              (fixer :created)
-                              (fixer :date)))
-        (assoc :documents (->> (:documents resp)
-                               (fixer :created)
-                               (fixer :last-modified)))
-        (assoc :exhibitions (->> (:exhibitions resp)
-                                 (fixer :created)
-                                 (fixer :begin-date)
-                                 (fixer :end-date)))
-        (assoc :instagram-media (if (:instagram-media resp)  ;; Convert the unix time :created to cljs-time objects
-                                  (apply vector (map #(assoc % :created (from-long (get % :created))) (:instagram-media resp))))))))
+  (let [fixer (partial fix-date :parse)
+        has (partial contains? resp)]
+    (cond-> resp
+        (has :artwork) (assoc :artwork (->> (:artwork resp)
+                                            (fixer :created)
+                                            (map #(assoc % :instagram-media-ref (and (:instagram-media-ref %)
+                                                                                     (first (fixer :created [(:instagram-media-ref %)])))))
+                                            (map #(assoc % :purchases (fixer :date (:purchases %))))))
+        (has :account) (assoc :account (if (:account resp)
+                                         (assoc-in (:account resp) [:created] (parse-date :date (get-in resp [:account :created])))))
+        (has :press) (assoc :press (->> (:press resp)
+                                        (fixer :created)
+                                        (fixer :publication-date)))
+        (has :contacts) (assoc :contacts (->> (:contacts resp)
+                                              (fixer :created)))
+        (has :expenses) (assoc :expenses (->> (:expenses resp)
+                                              (map (fn [m] (coerce-decimal m [:price])))
+                                              (fixer :created)
+                                              (fixer :date)))
+        (has :documents) (assoc :documents (->> (:documents resp)
+                                                (fixer :created)
+                                                (fixer :last-modified)))
+        (has :exhibitions) (assoc :exhibitions (->> (:exhibitions resp)
+                                                    (fixer :created)
+                                                    (fixer :begin-date)
+                                                    (fixer :end-date)))
+        ;; Convert the unix time :created to cljs-time objects
+        (has :instagram-media) (assoc :instagram-media (apply vector (map #(assoc % :created (from-long (get % :created))) (:instagram-media resp)))))))
 
 (reg-event-fx
   :initialize-db-from-result
@@ -310,7 +312,7 @@
                               :timeout         5000
                               :format          (ajax/transit-request-format {})
                               :response-format (ajax/transit-response-format {:keywords? true})
-                              :on-success      [:update-db-from-result (fn [db] true)]
+                              :on-success      [:update-items]
                               :on-failure      [:bad-result {} retry-fx]}}))))
 
 ;; Similar to above but restricted to the app-db's :profile or :pages, which results to writes against
@@ -504,6 +506,31 @@
                     :on-failure      [:bad-result {} false]}
        :db (assoc-in db [:instagram-media id :processing] true)})))
 
+(def signed-url-keys [:signed-thumb-url :signed-thumb-url-expiration-time
+                      :signed-raw-url :signed-raw-url-expiration-time :signed-image-url
+                      :signed-image-url-expiration-time])
+
+(defn copy-signed-urls
+  "Copy signed-urls for matching images (matching on :key) from images to new-images."
+  [new-images images]
+  (let [;; Create a map of images keyed on the current app-db item's images
+        signed-urls (reduce (fn [acc image] (assoc acc (:key image) image)) {} images)
+        new-images (map (fn [image] (if (contains? signed-urls (:key image))
+                                      (merge image (select-keys (get signed-urls (:key image)) signed-url-keys))
+                                      image))
+                        new-images)]
+    (apply vector new-images)))
+
+(defn replace-item
+  "Perform a smart replacement of the new-item for the old db item. Specifically, don't throw away valid
+   signed urls for artwork or the item's :expanded UI state. This is a bit tricky for the signed-urls as
+   we need to match on the image :key as the image itself may have changed."
+  [db type id new-item]
+  (let [item (get-in db [type id])]
+    (cond-> new-item
+            (= :artwork type) (assoc :images (copy-signed-urls (:images new-item) (get-in db [type id :images])))
+            (contains? item :expanded) (assoc :expanded (:expanded item)))))
+
 ;; Update items under :artwork, :instagram-media, etc. The incoming data is a map keyed by item type
 ;; with values a list of changes. A change is structured as [<uuid of item> [path value]] where
 ;; path is a vector that points into the item or can be nil to represent a whole-item overwrite.
@@ -529,8 +556,8 @@
                                        ;; new item
                                        (let [id (next-id (get db type))]
                                          (assoc-in db [type id] new-item))
-                                       ;; overwrite existing item
-                                       (assoc-in db [type id] new-item)))
+                                       ;; overwrite existing item with some consideration to keeping signed-urls for artwork
+                                       (assoc-in db [type id] (replace-item db type id new-item))))
                                    ;; Assoc into existing item
                                    (let [item (assoc (get-in db [type id]) path val)
                                          fixed (fix-response {type [item]})]
@@ -595,7 +622,7 @@
                                     :id-token (:id-token db)
                                     :uref (:uuid (:profile db))}
                   :headers         {:x-csrf-token (:csrf-token db)}
-                  :timeout         5000
+                  :timeout         10000
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
                   :on-success      [:initialize-db-from-result]
@@ -623,7 +650,7 @@
     {:http-xhrio {:method          :get
                   :uri             "/check-session"
                   :headers         {:x-csrf-token (:csrf-token db)}
-                  :timeout         5000
+                  :timeout         12000     ;; A long timeout is sometimes needed during dev (server running locally)
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
                   :on-success      [:initialize-db-from-result]
@@ -1019,7 +1046,7 @@
 ;; This event should be dispatched when an item or path into an item needs to be
 ;; refreshed from the database. We dispatch continually, with a
 ;; 1000ms delay, until a satisfactory result is returned as determined by the
-;; given satisfied function. The 'item-path' argument must contain at table
+;; given satisfied function. The 'item-path' argument must contain a table
 ;; and id at minimum. E.g. [:documents 2]
 (reg-event-fx
   :refresh-item
@@ -1049,9 +1076,9 @@
     (if (not (satisfied-fn result))
       {:dispatch-later [{:ms 1000 :dispatch [:refresh-item item-path satisfied-fn]}]}
       ;; else merge the map into the item
-      (let [val (-> (get-in db item-path)
-                    (merge result)
-                    (walk-cleaner))]
+      (let [fixed-resp (first (fix-response {(first item-path) [result]}))
+            val (-> (get-in db item-path)
+                    (merge fixed-resp))]
         {:db (assoc-in db item-path val)}))))
 
 ;; This event should be dispatched when an artwork has images being processed and hence

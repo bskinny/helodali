@@ -149,7 +149,7 @@
 
 (defn delete-item
   [table key-map]
-  (far/delete-item co table key-map))
+  (far/delete-item co table key-map {:return :none}))
 
 (defn delete-items
   "Delete, in batches of 25, the given items from given table. The item-list
@@ -310,13 +310,17 @@
 (defn update-item
   "Update items in artwork, press, exhibitions, documents, expenses, or contacts tables. The method of building
    the DynamoDB changeset depends on whether we are called with a single attribute change (path == [path to attribute])
-   or multiple attribute changes within an item (path == nil and val is keyed with attribute paths)"
+   or multiple attribute changes within an item (path == nil and val is keyed with attribute paths).
+
+   The response should a map of the form {:type [changes]} where a changes is a vector 2-tuple [<uuid of item> [path value]]
+   where path is a vector that points into the item or can be nil to represent a whole-item overwrite on the client side.
+   E.g. {:artwork [[d4544181-016f-11e9-9cfb-335dc3cb2f41 [[:year] 2017]]]}"
   [table uref uuid path val]
   (if (nil? val)
     {} ;; nothing to do)
     (if (nil? path)
-      (apply-attribute-changes table {:uref uref :uuid uuid} val)
-      (apply-attribute-change table {:uref uref :uuid uuid} path val))))
+      {table [[uuid [nil (coerce-item table (apply-attribute-changes table {:uref uref :uuid uuid} val))]]]}
+      {table [[uuid [nil (coerce-item table (apply-attribute-change table {:uref uref :uuid uuid} path val))]]]})))
 
 (defn update-user-table
   "Update a user table, such as :profiles or :pages. The method of building
@@ -357,7 +361,8 @@
   [table item]
   (let [item (walk-cleaner item)]
     (pprint (str "creating cleaned item: " item))
-    (far/put-item co table item)))
+    ;; Create the item and respond with nothing - no need to send the item to the client.
+    (far/put-item co table item {:return :none})))
 
 (defn match-hashtag
   "Given a list of hashtag strings (such as from the caption of an Instagram media post) and a list of keywords,
