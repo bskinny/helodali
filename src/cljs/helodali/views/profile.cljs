@@ -46,7 +46,7 @@
 (defn item-view
   "Display the profile"
   [id]
-  (let [cn (subscribe [:by-path [:profile :fullname]])
+  (let [cn (subscribe [:by-path [:profile :name]])
         photo (subscribe [:by-path [:profile :photo]])
         birth-year (subscribe [:by-path [:profile :birth-year]])
         birth-place (subscribe [:by-path [:profile :birth-place]])
@@ -123,7 +123,7 @@
             edit [[h-box :gap "8px" :align :center :justify :between
                     :children [[:span.uppercase.bold "Name"]
                                [input-text :model (str @cn) :placeholder "" :width "320px" :style {:border "none"}
-                                  :on-change #(dispatch [:set-local-item-val [:profile :fullname] %])]]]
+                                  :on-change #(dispatch [:set-local-item-val [:profile :name] %])]]]
                   [h-box :gap "6px" :align :center
                     :children [[:span.uppercase.light-grey "Birth Year"]
                                [input-text :width "60px" :model (str @birth-year) :style {:border "none"}

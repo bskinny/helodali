@@ -187,7 +187,7 @@
             expenses (filter #(not (empty? (:match %))) (map #(search-acc :expenses pattern % :name) (vals (get db :expenses))))
             exhibitions (filter #(not (empty? (:match %))) (map #(search-acc :exhibitions pattern % :expense-type) (vals (get db :exhibitions))))
             press (filter #(not (empty? (:match %))) (map #(search-acc :press pattern % :title) (vals (get db :press))))
-            profile (filter #(not (empty? (:match %))) (list (search-acc :profile pattern (get db :profile) :fullname)))
+            profile (filter #(not (empty? (:match %))) (list (search-acc :profile pattern (get db :profile) :name)))
             matches (concat artwork contacts expenses exhibitions press profile)]
         (if (= kw :match) ;; Handle the sorting on 'Match' column differently than the others
           (let [reverse (if reverse? -1 1)]

@@ -184,9 +184,8 @@
 (s/def ::residencies (s/* ::year-and-string))
 (s/def ::lectures-and-talks (s/* ::year-and-string))
 (s/def ::collections (s/* string?))
-(s/def ::fullname (s/nilable string?))
 (s/def ::profile (s/nilable (s/keys :opt-un [::uuid ::birth-year ::birth-place ::currently-resides ::email ::phone
-                                             ::url ::fullname ::degrees ::awards-and-grants ::residencies ::lectures-and-talks
+                                             ::url ::name ::degrees ::awards-and-grants ::residencies ::lectures-and-talks
                                              ::collections ::photo])))
 
 ;; User's account - mostly read-only information
