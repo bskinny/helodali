@@ -80,73 +80,6 @@
   ([table uref opts]
    (map (partial coerce-item table) (far/query co table {:uref [:eq uref]} opts))))
 
-(defn- sync-userinfo
-  "Update our openid item in the database if the given userinfo map disagrees"
-  [userinfo openid-item]
-  (pprint (str "sync-userinfo: userinfo is " userinfo))
-  (pprint (str "sync-userinfo: openid-item is " openid-item))
-  (let [sub (:sub openid-item)]      ;; TODO: combine these operations into one write
-    (if (not= (:email openid-item) (:email userinfo))
-      (far/update-item co :openid {:sub sub}
-                       {:update-expr     (str "SET #email = :val")
-                        :expr-attr-names {"#email" "email"}
-                        :expr-attr-vals  {":val" (:email userinfo)}
-                        :return          :all-new}))
-    (if (not= (:name openid-item) (:name userinfo))
-      (far/update-item co :openid {:sub sub}
-                       {:update-expr     (str "SET #name = :val")
-                        :expr-attr-names {"#name" "name"}
-                        :expr-attr-vals  {":val" (:name userinfo)}
-                        :return          :all-new}))))
-
-(defn create-user-if-necessary
-  "Look for the given sub as a user of our application if she does not exist yet, create her."
-  [userinfo]
-  (when-not (nil? (:sub userinfo))
-    (let [openid-item (far/get-item co :openid {:sub (:sub userinfo)})]
-      (if (nil? (:uref openid-item))
-        (let [uuid (str (uuid/v1))
-              created (unparse (formatters :date) (now))]
-          (pprint (str "Creating user account for " (:sub userinfo)))
-          (far/put-item co :accounts {:uuid uuid :created created})
-          (far/put-item co :pages {:uuid uuid :enabled false})
-          (far/put-item co :profiles {:uuid uuid :fullname (:name userinfo) :created created})
-          (far/put-item co :openid {:uref uuid :sub (:sub userinfo) :email (:email userinfo)}))
-        (sync-userinfo userinfo openid-item)))))
-
-(defn cache-access-token
-  [session-uuid token-resp userinfo]
-  (let [openid-item (far/get-item co :openid {:sub (:sub userinfo)})
-        uref (:uref openid-item)]
-    (when uref
-      (let [tn (ZonedDateTime/now (ZoneId/of "Z"))]
-        (far/put-item co :sessions {:uuid     session-uuid :uref uref :token (:access_token token-resp)
-                                    :refresh  (:refresh_token token-resp)
-                                    :id-token (:id_token token-resp) :sub (:sub userinfo)
-                                    :ts (.format tn DateTimeFormatter/ISO_INSTANT)})
-        uref))))
-
-(defn query-session
-  "Check if the given uref and access-token are in agreement in the :sessions table,
-   i.e. there is an item that matches the pair of values. If so, return the session."
-  [uref access-token]
-  (if (or (empty? uref) (empty? access-token))
-    {}
-    (let [session (far/query co :sessions {:uref [:eq uref] :token [:eq access-token]}
-                             {:index "uref-and-token" :limit 1})]
-      ;; The projection will include :uuid, :uref, :token, :sub, :ts, and :refresh
-      (if session
-        (first session)
-        {}))))
-
-(defn get-session
-  "Retrieve the session table item given the session uuid."
-  [uuid]
-  (let [session (far/get-item co :sessions {:uuid uuid})]
-    (if session
-      session
-      {})))
-
 (defn delete-item
   [table key-map]
   (far/delete-item co table key-map {:return :none}))
@@ -312,9 +245,9 @@
    the DynamoDB changeset depends on whether we are called with a single attribute change (path == [path to attribute])
    or multiple attribute changes within an item (path == nil and val is keyed with attribute paths).
 
-   The response should a map of the form {:type [changes]} where a changes is a vector 2-tuple [<uuid of item> [path value]]
-   where path is a vector that points into the item or can be nil to represent a whole-item overwrite on the client side.
-   E.g. {:artwork [[d4544181-016f-11e9-9cfb-335dc3cb2f41 [[:year] 2017]]]}"
+   The response should a map of the form {table [changes]} where table is the (keyword) table name and changes is a vector
+   2-tuple [<uuid of item> [path value]] where path is a vector that points into the item or can be nil to represent
+   a whole-item overwrite on the client side. E.g. {:artwork [[d4544181-016f-11e9-9cfb-335dc3cb2f41 [[:year] 2017]]]}"
   [table uref uuid path val]
   (if (nil? val)
     {} ;; nothing to do)
@@ -325,11 +258,14 @@
 (defn update-user-table
   "Update a user table, such as :profiles or :pages. The method of building
    the DynamoDB changeset depends on whether we are called with a single attribute change (path == [path to attribute])
-   or multiple attribute changes within an item (path == nil and val is keyed with attribute paths)"
+   or multiple attribute changes within an item (path == nil and val is keyed with attribute paths)
+
+   The response should be of the form [path val] where path is a table name, e.g. :profiles, and val is the whole item
+   which will replace the corresponding client side item, e.g. :profiles val in app-db."
   [table uuid path val]
   (if (nil? path)
-    (apply-attribute-changes table {:uuid uuid} val)
-    (apply-attribute-change table {:uuid uuid} path val)))
+    [table (coerce-item table (apply-attribute-changes table {:uuid uuid} val))]
+    [table (coerce-item table (apply-attribute-change table {:uuid uuid} path val))]))
 
 (defn refresh-item-path
   "Fetch item from artwork, press, exhibitions, documents, expenses, or contacts table. The 'path'
@@ -422,6 +358,73 @@
       ;; Return an updated version of the :instagram-media-ref item as well as the new :artwork item
       {:artwork [[artwork-uuid [nil (assoc item :images [{:uuid image-uuid :processing true}])]]]
        :instagram-media [[(:instagram-id media) [nil (assoc media :artwork-uuid artwork-uuid)]]]})))
+
+(defn- sync-userinfo
+  "Update our openid item in the database if the given userinfo map disagrees. Note the conversion of :email_verified
+   to :email-verified."
+  [userinfo openid-item]
+  (pprint (str "sync-userinfo: userinfo is " userinfo))
+  (pprint (str "sync-userinfo: openid-item is " openid-item))
+  (let [sub (:sub openid-item)
+        changes (cond-> {}
+                        (not= (:email openid-item) (:email userinfo)) (assoc :email (:email userinfo))
+                        (not= (:name openid-item) (:name userinfo)) (assoc :name (:name userinfo))
+                        (not= (:email-verified openid-item) (:email_verified userinfo)) (assoc :email-verified (:email_verified userinfo)))]
+    (when (not-empty changes)
+      (apply-attribute-changes :openid {:sub sub} changes))))
+
+(defn create-user-if-necessary
+  "Look for the given sub as a user of our application and if she does not exist yet, create her."
+  [userinfo]
+  (when-not (nil? (:sub userinfo))
+    (let [openid-item (far/get-item co :openid {:sub (:sub userinfo)})]
+      (if (nil? (:uref openid-item))
+        (let [uuid (str (uuid/v1))
+              created (unparse (formatters :date) (now))
+              ;; Use name from external IdP or username from Cognito native accounts
+              name-or-username (or (:cognito:username userinfo) (:name userinfo))]
+          (pprint (str "Creating user account for " (:sub userinfo)))
+          (far/put-item co :accounts {:uuid uuid :created created})
+          (far/put-item co :pages {:uuid uuid :enabled false})
+          (far/put-item co :profiles {:uuid uuid :name name-or-username :email (:email userinfo)
+                                      :created created :email-verified (:email_verified userinfo)})
+          (far/put-item co :openid {:uref uuid :sub (:sub userinfo) :email (:email userinfo)}))
+        (sync-userinfo userinfo openid-item)))))
+
+(defn cache-access-token
+  [session-uuid token-resp userinfo]
+  (let [openid-item (far/get-item co :openid {:sub (:sub userinfo)})
+        uref (:uref openid-item)]
+    (when uref
+      (let [tn (ZonedDateTime/now (ZoneId/of "Z"))]
+        (far/put-item co :sessions {:uuid     session-uuid :uref uref :token (:access_token token-resp)
+                                    :refresh  (:refresh_token token-resp)
+                                    :id-token (:id_token token-resp) :sub (:sub userinfo)
+                                    :ts (.format tn DateTimeFormatter/ISO_INSTANT)})
+        uref))))
+
+(defn query-session
+  "Check if the given uref and access-token are in agreement in the :sessions table,
+   i.e. there is an item that matches the pair of values. If so, return the session."
+  [uref access-token]
+  (if (or (empty? uref) (empty? access-token))
+    {}
+    (let [session (far/query co :sessions {:uref [:eq uref] :token [:eq access-token]}
+                             {:index "uref-and-token" :limit 1})]
+      ;; The projection will include :uuid, :uref, :token, :sub, :ts, and :refresh
+      (if session
+        (first session)
+        {}))))
+
+(defn get-session
+  "Retrieve the session table item given the session uuid."
+  [uuid]
+  (let [session (far/get-item co :sessions {:uuid uuid})]
+    (if session
+      session
+      {})))
+
+;; Maintenance functions
 
 (defn create-table
   [name]

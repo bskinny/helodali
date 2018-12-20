@@ -249,13 +249,26 @@
          :sync-to-local-storage [{:k "helodali.access-token" :v (:access-token resp)}
                                  {:k "helodali.id-token" :v (:id-token resp)}]}))))
 
-;; Update top-level app-db keys if supplied predicate evaluates true.
+;; Update top-level app-db keys if supplied predicate evaluates true. The result can come from the server in the
+;; form [type val] with type points to a top-level key into app-db and val is the whole item replacement. The result
+;; can also be a map containing top-level keys which should be replaced in app-db. Note: For the former case, we
+;; must make one adjustment to the incoming table name, which is plural on the server and singular here in app-dn,
+;; e.g. :profiles -> :profile, :accounts -> :account. Note that :pages is a uref based table but the keyword is
+;; plural on both server and client.
 (reg-event-db
   :update-db-from-result
   manual-check-spec
   (fn [db [predicate-fx result]]
     (if (predicate-fx db)
-      (merge db result)
+      (if (map? result)
+         (merge db result)
+         (let [[type item] result
+               ;; Fix table name if necessary.
+               type (cond-> = type
+                            :profiles :profile
+                            :accounts :account
+                            type)]
+           (assoc db type item)))
       db)))
 
 ;; Like above but without the predicate check and with a retry function to dispatch
