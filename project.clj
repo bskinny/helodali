@@ -1,50 +1,51 @@
 (defproject helodali "0.1.0-SNAPSHOT"
   :dependencies [[org.clojure/clojure "1.9.0"]
-                 [org.clojure/clojurescript "1.10.339"]
-                 [reagent "0.8.0"]
-                 [re-frame "0.10.5"]
-                 [cljs-ajax "0.7.3"]
+                 [org.clojure/clojurescript "1.10.439"]
+                 [org.clojure/tools.logging "0.4.1"]
+                 [reagent "0.8.1"]
+                 [re-frame "0.10.6"]
+                 [cljs-ajax "0.8.0"]
                  [day8.re-frame/http-fx "0.1.6"]
-                 [joda-time "2.9.9"]
-                 [amazonica "0.3.125" :exclusions [com.amazonaws/aws-java-sdk
+                 [joda-time "2.10.1"]
+                 [amazonica "0.3.134" :exclusions [com.amazonaws/aws-java-sdk
                                                    com.amazonaws/amazon-kinesis-client]]
-                 [com.amazonaws/aws-java-sdk-core "1.11.333"]
-                 [com.amazonaws/aws-java-sdk-dynamodb "1.11.333"]
-                 [com.amazonaws/aws-java-sdk-s3 "1.11.333"]
+                 [com.amazonaws/aws-java-sdk-core "1.11.452"]
+                 [com.amazonaws/aws-java-sdk-dynamodb "1.11.452"]
+                 [com.amazonaws/aws-java-sdk-s3 "1.11.452"]
                  [com.taoensso/faraday "1.9.0"]
-                 [commons-codec "1.10"]
-                 [org.apache.httpcomponents/httpclient "4.5.3"]
-                 [ring "1.6.3"]
-                 [clj-pdf "2.2.19"]
+                 [commons-codec "1.11"]
+                 [org.apache.httpcomponents/httpclient "4.5.6"]
+                 [ring "1.7.0"]
+                 [clj-pdf "2.2.33"]
                  [org.clojure/core.async "0.4.474"]
                  [danlentz/clj-uuid "0.1.7"]
                  [com.lucasbradstreet/cljs-uuid-utils "1.0.2"]
-                 [clj-time "0.14.3"]
+                 [clj-time "0.15.1"]
                  [com.andrewmcveigh/cljs-time "0.5.2"]
-                 [re-com "2.1.0"]
+                 [re-com "2.2.0"]
                  [compojure "1.6.1"]
-                 [org.clojure/spec.alpha "0.1.143"]
+                 [org.clojure/spec.alpha "0.2.176"]
                  [org.clojure/core.specs.alpha "0.1.24"]
                  [yogthos/config "1.1.1"]
                  [clj-jwt "0.1.1"]
-                 [buddy/buddy-core "1.5.0-SNAPSHOT"]
+                 [buddy/buddy-core "1.5.0"]
                  [cljsjs/aws-sdk-js "2.247.1-0"]  ;; This is a local build of aws-sdk-js
-                 [ring/ring-defaults "0.3.1"]
+                 [ring/ring-defaults "0.3.2"]
                  [ring-middleware-format "0.7.2"]
-                 [ring-logger "0.7.7"]
+                 [ring-logger "0.7.8"]
                  [clj-http "2.3.0"]
                  [hickory "0.7.1"]
-                 [cheshire "5.8.0"]
+                 [cheshire "5.8.1"]
                  [secretary "1.2.3"]
                  [slingshot "0.12.2"]
-                 [venantius/accountant "0.2.3"]]
+                 [venantius/accountant "0.2.4"]]
 
   :plugins [[lein-cljsbuild "1.1.7"]
             [lein-ring "0.12.4"]
-            [lein-asset-minifier "0.4.4"
+            [lein-asset-minifier "0.4.5"
                :exclusions [org.clojure/clojure]]]
 
-  :min-lein-version "2.6.1"
+  :min-lein-version "2.7.1"
 
   :source-paths ["src/clj" "src/cljc"]
 
@@ -58,6 +59,10 @@
              :ring-handler helodali.handler/dev-handler}
 
   :war-resources-path "war-resources" ;; Used only for packaging .ebextensions at the top level of the war
+
+  :aliases {"fig"       ["trampoline" "run" "-m" "figwheel.main"]
+            "fig:build" ["trampoline" "run" "-m" "figwheel.main" "-b" "dev" "-r"]
+            "fig:min"   ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "dev"]}
 
   :profiles
     {:dbmgmt {:dependencies [[org.clojure/tools.nrepl "0.2.13"]]}
