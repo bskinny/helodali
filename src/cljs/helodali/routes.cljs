@@ -4,7 +4,7 @@
             [accountant.core :as accountant]
             [clojure.pprint :refer [pprint]]))
 
-;; This approach uses Html5History, which is not availble in older browsers
+;; This approach uses Html5History, which is not available in older browsers
 
 (accountant/configure-navigation! {:nav-handler (fn [path] (secretary/dispatch! path)) :path-exists? (fn [path] true)})
 

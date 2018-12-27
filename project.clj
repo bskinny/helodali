@@ -15,7 +15,7 @@
                  [com.taoensso/faraday "1.9.0"]
                  [commons-codec "1.11"]
                  [org.apache.httpcomponents/httpclient "4.5.6"]
-                 [ring "1.7.0"]
+                 [ring "1.7.1"]
                  [clj-pdf "2.2.33"]
                  [org.clojure/core.async "0.4.474"]
                  [danlentz/clj-uuid "0.1.7"]
@@ -36,7 +36,7 @@
                  [clj-http "2.3.0"]
                  [hickory "0.7.1"]
                  [cheshire "5.8.1"]
-                 [secretary "1.2.3"]
+                 [clj-commons/secretary "1.2.4"]
                  [slingshot "0.12.2"]
                  [venantius/accountant "0.2.4"]]
 
