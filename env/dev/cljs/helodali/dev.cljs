@@ -1,4 +1,4 @@
-(ns helodali.dev
+(ns ^:figwheel-hooks helodali.dev
     (:require [devtools.core :as devtools]
               [helodali.core :as core]))
 

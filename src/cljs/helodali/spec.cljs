@@ -18,8 +18,8 @@
 (s/def ::last-modified #(instance? goog.date.Date %))  ;; A DateTime, non-nil value otherwise undefined
 (s/def ::include-in-cv boolean?)
 (s/def ::ref (s/nilable ::uuid)) ;; Used to reference an item, certain situations require allowing nil
-(s/def ::associated-documents (s/nilable (s/* ::uuid)))
-(s/def ::associated-press (s/nilable (s/* ::uuid)))
+(s/def ::associated-documents (s/nilable (s/coll-of ::uuid)))
+(s/def ::associated-press (s/nilable (s/coll-of ::uuid)))
 (s/def ::processing (s/nilable boolean?))
 (s/def ::name string?)
 
@@ -87,7 +87,7 @@
                   :lyrical :minimal :narrative :nudes :optical :painterly :political :popular-imagery :portraits :primitivistic :process-oriented
                   :psychological :religious :representational :romantic :serial :shaped-format :sociological :spiritual :still-life :surreal
                   :symbolic :technological :trompe-loeil :urban})
-(s/def ::style (s/* ::styles))
+(s/def ::style (s/coll-of ::styles))
 (s/def ::list-price int?)
 (s/def ::current-location (s/nilable string?))
 (s/def ::sync-with-instagram boolean?)

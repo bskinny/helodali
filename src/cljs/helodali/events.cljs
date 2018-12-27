@@ -223,29 +223,30 @@
   (fn [{:keys [db local-store-signed-urls]} [_ result]]
     ;; Some values in the items need coercion back to DateTime and keyword syntax.
     (when (not (empty? result))
-      (let [resp (fix-response result)]
-        {:db (-> db
-                (assoc :artwork (-> (map #(merge (helodali.db/default-artwork) %) (:artwork resp))
-                                    (apply-artwork-signed-urls local-store-signed-urls)
-                                    (into-sorted-map)))
-                (assoc :exhibitions (into-sorted-map (map #(merge (helodali.db/default-exhibition) %) (:exhibitions resp))))
-                (assoc :documents (-> (map #(merge (helodali.db/default-document) %) (:documents resp))
-                                      (apply-document-signed-urls local-store-signed-urls)
-                                      (into-sorted-map)))
-                (assoc :contacts (into-sorted-map (map #(merge (helodali.db/default-contact) %) (:contacts resp))))
-                (assoc :expenses (into-sorted-map (map #(merge (helodali.db/default-expense) %) (:expenses resp))))
-                (assoc :press (into-sorted-map (map #(merge (helodali.db/default-press) %) (:press resp))))
-                (assoc :profile (:profile resp))
-                (assoc :pages (:pages resp))
-                (assoc :account (:account resp))
-                (assoc :userinfo (:userinfo resp))
-                (assoc :access-token (:access-token resp))
-                (assoc :id-token (:id-token resp))
-                (assoc :authenticated? (:authenticated? resp))
-                (assoc :initialized? (:initialized? resp))
-                (assoc :display-type (if (:display-type resp) (:display-type resp) (:display-type db))) ;; Set display-type if it is present in the response
-                (assoc :instagram-media (and (:instagram-media resp) (into-sorted-map (:instagram-media resp))))
-                (assoc :initialized? true))
+      (let [resp (fix-response result)
+            app-db (-> db
+                       (assoc :artwork (-> (map #(merge (helodali.db/default-artwork) %) (:artwork resp))
+                                           (apply-artwork-signed-urls local-store-signed-urls)
+                                           (into-sorted-map)))
+                       (assoc :exhibitions (into-sorted-map (map #(merge (helodali.db/default-exhibition) %) (:exhibitions resp))))
+                       (assoc :documents (-> (map #(merge (helodali.db/default-document) %) (:documents resp))
+                                             (apply-document-signed-urls local-store-signed-urls)
+                                             (into-sorted-map)))
+                       (assoc :contacts (into-sorted-map (map #(merge (helodali.db/default-contact) %) (:contacts resp))))
+                       (assoc :expenses (into-sorted-map (map #(merge (helodali.db/default-expense) %) (:expenses resp))))
+                       (assoc :press (into-sorted-map (map #(merge (helodali.db/default-press) %) (:press resp))))
+                       (assoc :profile (:profile resp))
+                       (assoc :pages (:pages resp))
+                       (assoc :account (:account resp))
+                       (assoc :userinfo (:userinfo resp))
+                       (assoc :access-token (:access-token resp))
+                       (assoc :id-token (:id-token resp))
+                       (assoc :authenticated? (:authenticated? resp))
+                       (assoc :initialized? (:initialized? resp))
+                       (assoc :display-type (if (:display-type resp) (:display-type resp) (:display-type db))) ;; Set display-type if it is present in the response
+                       (assoc :instagram-media (and (:instagram-media resp) (into-sorted-map (:instagram-media resp))))
+                       (assoc :initialized? true))]
+        {:db app-db
          :sync-to-local-storage [{:k "helodali.access-token" :v (:access-token resp)}
                                  {:k "helodali.id-token" :v (:id-token resp)}]}))))
 
