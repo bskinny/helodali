@@ -110,9 +110,13 @@
               "/login&response_type=code&client_id=" cognito-client-id "&state=" (rand)
               "&scope=openid%20email%20profile")))
 
-(defn- our-title [] [hyperlink :class "level1" :label "helodali"
-                       :on-click #(dispatch [:back-to-landing-page])
-                       :style {:padding-top "10px" :color "rgb(208, 187, 187)" :text-decoration "none"}])
+(defn- our-title
+  "Display the HELODALI top-left title and link to either the landing page or login depending on context."
+  [view]
+  (let [style {:padding-top "10px" :color "rgb(208, 187, 187)" :text-decoration "none"}]
+    (if (= view :landing)
+      [hyperlink :class "level1" :label "helodali" :style style :on-click do-login]
+      [hyperlink :class "level1" :label "helodali" :style style :on-click #(dispatch [:back-to-landing-page])])))
 
 (defn- login-button
   []
@@ -184,14 +188,14 @@
        [v-box :gap "20px" :width "100%" :height "100%" :margin "0" :class "login-page"
               :align :center :justify :between
           :children [[h-box :size "0 0 auto" :width "100%" :align :center :justify :around :class "header"
-                        :children [(our-title)  (login-button)]]
+                        :children [(our-title @view)  (login-button)]]
                      [gap :size "1px"]
                      [footer]]]
 
        (and (not @authenticated?) (empty? @access-token) (= @view :static-page))
        ;; Display static html with login header
        [v-box :gap "20px" :width "100%" :height "100%" :margin "0" :justify :between
-          :children [[h-box :align :center :justify :around :children [(our-title) (login-button)]]
+          :children [[h-box :align :center :justify :around :children [(our-title @view) (login-button)]]
                      [static-pages-view]
                      [footer]]]
 
