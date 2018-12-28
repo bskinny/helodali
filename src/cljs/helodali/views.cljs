@@ -59,7 +59,7 @@
                                                                (reset! showing-account-popover? false))]]]])))
 
 (defn header
-  "Display main page header"
+  "Display in-app main page header"
   []
   (let [showing-more? (r/atom false)
         showing-account-popover? (r/atom false)
@@ -107,18 +107,17 @@
 (def do-login
   #(set! (.. js/window -location -href)
          (str cognito-base-url "/oauth2/authorize?redirect_uri=" origin
-              "/login&response_type=code&client_id=" cognito-client-id "&state=" state-value
+              "/login&response_type=code&client_id=" cognito-client-id "&state=" (rand)
               "&scope=openid%20email%20profile")))
 
-(defn- our-title [] [hyperlink :class "level1" :label "helodali" :style {:color "rgb(208, 187, 187)"}
-                       :on-click do-login])
+(defn- our-title [] [hyperlink :class "level1" :label "helodali"
+                       :on-click #(dispatch [:back-to-landing-page])
+                       :style {:padding-top "10px" :color "rgb(208, 187, 187)" :text-decoration "none"}])
 
 (defn- login-button
   []
-  (let [state-value (rand)]
-    ;; We are not checking the state value of the authorize request on the return visit.
-    [md-icon-button :md-icon-name "zmdi zmdi-brush" :size :larger
-                    :on-click do-login]))
+  ;; We are not checking the state value of the authorize request on the return visit.
+  [md-icon-button :md-icon-name "zmdi zmdi-brush" :size :larger :on-click do-login])
 
 (defn display-message
   [id msg]
@@ -184,7 +183,7 @@
        ;; Display login widget front and center
        [v-box :gap "20px" :width "100%" :height "100%" :margin "0" :class "login-page"
               :align :center :justify :between
-          :children [[h-box :size "0 0 auto" :width "100%" :align :center :justify :around :class "header" ; :style {:border "dashed 1px red"}
+          :children [[h-box :size "0 0 auto" :width "100%" :align :center :justify :around :class "header"
                         :children [(our-title)  (login-button)]]
                      [gap :size "1px"]
                      [footer]]]
@@ -198,7 +197,7 @@
 
        (and @authenticated? @initialized? (not (empty? @aws-creds)) (not (nil? @aws-s3)))
        ;; Finally, display the app
-       [v-box :gap "0px" :margin "0px" :justify :between :width "100%" ; :style {:border "dashed 1px red"}
+       [v-box :gap "0px" :margin "0px" :justify :between :width "100%"
           :children [[v-box
                        :children [[header]
                                   (if (not (empty? @msgs))

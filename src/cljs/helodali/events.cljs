@@ -818,6 +818,14 @@
        (assoc :static-page (keyword page)))))
 
 (reg-event-db
+  :back-to-landing-page
+  manual-check-spec
+  (fn [db _]
+    (-> db
+        (assoc :view :landing)
+        (dissoc :static-page))))
+
+(reg-event-db
   :display-search-results
   manual-check-spec
   (fn [db [search-pattern]]

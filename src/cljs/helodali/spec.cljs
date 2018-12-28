@@ -217,7 +217,7 @@
 (s/def ::single-item-uuid (s/nilable string?))
 (s/def ::search-pattern (s/nilable string?))
 (s/def ::view #{:show-login :artwork :contacts :exhibitions :documents :purchases :press :profile
-                :search-results :account :pages :static-page :expenses})
+                :search-results :account :pages :static-page :expenses :landing})
 (s/def ::static-page (s/nilable #{:privacy-policy}))
 (s/def ::display-type #{:contact-sheet :single-item :new-item :list :row :instagram})
 (s/def ::contacts (s/every-kv ::id ::contact))
