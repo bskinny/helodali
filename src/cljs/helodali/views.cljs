@@ -20,12 +20,6 @@
               [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button hyperlink
                                               input-text input-textarea single-dropdown selection-list]]))
 
-(defn title []
-  (let [name (subscribe [:name])]
-    (fn []
-      [re-com/title
-       :label (str "Hello from " @name)
-       :level :level1])))
 
 (defn- gap
   "Return a re-com/gap of the given size"
@@ -94,9 +88,9 @@
   []
   (let [showing-privacy? (r/atom false)]
     [h-box :width "100%" :class "header" :height "100px" :gap "40px" :align :center :justify :center
-              :children [[re-com/hyperlink-href :class "uppercase"
+              :children [[re-com/hyperlink-href :class "uppercase" :style {:color :black}
                             :label "Contact" :href "mailto:support@helodali.com"]
-                         [hyperlink :class "uppercase" :label "privacy"
+                         [hyperlink :class "uppercase" :label "privacy" :style {:color :black}
                             :on-click #(dispatch [:display-static-html :privacy-policy])]]]))
 
 (defn show-spinner
@@ -105,21 +99,26 @@
          :align :center :justify :center ;:style {:border "dashed 1px red"}
      :children [[re-com/throbber :size :large]]])
 
-(defn- our-title [] [re-com/title :level :level1 :label "helodali"])
-
 (def cognito-base-url "https://helodali.auth.us-east-1.amazoncognito.com")
 (def cognito-client-id "4pbu2aidkc3ev5er82j6in8q96")
 (def origin (.-origin (.-location js/document)))
+
+;; on-click event handler which performs login
+(def do-login
+  #(set! (.. js/window -location -href)
+         (str cognito-base-url "/oauth2/authorize?redirect_uri=" origin
+              "/login&response_type=code&client_id=" cognito-client-id "&state=" state-value
+              "&scope=openid%20email%20profile")))
+
+(defn- our-title [] [hyperlink :class "level1" :label "helodali" :style {:color "rgb(208, 187, 187)"}
+                       :on-click do-login])
 
 (defn- login-button
   []
   (let [state-value (rand)]
     ;; We are not checking the state value of the authorize request on the return visit.
     [md-icon-button :md-icon-name "zmdi zmdi-brush" :size :larger
-                    :on-click #(set! (.. js/window -location -href)
-                                (str cognito-base-url "/oauth2/authorize?redirect_uri=" origin
-                                     "/login&response_type=code&client_id=" cognito-client-id "&state=" state-value
-                                     "&scope=openid%20email%20profile"))]))
+                    :on-click do-login]))
 
 (defn display-message
   [id msg]
