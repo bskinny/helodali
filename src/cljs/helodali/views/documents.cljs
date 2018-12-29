@@ -82,9 +82,9 @@
                   (and (not (nil? @signed-raw-url-expiration-time)) (not (expired? @signed-raw-url-expiration-time))) "/image-assets/file-text.png"
                   :else "/image-assets/file-question.png")
             object-fit (cond
-                          @processing "fit-none"
+                          @processing :fit-none
                           ; (or (= @display-type :contact-sheet) @editing) "cover"
-                          :else "fit-contain")
+                          :else :fit-contain)
             lhs [v-box :width image-size ;:max-height image-size ;:style {:margin-top "10px" :z-index 0 :position "relative"}
                     :children [[box :max-width image-size :max-height image-size
                                  :child [:img {:src url :width image-size :height image-size :class object-fit}]]

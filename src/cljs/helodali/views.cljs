@@ -20,12 +20,6 @@
               [re-com.core :as re-com :refer [box v-box h-box label md-icon-button row-button hyperlink
                                               input-text input-textarea single-dropdown selection-list]]))
 
-(defn title []
-  (let [name (subscribe [:name])]
-    (fn []
-      [re-com/title
-       :label (str "Hello from " @name)
-       :level :level1])))
 
 (defn- gap
   "Return a re-com/gap of the given size"
@@ -65,7 +59,7 @@
                                                                (reset! showing-account-popover? false))]]]])))
 
 (defn header
-  "Display main page header"
+  "Display in-app main page header"
   []
   (let [showing-more? (r/atom false)
         showing-account-popover? (r/atom false)
@@ -94,9 +88,9 @@
   []
   (let [showing-privacy? (r/atom false)]
     [h-box :width "100%" :class "header" :height "100px" :gap "40px" :align :center :justify :center
-              :children [[re-com/hyperlink-href :class "uppercase"
+              :children [[re-com/hyperlink-href :class "uppercase" :style {:color :black}
                             :label "Contact" :href "mailto:support@helodali.com"]
-                         [hyperlink :class "uppercase" :label "privacy"
+                         [hyperlink :class "uppercase" :label "privacy" :style {:color :black}
                             :on-click #(dispatch [:display-static-html :privacy-policy])]]]))
 
 (defn show-spinner
@@ -105,21 +99,29 @@
          :align :center :justify :center ;:style {:border "dashed 1px red"}
      :children [[re-com/throbber :size :large]]])
 
-(defn- our-title [] [re-com/title :level :level1 :label "helodali"])
-
 (def cognito-base-url "https://helodali.auth.us-east-1.amazoncognito.com")
 (def cognito-client-id "4pbu2aidkc3ev5er82j6in8q96")
 (def origin (.-origin (.-location js/document)))
 
+;; on-click event handler which performs login
+(def do-login
+  #(set! (.. js/window -location -href)
+         (str cognito-base-url "/oauth2/authorize?redirect_uri=" origin
+              "/login&response_type=code&client_id=" cognito-client-id "&state=" (rand)
+              "&scope=openid%20email%20profile")))
+
+(defn- our-title
+  "Display the HELODALI top-left title and link to either the landing page or login depending on context."
+  [view]
+  (let [style {:padding-top "10px" :color "rgb(208, 187, 187)" :text-decoration "none"}]
+    (if (= view :landing)
+      [hyperlink :class "level1" :label "helodali" :style style :on-click do-login]
+      [hyperlink :class "level1" :label "helodali" :style style :on-click #(dispatch [:back-to-landing-page])])))
+
 (defn- login-button
   []
-  (let [state-value (rand)]
-    ;; We are not checking the state value of the authorize request on the return visit.
-    [md-icon-button :md-icon-name "zmdi zmdi-brush" :size :larger
-                    :on-click #(set! (.. js/window -location -href)
-                                (str cognito-base-url "/oauth2/authorize?redirect_uri=" origin
-                                     "/login&response_type=code&client_id=" cognito-client-id "&state=" state-value
-                                     "&scope=openid%20email%20profile"))]))
+  ;; We are not checking the state value of the authorize request on the return visit.
+  [md-icon-button :md-icon-name "zmdi zmdi-brush" :size :larger :on-click do-login])
 
 (defn display-message
   [id msg]
@@ -185,21 +187,21 @@
        ;; Display login widget front and center
        [v-box :gap "20px" :width "100%" :height "100%" :margin "0" :class "login-page"
               :align :center :justify :between
-          :children [[h-box :size "0 0 auto" :width "100%" :align :center :justify :around :class "header" ; :style {:border "dashed 1px red"}
-                        :children [(our-title)  (login-button)]]
+          :children [[h-box :size "0 0 auto" :width "100%" :align :center :justify :around :class "header"
+                        :children [(our-title @view)  (login-button)]]
                      [gap :size "1px"]
                      [footer]]]
 
        (and (not @authenticated?) (empty? @access-token) (= @view :static-page))
        ;; Display static html with login header
        [v-box :gap "20px" :width "100%" :height "100%" :margin "0" :justify :between
-          :children [[h-box :align :center :justify :around :children [(our-title) (login-button)]]
+          :children [[h-box :align :center :justify :around :children [(our-title @view) (login-button)]]
                      [static-pages-view]
                      [footer]]]
 
        (and @authenticated? @initialized? (not (empty? @aws-creds)) (not (nil? @aws-s3)))
        ;; Finally, display the app
-       [v-box :gap "0px" :margin "0px" :justify :between :width "100%" ; :style {:border "dashed 1px red"}
+       [v-box :gap "0px" :margin "0px" :justify :between :width "100%"
           :children [[v-box
                        :children [[header]
                                   (if (not (empty? @msgs))

@@ -414,9 +414,9 @@
                   (not (nil? @signed-url)) @signed-url
                   :else "/image-assets/thumb-stub.png")
             object-fit (cond
-                          @processing "fit-none"
-                          (or (= @display-type :contact-sheet) @editing) "fit-cover"
-                          :else "fit-contain")]
+                          @processing :fit-none
+                          (or (= @display-type :contact-sheet) @editing) :fit-cover
+                          :else :fit-contain)]
         ;; Perform some dispatching if the artwork is not in sync with S3 and database
         (if @processing
           (dispatch [:refresh-image [:artwork id :images 0]])
@@ -523,7 +523,7 @@
             (dispatch [:get-signed-url [:artwork id :images 0] "helodali-images" (:key image) :signed-thumb-url :signed-thumb-url-expiration-time])))
         [h-box :gap "6px" :align :center :justify :start :style {:background bg-color} :padding "8px" :width "100%"
           :children [[box :max-width thumb-size :max-height thumb-size :margin "10px"
-                       :child [:img {:src url :class "cover" :width thumb-size :height thumb-size
+                       :child [:img {:src url :class :fit-contain :width thumb-size :height thumb-size
                                      :on-error #(dispatch [:flush-signed-urls [:artwork id :images 0]])
                                      :on-click #(route-single-item :artwork @uuid)}]]
                      ; [re-com/gap :size "20px"]
@@ -717,7 +717,7 @@
                     (r/atom "(no title)"))]
         [v-box :gap "6px" :padding "20px" :width image-size :align :center :justify :start ;:height "100%"
             :children [[box :max-width image-size :max-height image-size
-                         :child [:img {:src @thumb-url :class "fit-cover" :width image-size :height image-size}]]
+                         :child [:img {:src @thumb-url :class :fit-cover :width image-size :height image-size}]]
                        (if (nil? @artwork-uuid)
                          [md-circle-icon-button :md-icon-name "zmdi-plus" :tooltip "Import to artwork"
                                    :emphasise? true :size :smaller :on-click #(dispatch [:create-from-instagram id])]
