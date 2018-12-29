@@ -152,16 +152,17 @@
         publication (subscribe [:item-key :press id :publication])
         url (subscribe [:item-key :press id :url])
         publication-date (subscribe [:item-key :press id :publication-date])
-        include-in-cv? (subscribe [:item-key :press id :include-in-cv])
-        notes (subscribe [:item-key :press id :notes])]
+        include-in-cv? (subscribe [:item-key :press id :include-in-cv])]
     (fn []
       [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
         :children [[hyperlink :style {:width (str (max 18 (get widths :title)) "ch")} :label (trunc (safe-string @title "(no title)") (get widths :title))
                        :on-click #(route-single-item :press @uuid)]
-                   [label :width (str (max 18 (:publication widths)) "ch") :label (trunc @publication (:publication widths))]
+                   ;; Display the publication name as a link to the url if the publication name and url are present in the item.
+                   (if (and @publication @url)
+                     [re-com/hyperlink-href :style {:width (str (max 18 (:publication widths)) "ch")}
+                        :label  (trunc @publication (:publication widths)) :href (str (url-to-href @url)) :target "_blank"]
+                     [label :width (str (max 18 (:publication widths)) "ch") :label (trunc @publication (:publication widths))])
                    [label :width "15ch" :label (safe-date-string @publication-date)]
-                   [re-com/hyperlink-href :style {:width (str (max 18 (get widths :url)) "ch")}
-                               :label (trunc (str @url) (:url widths)) :href (str (url-to-href @url)) :target "_blank"]
                    (if @include-in-cv?
                      [box :width "16ch" :align :center :justify :center :child [md-icon-button :md-icon-name "zmdi zmdi-check mdc-text-green"]]
                      [label :width "16ch" :label ""])
@@ -178,14 +179,11 @@
   []
   (let [sort-key (subscribe [:by-path [:sort-keys :press]])
         items (subscribe [:items-keys-sorted-by-key :press sort-by-key-then-created])
-        ; items (subscribe [:items-keys-sorted-by :press (partial sort-by-datetime :publication-date true)])
         titles (subscribe [:items-vals :press :title])
-        publications (subscribe [:items-vals :press :publication])
-        urls (subscribe [:items-vals :press :url])]
+        publications (subscribe [:items-vals :press :publication])]
     (fn []
       (let [widths (r/atom {:title (+ 13 (max-string-length @titles 80))
-                            :publication (+ 4 (max-string-length @publications 40))
-                            :url (+ 4 (max-string-length @urls 40))})
+                            :publication (+ 4 (max-string-length @publications 40))})
             header [h-box :align :center :justify :start :width "100%"
                       :children [[hyperlink :class "uppercase" :style {:width (str (max 18 (:title @widths)) "ch")}
                                     :label "Title" :tooltip "Sort by Title"
@@ -202,11 +200,6 @@
                                     :on-click #(if (= (first @sort-key) :publication-date)
                                                  (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
                                                  (dispatch [:set-local-item-val [:sort-keys :press] [:publication-date true]]))]
-                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:url @widths)) "ch")}
-                                    :label "url" :tooltip "Sort by URL"
-                                    :on-click #(if (= (first @sort-key) :url)
-                                                 (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
-                                                 (dispatch [:set-local-item-val [:sort-keys :press] [:url true]]))]
                                  [hyperlink :class "uppercase" :style {:width "16ch"}
                                     :label "Included in CV" :tooltip "Sort by Included in CV?"
                                     :on-click #(if (= (first @sort-key) :include-in-cv)
