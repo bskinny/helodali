@@ -925,10 +925,9 @@
   (fn [{:keys [db]} [type id]]
     (let [item (get-in db [type id])
           refint (referential-integrity-check db type id)
-          new-db (-> (if (empty? refint)
-                       (reflect-item-deletion db type id)
-                       (add-message db :form-error refint))
-                     (clear-message :form-error))]  ;; Clear possible validation error
+          new-db (if (empty? refint)
+                   (reflect-item-deletion db type id)
+                   (add-message db :form-error refint))]
       ;; Submit change to server for all deletes except those to the placeholder item
       (if (or (= 0 id) (not (empty? refint)))
         {:db new-db}
