@@ -113,10 +113,11 @@
 (defn- our-title
   "Display the HELODALI top-left title and link to either the landing page or login depending on context."
   [view]
-  (let [style {:padding-top "10px" :color "rgb(208, 187, 187)" :text-decoration "none"}]
-    (if (= view :landing)
-      [hyperlink :class "level1" :label "helodali" :style style :on-click do-login]
-      [hyperlink :class "level1" :label "helodali" :style style :on-click #(dispatch [:back-to-landing-page])])))
+  (let [back-to-landing? (r/atom (not= view :landing))
+        style {:padding-top "10px" :color "rgb(208, 187, 187)" :text-decoration "none"}]
+    (if @back-to-landing?
+       [hyperlink :class "level1" :label "helodali" :style style :on-click #(dispatch [:back-to-landing-page])]
+       [label :class "level1" :label "helodali" :style style])))
 
 (defn- login-button
   []
