@@ -12,30 +12,15 @@
 
     <link href="https://fonts.googleapis.com/css?family=Nunito+Sans:300,400,400i,600,700" rel="stylesheet">
     <style>
-       ::-moz-selection {
-        color: white;
-        background: #ff0030;
-      }
-
       ::selection {
         color: white;
         background: #ff0030;
       }
 
-      -webkit-font-smoothing: subpixel-antialiased;
-      text-rendering: optimizeLegibility;
-      image-rendering: -moz-crisp-edges;
-      /* Firefox */
-
-      image-rendering : -o-crisp-edges;
-      /* Opera */
-
-      image-rendering: -webkit-optimize-contrast;
-      /* Webkit (non-standard naming) */
-
-      image-rendering: crisp-edges;
-      -ms-interpolation-mode: nearest-neighbor;
-      /* IE (non-standard property) */
+      div {
+        text-rendering: optimizeLegibility;
+        image-rendering: crisp-edges;
+      }
     </style>
 </head>
 <body class="hd-body" style="opacity: 1; display: block; transition: opacity 600ms ease-in;">
