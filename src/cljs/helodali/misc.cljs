@@ -129,7 +129,7 @@
 
 (defn sort-by-key-then-created
   "Used as a comparator to sort, comparing key values between two maps. If the maps do not
-   contain 'created' keys, it is harmless nil <> nil comparison."
+   contain 'created' keys, it is a harmless nil <> nil comparison."
   [k reverse? m1 m2]
   (if (or (instance? js/goog.date.UtcDateTime (get m1 k))
           (instance? js/goog.date.UtcDateTime (get m2 k)))

@@ -416,7 +416,7 @@
   publish/remove the user's public pages accordingly. In addition, look for a changed value of
   :version (uuid-valued) which implies the 'publish now' request has been made."
   ;; TODO: What processes the return value?
-  (map process-record (:records event)))
+  (doall (map process-record (:records event))))
 
 (defn key->keyword
   "Convert string keys to keywords but do not change the now lower case camelcase to snake-case - too difficult"

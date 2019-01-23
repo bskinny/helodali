@@ -68,7 +68,8 @@
    :media-type (keyword (:type ig))
    :image-url (:url (:standard_resolution (:images ig)))
    :thumb-url (:url (:thumbnail (:images ig)))
-   :created (:created_time ig)})
+   ;; Convert the Instagram 'seconds since 1970' to millis.
+   :created (str (* 1000 (Long/valueOf (:created_time ig))))})
 
 (defn get-recent-media
   "Return recent media for 'self'

@@ -330,7 +330,7 @@
                               :on-failure      [:bad-result {} retry-fx]}}))))
 
 ;; Similar to above but restricted to the app-db's :profile or :pages, which results to writes against
-;; the :profiles table on the server. 'path' should be path within :pages or :profile.
+;; the :profiles and :pages tables on the server. 'path' should be path within :pages or :profile.
 (defn- update-user-table-fx
   [table path val is-retry? db]
   (let [_ (check-and-throw :helodali.spec/db db)

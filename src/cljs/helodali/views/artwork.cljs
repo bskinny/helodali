@@ -4,7 +4,7 @@
               [helodali.routes :refer [route-view-display route-single-item route-new-item route-instagram-refresh]]
               [helodali.misc :refer [trunc compute-bg-color convert-map-to-options max-string-length expired?
                                      sort-by-datetime sort-by-key-then-created uuid-label-list-to-options
-                                     remove-vector-element title-string]]
+                                     safe-date-string remove-vector-element title-string]]
               [cljs.pprint :refer [pprint]]
               [cljs-time.format :refer [unparse formatters]]
               [reagent.core  :as r]
@@ -220,11 +220,11 @@
                                              :on-change #(let [el (.getElementById js/document image-input-id)]
                                                            (dispatch [:replace-image [:artwork id] (:uuid image) (aget (.-files el) 0)]))}]
                                     [md-icon-button :md-icon-name "zmdi zmdi-upload"
-                                       :emphasise? true :tooltip "Replace this image" ;:tooltip-position :right-center
+                                       :emphasise? true :tooltip "Replace this image"
                                        :on-click #(let [el (.getElementById js/document image-input-id)]
                                                     (.click el))]
                                     [md-icon-button :md-icon-name "zmdi zmdi-delete"
-                                       :emphasise? true :tooltip "Delete this image" ;:tooltip-position :right-center
+                                       :emphasise? true :tooltip "Delete this image"
                                        :on-click #(dispatch [:delete-s3-vector-element ["helodali-raw-images"] [:artwork id :images] (:uuid image)])]]])]])))
 
 (defn item-properties-panel
@@ -370,7 +370,6 @@
         dimensions (subscribe [:item-key :artwork id :dimensions])
         images (subscribe [:item-key :artwork id :images])
         expanded (subscribe [:item-key :artwork id :expanded])
-        container-style (if @expanded {:background-color "#fff"} {})
         editing (subscribe [:item-key :artwork id :editing])
         signed-thumb-url (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url]])
         thumb-expiration (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url-expiration-time]])
@@ -432,9 +431,9 @@
             :children [[item-properties-panel id]]]
           [h-box :gap "4px" :align :start :justify :start :padding "20px" :style {:flex-flow "row wrap"} ; :style container-style
             :children [[v-box :gap "2px" :width image-size :align :center :justify :center :height "100%"
-                         :children [[v-box ;:max-width image-size :max-height image-size ;:style {:margin-top "10px" :z-index 0 :position "relative"}
+                         :children [[v-box
                                        :children [[box :max-width image-size :max-height image-size
-                                                    :child [:img {:src url :class object-fit ;; :width image-size :height image-size ;:style {:object-fit "cover"}
+                                                    :child [:img {:src url :class object-fit
                                                                   :on-error #(dispatch [:flush-signed-urls [:artwork id :images 0]])
                                                                   :on-click #(if (not (= @display-type :new-item)) ;; Don't toggle 'expanded' when in :new-item mode
                                                                                (dispatch [:set-local-item-val [:artwork id :expanded] (not @expanded)])
@@ -464,12 +463,12 @@
                                                                                            (dispatch [:add-image [:artwork id] (aget (.-files el) 0)])
                                                                                            (dispatch [:replace-image [:artwork id] (:uuid image) (aget (.-files el) 0)])))}]
                                                                   [md-icon-button :md-icon-name "zmdi zmdi-upload"
-                                                                     :emphasise? true :tooltip "Replace this image" ;:tooltip-position :right-center
+                                                                     :emphasise? true :tooltip "Replace this image"
                                                                      :on-click #(let [el (.getElementById js/document image-input-id)]
                                                                                   (.click el))]
                                                                   (when-not (empty? (:key image))
                                                                     [md-icon-button :md-icon-name "zmdi zmdi-delete"
-                                                                       :emphasise? true :tooltip "Delete this image" ;:tooltip-position :right-center
+                                                                       :emphasise? true :tooltip "Delete this image"
                                                                        :on-click #(if-not (empty? @images)  ;; TODO: fix this when we support multiple images
                                                                                     (dispatch [:delete-s3-vector-element ["helodali-raw-images"]
                                                                                                         [:artwork id :images] (:uuid (first @images))]))])]])
@@ -589,7 +588,7 @@
 (defn row-view
   "Display items one per row with a small thumbnail"
   []
-  (let [items (subscribe [:items-keys-sorted-by :artwork (partial sort-by-key-then-created :year true)])
+  (let [items (subscribe [:items-keys-sorted-by-key :artwork sort-by-key-then-created])
         titles (subscribe [:items-vals :artwork :title])
         types (subscribe [:items-vals :artwork :type])
         styles (subscribe [:items-vals :artwork :style])
@@ -761,7 +760,7 @@
 (defn artwork-contact-sheet
   "Display contact sheet of items"
   []
-  (let [items (subscribe [:items-keys-sorted-by :artwork (partial sort-by-key-then-created :year true)])
+  (let [items (subscribe [:items-keys-sorted-by-key :artwork sort-by-key-then-created])
         instagram-media (subscribe [:items-keys :instagram-media])
         uuid (subscribe [:by-path [:profile :uuid]])]
     (fn []
