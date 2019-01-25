@@ -46,6 +46,53 @@ clojure -m figwheel.main --build dev --repl
 
 Wait a bit, then browse to [http://localhost:9500](http://localhost:9500).
 
+#### Local builds of aws-sdk-js dependency
+Until the [issue](https://github.com/cljsjs/packages/issues/1619) with the externs file is addressed, there is a local copy of aws-sdk-js installed
+using the following process in a [branch](https://github.com/bskinny/packages/tree/aws-sdk-js-update) of cljsjs/packages:
+1. Define the minimal externs for S3 and Cognito services like so in aws-sdk-js/resources/cljsjs/aws-sdk-js/common/aws-sdk-js.ext.js:
+```
+/**********************************************************************
+ * Minimal externs for AWS S3 and Cognito
+ **********************************************************************/
+var AWS = {
+  "S3": {
+    "getObject": function () {},
+    "putObject": function () {},
+    "copyObject": function () {},
+    "deleteObjects": function () {},
+    "getSignedUrl": function () {}
+  },
+  "config": {
+    "region": function () {},
+    "credentials": function () {}
+  }
+};
+AWS.CognitoIdentityCredentials.prototype = {
+  "cacheId": function () {},
+  "clearCachedId": function () {},
+  "clearIdOnNotAuthorized": function () {},
+  "constructor": function () {},
+  "createClients": function () {},
+  "expiryWindow": function () {},
+  "get": function () {},
+  "getCredentialsForIdentity": function () {},
+  "getCredentialsFromSTS": function () {},
+  "getId": function () {},
+  "getPromise": function () {},
+  "getStorage": function () {},
+  "loadCachedId": function () {},
+  "loadCredentials": function () {},
+  "localStorageKey": function () {},
+  "needsRefresh": function () {},
+  "refresh": function () {},
+  "refreshPromise": function () {},
+  "setStorage": function () {},
+  "storage": function () {}
+};
+
+```
+2. Update the version number if necessary in aws-sdk-js/build.boot
+3. `boot package install target`
 
 ## Production Builds
 
