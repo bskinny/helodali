@@ -22,7 +22,7 @@
                  [com.lucasbradstreet/cljs-uuid-utils "1.0.2"]
                  [clj-time "0.15.1"]
                  [com.andrewmcveigh/cljs-time "0.5.2"]
-                 [re-com "2.2.0"]
+                 [re-com "2.4.0"]
                  [compojure "1.6.1"]
                  [org.clojure/spec.alpha "0.2.176"]
                  [org.clojure/core.specs.alpha "0.1.24"]

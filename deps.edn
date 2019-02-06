@@ -23,7 +23,7 @@
         com.lucasbradstreet/cljs-uuid-utils {:mvn/version "1.0.2"}
         clj-time {:mvn/version "0.15.1"}
         com.andrewmcveigh/cljs-time {:mvn/version "0.5.2"}
-        re-com {:mvn/version "2.2.0"}
+        re-com {:mvn/version "2.4.0"}
         compojure {:mvn/version "1.6.1"}
         org.clojure/spec.alpha {:mvn/version "0.2.176"}
         org.clojure/core.specs.alpha {:mvn/version "0.1.24"}
