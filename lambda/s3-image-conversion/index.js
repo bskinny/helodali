@@ -59,7 +59,7 @@ exports.handler = function(event, context, callback) {
         function removeFile(next) {
             // Remove the associated object in the bucket helodali-images
             s3.deleteObject({Bucket: BUCKET_IMAGES, Key: dstKey}, next)
-          },
+        },
         function removeThumb(result, next) {
             // Remove the associated object in the bucket helodali-thumbs
             s3.deleteObject({Bucket: BUCKET_THUMBS, Key: dstKey}, next)
@@ -81,7 +81,7 @@ exports.handler = function(event, context, callback) {
                                  next(null, data);
                                }
                         });
-          },
+        },
         function fetchImages(data, next) {
             if (isEmptyObject(data)) {
               next('No openid item for user ' + nameComponents[0])
@@ -99,7 +99,7 @@ exports.handler = function(event, context, callback) {
                                  next(null, data);
                                }
                         });
-            },
+        },
         function update(data, next) {
             if (isEmptyObject(data)) {
               next('No images for artwork ' + nameComponents[1])
@@ -107,7 +107,6 @@ exports.handler = function(event, context, callback) {
               return;
             }
             var images = data.Item.images;
-            console.log("Images[0]: " + images[0])
             var idx = images.findIndex(function (img) {
                                          return img.key == srcKey;
                                        });
@@ -122,10 +121,9 @@ exports.handler = function(event, context, callback) {
                                   'uuid': nameComponents[1]},
                             UpdateExpression: updateExpression,
                             ExpressionAttributeNames: {'#images': 'images'}};
-              console.log("UpdateExpression: " + updateExpression)
               dynamoDB.update(params, next);
             }
-          }
+        }
         ], function (err, result) {
                if (err) {
                    console.error('Unable to remove ' + dstKey + ' from buckets' +
@@ -133,9 +131,9 @@ exports.handler = function(event, context, callback) {
                    callback(err)
                } else {
                    console.log('Successfully removed ' + dstKey + ' from buckets: '  + result);
-                   callback({StatusCode: 200});
+                   callback(null, {StatusCode: 200});
                }
-         }
+        }
     );
   }
 
@@ -150,12 +148,11 @@ exports.handler = function(event, context, callback) {
                     Key: srcKey
                 },
                 next);
-            },
+        },
         function transformThumb(response, next) {
             original = sharp(response.Body);
-            original.resize(MAX_THUMB_DIMENSION, MAX_THUMB_DIMENSION)
-                   .max()
-                   .withoutEnlargement()
+            original.resize({width: MAX_THUMB_DIMENSION, height: MAX_THUMB_DIMENSION,
+                             fit: 'contain', withoutEnlargement: true})
                    .jpeg({"quality": 100})
                    .toBuffer(function (err, data, info) {
                        if (err) {
@@ -164,7 +161,7 @@ exports.handler = function(event, context, callback) {
                          next(null, response.Body, "image/" + info.format, data);
                        }
                    });
-            },
+        },
         function uploadThumb(rawImage, contentType, data, next) {
             // Stream the transformed image to the target S3 bucket.
             s3.putObject({
@@ -176,12 +173,11 @@ exports.handler = function(event, context, callback) {
                        next(null, rawImage);
                      }
                 });
-            },
+        },
         function transformImage(rawImage, next) {
             original = sharp(rawImage);
-            original.resize(MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION)
-                    .max()
-                    .withoutEnlargement()
+            original.resize({width: MAX_IMAGE_DIMENSION, height: MAX_IMAGE_DIMENSION,
+                             fit: 'contain', withoutEnlargement: true})
                     .jpeg({"quality": 100})
                     .toBuffer(function (err, data, info) {
                         if (err) {
@@ -210,9 +206,8 @@ exports.handler = function(event, context, callback) {
                 .metadata()
                 .then(function resizeIt(metadata) {
                     original
-                        .resize(MAX_LARGE_IMAGE_DIMENSION, MAX_LARGE_IMAGE_DIMENSION)
-                        .max()
-                        .withoutEnlargement()
+                        .resize({width: MAX_LARGE_IMAGE_DIMENSION, height: MAX_LARGE_IMAGE_DIMENSION,
+                                 fit: 'contain', withoutEnlargement: true})
                         .jpeg({"quality": 100})
                         .toBuffer(function (err, data, info) {
                             if (err) {
@@ -231,13 +226,12 @@ exports.handler = function(event, context, callback) {
                 if (err) {
                     next(err);
                 } else {
-                    next(null, info, metadata);
+                    next(null, metadata);
                 }
             });
         },
-        function getUref(result, metadata, next) {
+        function getUref(metadata, next) {
             // Find the user's uuid to later reference in the artwork table
-            // console.log(nameComponents[0]);
             dynamoDB.get({Key: {'sub': nameComponents[0]},
                           TableName: 'openid',
                           AttributesToGet: ['uref']},
@@ -248,9 +242,8 @@ exports.handler = function(event, context, callback) {
                                  next(null, data, metadata);
                                }
                         });
-            },
+        },
         function update(data, metadata, next) {
-            // console.log(data)
 
             if (isEmptyObject(data)) {
               next('No openid item for user ' + nameComponents[0])
@@ -273,7 +266,7 @@ exports.handler = function(event, context, callback) {
                                                                                 'metadata': originalMetadata,
                                                                                 'filename': nameComponents[3]}]}}};
             dynamoDB.update(params, next);
-            }
+        }
         ], function (err, result) {
             if (err) {
                 console.error('Unable to resize ' + srcBucket + '/' + srcKey +
@@ -282,7 +275,7 @@ exports.handler = function(event, context, callback) {
             } else {
                 console.log('Successfully resized ' + srcBucket + '/' + srcKey +
                             ' into buckets: ' + result);
-                callback({StatusCode: 200});
+                callback(null, {StatusCode: 200});
             }
         }
     );
