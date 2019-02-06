@@ -6,6 +6,8 @@ use warnings FATAL => 'all';
 use strict;
 my $prefix = "public-pages-generator";
 
+$ENV{AWS_PROFILE} = "helodali";
+
 # The version should be the same as that of the project defined in project.clj
 my $version = "1.0.1";
 

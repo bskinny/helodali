@@ -2,6 +2,8 @@
 
 # Create the triggers on ObjectCreated/ObjectRemoved after executing this.
 
+export AWS_PROFILE = helodali
+
 aws lambda create-function \
 	--region us-east-1 \
 	--function-name image-conversion \

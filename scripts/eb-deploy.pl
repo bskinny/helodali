@@ -5,6 +5,8 @@
 use strict;
 use warnings FATAL => 'all';
 
+$ENV{AWS_PROFILE} = "helodali";
+
 my @diffs = qx(git diff --name-only);
 foreach my $file (@diffs) {
 	chomp($file);

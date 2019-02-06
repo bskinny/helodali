@@ -19,6 +19,9 @@
 
 (def ^:private app-db-undo (r/atom nil))
 
+;; A request timeout of 10 seconds
+(def TIMEOUT 10000)
+
 (defn next-id
   "Assumes map is a sorted-map"
   [m]
@@ -60,7 +63,7 @@
 (defn- csrf-token-request [on-success]
   {:http-xhrio {:method          :get
                 :uri             "/csrf-token"
-                :timeout         5000
+                :timeout         TIMEOUT
                 :response-format (ajax/json-response-format {:keywords? true})
                 :on-success      on-success
                 :on-failure      [:bad-result {} false]}})
@@ -323,7 +326,7 @@
                                                 :table type :path inside-item-path :val val
                                                 :access-token (:access-token db)}
                               :headers         {:x-csrf-token (:csrf-token db)}
-                              :timeout         5000
+                              :timeout         TIMEOUT
                               :format          (ajax/transit-request-format {})
                               :response-format (ajax/transit-response-format {:keywords? true})
                               :on-success      [:update-items]
@@ -343,7 +346,7 @@
                                               :table table :path path :val val
                                               :access-token (:access-token db)}
                             :headers         {:x-csrf-token (:csrf-token db)}
-                            :timeout         5000
+                            :timeout         TIMEOUT
                             :format          (ajax/transit-request-format {})
                             :response-format (ajax/transit-response-format {:keywords? true})
                             :on-success      [:update-db-from-result (fn [db] true)]
@@ -362,7 +365,7 @@
                             :uri             "/create-item"
                             :params          {:table table :item item :access-token (:access-token db)}
                             :headers         {:x-csrf-token (:csrf-token db)}
-                            :timeout         5000
+                            :timeout         TIMEOUT
                             :format          (ajax/transit-request-format {})
                             :response-format (ajax/transit-response-format {:keywords? true})
                             :on-success      [:update-db-from-result (fn [db] true)]
@@ -377,7 +380,7 @@
                             :uri             "/delete-item"
                             :params          {:table table :uref (:uref item) :uuid (:uuid item) :access-token (:access-token db)}
                             :headers         {:x-csrf-token (:csrf-token db)}
-                            :timeout         5000
+                            :timeout         TIMEOUT
                             :format          (ajax/transit-request-format {})
                             :response-format (ajax/transit-response-format {:keywords? true})
                             :on-success      [:update-db-from-result (fn [db] true)]
@@ -513,7 +516,7 @@
                     :params          {:uref (:uuid (:profile db)) :access-token (:access-token db)
                                       :sub (:sub (:userinfo db)) :media media}
                     :headers         {:x-csrf-token (:csrf-token db)}
-                    :timeout         5000
+                    :timeout         TIMEOUT
                     :format          (ajax/transit-request-format {})
                     :response-format (ajax/transit-response-format {:keywords? true})
                     :on-success      [:update-items]
@@ -604,7 +607,7 @@
                       :params          {:uref (:uuid (:profile db)) :access-token (:access-token db)
                                         :max-id max-id-val}
                       :headers         {:x-csrf-token (:csrf-token db)}
-                      :timeout         5000
+                      :timeout         TIMEOUT
                       :format          (ajax/transit-request-format {})
                       :response-format (ajax/transit-response-format {:keywords? true})
                       :on-success      [:update-instagram-media append?]
@@ -636,7 +639,7 @@
                                     :id-token (:id-token db)
                                     :uref (:uuid (:profile db))}
                   :headers         {:x-csrf-token (:csrf-token db)}
-                  :timeout         10000
+                  :timeout         TIMEOUT
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
                   :on-success      [:initialize-db-from-result]
@@ -651,7 +654,7 @@
                   :params          {:access-token (:access-token db)
                                     :id-token (:id-token db)}
                   :headers         {:x-csrf-token (:csrf-token db)}
-                  :timeout         5000
+                  :timeout         TIMEOUT
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
                   :on-success      [:initialize-db-from-result]
@@ -681,7 +684,7 @@
                                     :id-token (:id-token db)
                                     :uref (:uuid (:profile db))}
                   :headers         {:x-csrf-token (:csrf-token db)}
-                  :timeout         5000
+                  :timeout         TIMEOUT
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
                   :on-success      [:update-db-from-result (fn [db] true)]
@@ -709,7 +712,7 @@
                   :params          {:access-token (:access-token db)
                                     :uref (get-in db [:profile :uuid])}
                   :headers         {:x-csrf-token (:csrf-token db)}
-                  :timeout         5000
+                  :timeout         TIMEOUT
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
                   :on-success      [:complete-logout]
@@ -726,7 +729,7 @@
                   :params          {:access-token (:access-token db)
                                     :uref (get-in db [:profile :uuid])}
                   :headers         {:x-csrf-token (:csrf-token db)}
-                  :timeout         5000
+                  :timeout         TIMEOUT
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
                   :on-success      [:complete-logout]
@@ -1082,7 +1085,7 @@
                                       :table type :path (rest (rest item-path))
                                       :item-uuid (get-in db [type id :uuid])}
                     :headers         {:x-csrf-token (:csrf-token db)}
-                    :timeout         5000
+                    :timeout         TIMEOUT
                     :format          (ajax/transit-request-format {})
                     :response-format (ajax/transit-response-format {:keywords? true})
                     :on-success      [:apply-item-refresh item-path satisfied-fn]
@@ -1118,7 +1121,7 @@
                                       :item-uuid (get-in db [type id :uuid])
                                       :image-uuid (get-in db (conj path-to-image :uuid))}
                     :headers         {:x-csrf-token (:csrf-token db)}
-                    :timeout         5000
+                    :timeout         TIMEOUT
                     :format          (ajax/transit-request-format {})
                     :response-format (ajax/transit-response-format {:keywords? true})
                     :on-success      [:apply-image-refresh path-to-image]
@@ -1430,7 +1433,7 @@
 ;       {:http-xhrio {:method          :post
 ;                     :uri             "/add-image"
 ;                     :body            form-data
-;                     :timeout         5000
+;                     :timeout         TIMEOUT
 ;                     :format          (ajax/json-request-format)
 ;                     :response-format (ajax/json-response-format {:keywords? true})
 ;                     :on-success      [:noop]

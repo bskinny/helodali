@@ -3,6 +3,8 @@
 use warnings FATAL => 'all';
 use strict;
 
+$ENV{AWS_PROFILE} = "helodali";
+
 my $KEY = "image-conversion-$$";
 
 print qx(aws s3 cp image-conversion.zip s3://helodali-exports/$KEY);

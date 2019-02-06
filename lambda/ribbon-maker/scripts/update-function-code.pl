@@ -3,6 +3,8 @@
 use warnings FATAL => 'all';
 use strict;
 
+$ENV{AWS_PROFILE} = "helodali";
+
 my $prefix = "ribbon-maker";
 my $version = "1.0.0";
 

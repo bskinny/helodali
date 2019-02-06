@@ -32,7 +32,9 @@
   (condp = table
     :artwork (-> (assoc m :style (set (map keyword (:style m))))
                  (assoc :purchases (apply vector (map #(coerce-int % [:price :total-commission-percent]) (:purchases m))))
-                 (assoc :images (apply vector (map #(assoc % :metadata (coerce-int (:metadata %) [:density :size :width :height])) (:images m))))
+                 (assoc :images (apply vector (map #(-> %
+                                                        (assoc :metadata (coerce-int (:metadata %) [:density :size :width :height]))
+                                                        (assoc :palette (map int (:palette %)))) (:images m))))
                  (keywordize-vals [:type :status])
                  (coerce-int [:expenses :list-price :year :editions])
                  (assoc :instagram-media-ref (and (:instagram-media-ref m)
