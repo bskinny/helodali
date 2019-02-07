@@ -378,6 +378,7 @@
         raw-expiration (subscribe [:by-path [:artwork id :images 0 :signed-raw-url-expiration-time]])
         raw-image-url (subscribe [:by-path [:artwork id :images 0 :signed-raw-url]])
         processing (subscribe [:by-path [:artwork id :images 0 :processing]])
+        palette (subscribe [:by-path [:artwork id :images 0 :palette]])
         image-input-id (str "image-upload-" id "-0")
         showing-download-tooltip? (r/atom false)
         showing-primary-image-info? (r/atom false)
@@ -482,6 +483,18 @@
                                                                                   :on-mouse-out  (handler-fn (reset! showing-download-tooltip? false))
                                                                                   :href @raw-image-url}]]]])]]
                                     (when (and @expanded (or (not @editing) (not single-item))) controls)
+                                    (when (and (not @editing) single-item @palette)
+                                      ;; Display the color palette. @palette is a vec of ints where every five ints represent r g b a w
+                                      ;; where w is the weight or occurrence of the color in the palette.
+                                      (let [colors (partition 5 5 @palette)
+                                            palette-color-display (fn [v]
+                                                                    (let [[r g b a w] v]
+                                                                      [re-com/line :size "20px"
+                                                                         :style {:width "40px"}
+                                                                         :color (str "rgb(" (clojure.string/join "," [r g b]) ")")]))]
+                                        (pprint colors)
+                                        [v-box :align :start :justify :start
+                                            :children (into [] (mapv (fn [color] ^{:key (clojure.string/join "-" color)} (palette-color-display color)) colors))]))
                                     (when (not @expanded) [v-box :gap "2px" :align :start :justify :start
                                                                :children [[:span.semibold (title-string @title)]
                                                                           [:span (str @year (when @dimensions (str " - " @dimensions)))]]])]]

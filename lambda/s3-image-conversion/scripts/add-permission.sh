@@ -1,3 +1,7 @@
+#!/usr/bin/env bash
+
+export AWS_PROFILE = helodali
+
 aws lambda add-permission \
 	--function-name image-conversion \
 	--region us-east-1 \
