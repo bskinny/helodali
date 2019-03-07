@@ -86,12 +86,11 @@
 
 (defn footer
   []
-  (let [showing-privacy? (r/atom false)]
-    [h-box :width "100%" :class "header" :height "100px" :gap "40px" :align :center :justify :center
-              :children [[re-com/hyperlink-href :class "uppercase" :style {:color :black}
-                            :label "Contact" :href "mailto:support@helodali.com"]
-                         [hyperlink :class "uppercase" :label "privacy" :style {:color :black}
-                            :on-click #(dispatch [:display-static-html :privacy-policy])]]]))
+  [h-box :width "100%" :class "header" :height "100px" :gap "40px" :align :center :justify :center
+            :children [[re-com/hyperlink-href :class "uppercase" :style {:color :black}
+                          :label "Contact" :href "mailto:support@helodali.com"]
+                       [hyperlink :class "uppercase" :label "privacy" :style {:color :black}
+                          :on-click #(dispatch [:display-static-html :privacy-policy])]]])
 
 (defn show-spinner
   []

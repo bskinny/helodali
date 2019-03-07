@@ -431,7 +431,7 @@
           [h-box :gap "4px" :align :start :justify :start :style {:flex-flow "row wrap"} ; :style container-style
             :children [[item-properties-panel id]]]
           [h-box :gap "4px" :align :start :justify :start :padding "20px" :style {:flex-flow "row wrap"} ; :style container-style
-            :children [[v-box :gap "2px" :width image-size :align :center :justify :center :height "100%"
+            :children [[v-box :gap "2px" :width image-size :align :center :justify :center
                          :children [[v-box
                                        :children [[box :max-width image-size :max-height image-size
                                                     :child [:img {:src url :class object-fit
@@ -727,7 +727,7 @@
       (let [title (if @artwork-uuid
                     (subscribe [:item-attribute-by-uuid :artwork @artwork-uuid :title])
                     (r/atom "(no title)"))]
-        [v-box :gap "6px" :padding "20px" :width image-size :align :center :justify :start ;:height "100%"
+        [v-box :gap "6px" :padding "20px" :width image-size :align :center :justify :start
             :children [[box :max-width image-size :max-height image-size
                          :child [:img {:src @thumb-url :class :fit-cover :width image-size :height image-size}]]
                        (if (nil? @artwork-uuid)

@@ -45,7 +45,7 @@
                   (when (not (empty? @notes))
                     [v-box :gap "4px" :align :start :justify :start :max-width "480px"
                      :children [[:span.uppercase.light-grey "notes"]
-                                [:span @notes]]])]
+                                [:pre @notes]]])]
             view-box [v-box :gap "10px" :align :start :justify :start :children view]
             create-control [h-box :gap "30px" :align :center
                               :children [[button :label "Create" :class "btn-default"
