@@ -64,6 +64,9 @@
             "fig:build" ["trampoline" "run" "-m" "figwheel.main" "-b" "dev" "-r"]
             "fig:min"   ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "dev"]}
 
+  :implicit-middleware false
+  :implicit-hooks false
+
   :profiles
     {:dbmgmt {:dependencies [[org.clojure/tools.nrepl "0.2.13"]]}
 
