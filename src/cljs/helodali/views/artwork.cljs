@@ -415,7 +415,7 @@
                   :else "/image-assets/thumb-stub.png")
             object-fit (cond
                           @processing :fit-none
-                          (or (= @display-type :contact-sheet) @editing) :fit-cover
+                          (or (= @display-type :contact-sheet) @editing) :fit-contain
                           :else :fit-contain)]
         ;; Perform some dispatching if the artwork is not in sync with S3 and database
         (if @processing
@@ -652,7 +652,7 @@
                                     :tooltip "Sort by Type" :on-click #(if (= (first @sort-key) :type)
                                                                          (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
                                                                          (dispatch [:set-local-item-val [:sort-keys :artwork] [:type false]]))]]]]
-        [v-box :gap "4px" :align :center :justify :start :margin "10px"
+        [v-box :gap "4px" :align :center :justify :start :margin "10px" :min-width "1100px"
            :children (into [header] (mapv (fn [id bg] ^{:key id} [item-list-view @widths id bg]) @items (cycle [true false])))]))))
 
 (def instagram-api-url "https://api.instagram.com/oauth/authorize/?client_id=cbfda8d4f3c445af9dbf79dd90f03b90&redirect_uri=")
@@ -729,7 +729,7 @@
                     (r/atom "(no title)"))]
         [v-box :gap "6px" :padding "20px" :width image-size :align :center :justify :start
             :children [[box :max-width image-size :max-height image-size
-                         :child [:img {:src @thumb-url :class :fit-cover :width image-size :height image-size}]]
+                         :child [:img {:src @thumb-url :class :fit-contain :width image-size :height image-size}]]
                        (if (nil? @artwork-uuid)
                          [md-circle-icon-button :md-icon-name "zmdi-plus" :tooltip "Import to artwork"
                                    :emphasise? true :size :smaller :on-click #(dispatch [:create-from-instagram id])]

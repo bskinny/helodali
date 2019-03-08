@@ -109,11 +109,18 @@
               "/login&response_type=code&client_id=" cognito-client-id "&state=" (rand)
               "&scope=openid%20email%20profile")))
 
+;; on-click event handler which performs login
+(def do-register
+  #(set! (.. js/window -location -href)
+         (str cognito-base-url "/signup?redirect_uri=" origin
+              "/login&response_type=code&client_id=" cognito-client-id "&state=" (rand)
+              "&scope=openid%20email%20profile")))
+
 (defn- our-title
   "Display the HELODALI top-left title and link to either the landing page or login depending on context."
   [view]
   (let [back-to-landing? (r/atom (not= view :landing))
-        style {:padding-top "10px" :color "rgb(208, 187, 187)" :text-decoration "none"}]
+        style {:padding-top "10px" :color "rgb(110, 90, 90)" :text-decoration "none"}]
     (if @back-to-landing?
        [hyperlink :class "level1" :label "helodali" :style style :on-click #(dispatch [:back-to-landing-page])]
        [label :class "level1" :label "helodali" :style style])))
@@ -121,7 +128,11 @@
 (defn- login-button
   []
   ;; We are not checking the state value of the authorize request on the return visit.
-  [md-icon-button :md-icon-name "zmdi zmdi-brush" :size :larger :on-click do-login])
+  (let [style {:padding-top "10px" :color "rgb(110, 90, 90)" :text-decoration "none"}]
+    [h-box :align :center :justify :center :gap "10px"
+      :children [[hyperlink :class "level2" :label "sign in" :style style :on-click do-login]
+                 [md-icon-button :md-icon-name "zmdi zmdi-brush" :style style :size :larger :on-click do-login]
+                 [hyperlink :class "level2" :label "register" :style style :on-click do-register]]]))
 
 (defn display-message
   [id msg]
@@ -201,7 +212,7 @@
 
        (and @authenticated? @initialized? (not (empty? @aws-creds)) (not (nil? @aws-s3)))
        ;; Finally, display the app
-       [v-box :gap "0px" :margin "0px" :justify :between :width "100%"
+       [v-box :gap "0px" :margin "0px" :justify :between :width "90%"
           :children [[v-box
                        :children [[header]
                                   (if (not (empty? @msgs))
