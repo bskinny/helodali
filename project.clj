@@ -68,8 +68,7 @@
     {:dbmgmt {:dependencies [[org.clojure/tools.nrepl "0.2.13"]]}
 
      :dev
-       {:hooks [leiningen.cljsbuild]  ;; This adds cljsbuild when lein does an ordinary compile
-        :dependencies [[binaryage/devtools "0.9.10"]]
+       {:dependencies [[binaryage/devtools "0.9.10"]]
         :plugins      [[lein-figwheel "0.5.16"]
                        [lein-doo "0.1.10"]]
         :ring {:handler helodali.handler/dev-handler}
@@ -87,8 +86,7 @@
                               :external-config      {:devtools/config {:features-to-install :all}}}}}}}
 
      :webapp    ;; Do not name this profile :uberjar or lein ring uberwar will not work
-       {:hooks [leiningen.cljsbuild]  ;; This adds cljsbuild when lein does an ordinary compile
-        :ring {:handler helodali.handler/handler
+       {:ring {:handler helodali.handler/handler
                :uberwar-name "helodali.war"
                :war-exclusions []}  ;; This prevents excluding hidden files (default behavior) such as .ebextensions
         :cljsbuild
