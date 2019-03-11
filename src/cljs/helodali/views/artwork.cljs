@@ -496,7 +496,7 @@
                                         [v-box :align :start :justify :start
                                             :children (into [] (mapv (fn [color] ^{:key (clojure.string/join "-" color)} (palette-color-display color)) colors))]))
                                     (when (not @expanded) [v-box :gap "2px" :align :start :justify :start
-                                                               :children [[:span.semibold (title-string @title)]
+                                                               :children [[:span (title-string @title)]
                                                                           [:span (str @year (when @dimensions (str " - " @dimensions)))]]])]]
                        (when @expanded [item-properties-panel id])]])))))
 
@@ -729,7 +729,7 @@
                     (r/atom "(no title)"))]
         [v-box :gap "6px" :padding "20px" :width image-size :align :center :justify :start
             :children [[box :max-width image-size :max-height image-size
-                         :child [:img {:src @thumb-url :class :fit-contain :width image-size :height image-size}]]
+                         :child [:img {:src @image-url :class :fit-contain :width image-size :height image-size}]]
                        (if (nil? @artwork-uuid)
                          [md-circle-icon-button :md-icon-name "zmdi-plus" :tooltip "Import to artwork"
                                    :emphasise? true :size :smaller :on-click #(dispatch [:create-from-instagram id])]

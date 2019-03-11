@@ -212,7 +212,7 @@
 
        (and @authenticated? @initialized? (not (empty? @aws-creds)) (not (nil? @aws-s3)))
        ;; Finally, display the app
-       [v-box :gap "0px" :margin "0px" :justify :between :width "90%"
+       [v-box :gap "0px" :margin "0px" :justify :between :width "100%"
           :children [[v-box
                        :children [[header]
                                   (if (not (empty? @msgs))

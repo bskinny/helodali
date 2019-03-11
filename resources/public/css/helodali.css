@@ -1,10 +1,13 @@
 
 body {
   background-color: #fafafa;
+  line-height: 1.1;
+  font-size: 12px;
+  font-weight: 300;
 }
 
 .header {
-  background-color: rgba(253, 253, 253, 0.3);/* #fdfdfd */
+  background-color: rgba(253, 253, 253, 0.3); /* #fdfdfd */
 }
 
 .red {
