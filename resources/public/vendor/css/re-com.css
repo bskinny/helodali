@@ -691,7 +691,7 @@ html, body {
 .dropdown-button {
     cursor: pointer;
     height: 32px;
-    font-size: 13px;
+    font-size: 12px;             /* HELODALI CUSTOMIZATION: was 13px */
     font-weight: normal;
 }
 

@@ -51,7 +51,7 @@
                     (when (not (empty? (:notes exhibition-history)))
                       [h-box :gap "6px" :align :start ;:style {:border "dashed 1px red"}
                            :children [[label :width "11ch" :class "uppercase light-grey" :label "Notes: "]
-                                      [re-com/box :max-width "360px" :child [:p (:notes exhibition-history)]]]])]])))
+                                      [re-com/box :max-width "360px" :child [:pre (:notes exhibition-history)]]]])]])))
 
 (defn display-exhibition-history-edit
   [id idx odd-row?]
@@ -125,7 +125,7 @@
                                     [:span (:name @dealer-contact)]]])
                     (when (not (empty? (:notes purchase)))
                       [h-box :gap "6px" :children [[:span.uppercase.light-grey "Notes: "]
-                                                   [:span (:notes purchase)]]])]])))
+                                                   [:pre (:notes purchase)]]])]])))
 
 (defn display-purchase-edit
   [id idx odd-row?]

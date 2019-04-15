@@ -6,6 +6,18 @@ body {
   font-weight: 300;
 }
 
+pre {
+  font-family: Segoe UI, Roboto, sans-serif;
+  line-height: 1.1;
+  font-size: 12px;
+  font-weight: 300;
+  white-space: pre-wrap;
+  padding: 0px;
+  border: 0px;
+  overflow: visible; /* Prevent scroll bar */
+  word-break: unset; /* Bootstrap sets word-break */
+}
+
 .header {
   background-color: rgba(253, 253, 253, 0.3); /* #fdfdfd */
 }
@@ -49,8 +61,8 @@ body {
 .login-page {
   background-image:url("/image-assets/file-cabinet.png"), linear-gradient(#e4e0ba, #f7d9aa);
   background-position: top;
-  /*background: -webkit-linear-gradient(#e4e0ba, #f7d9aa);
-  background: linear-gradient(#e4e0ba, #f7d9aa);*/
+  /* background: -webkit-linear-gradient(#e4e0ba, #f7d9aa);
+  background: linear-gradient(#e4e0ba, #f7d9aa); */
   background-repeat: no-repeat;
 }
 
@@ -59,4 +71,54 @@ body {
   position: absolute;
   /*left: 0; top: 0;*/
   right: 100; bottom: 100;
+}
+
+.btn {
+    display: inline-block;
+    padding: 6px 12px;
+    margin-bottom: 0;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.42857143;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    -ms-touch-action: manipulation;
+    touch-action: manipulation;
+    cursor: pointer;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    background-image: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+}
+
+.facebook-button {
+    background-color: #4267b2;
+    color: white;
+}
+
+.facebook-button:hover {
+    background-color: #2955ad;
+    color: white;
+}
+
+.google-button {
+    background-color: #d3d3d3;
+    color: black;
+}
+
+.google-button:hover {
+    background-color: #c4c4c4;
+}
+
+.social-logo {
+    width: 35px;
+    height: 100%;
+    text-align: center;
+    padding-right: 10px;
+    display: inline-block;
+    vertical-align: middle;
 }
