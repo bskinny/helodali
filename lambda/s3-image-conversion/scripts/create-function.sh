@@ -2,7 +2,7 @@
 
 # Create the triggers on ObjectCreated/ObjectRemoved after executing this.
 
-export AWS_PROFILE = helodali
+export AWS_PROFILE = default
 
 aws lambda create-function \
 	--region us-east-1 \
