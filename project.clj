@@ -1,5 +1,5 @@
 (defproject helodali "0.1.0-SNAPSHOT"
-  :dependencies [[org.clojure/clojure "1.9.0"]
+  :dependencies [[org.clojure/clojure "1.10.0"]
                  [org.clojure/clojurescript "1.10.439"]
                  [org.clojure/tools.logging "0.4.1"]
                  [reagent "0.8.1"]
@@ -31,7 +31,7 @@
                  [buddy/buddy-core "1.5.0"]
                  [cljsjs/aws-sdk-js "2.394.0-0"]  ;; This is a local build of aws-sdk-js for now (see README).
                  [ring/ring-defaults "0.3.2"]
-                 [ring-middleware-format "0.7.2"]
+                 [ring-middleware-format "0.7.4"]
                  [ring-logger "0.7.8"]
                  [clj-http "2.3.0"]
                  [hickory "0.7.1"]
@@ -41,11 +41,11 @@
                  [venantius/accountant "0.2.4"]]
 
   :plugins [[lein-cljsbuild "1.1.7"]
-            [lein-ring "0.12.4"]
+            [lein-ring "0.12.5"]
             [lein-asset-minifier "0.4.5"
                :exclusions [org.clojure/clojure]]]
 
-  :min-lein-version "2.7.1"
+  :min-lein-version "2.9.1"
 
   :source-paths ["src/clj" "src/cljc"]
 
