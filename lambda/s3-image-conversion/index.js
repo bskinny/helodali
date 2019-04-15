@@ -152,7 +152,7 @@ exports.handler = function(event, context, callback) {
         function transformThumb(response, next) {
             original = sharp(response.Body);
             original.resize({width: MAX_THUMB_DIMENSION, height: MAX_THUMB_DIMENSION,
-                             fit: 'contain', withoutEnlargement: true})
+                             fit: 'inside', withoutEnlargement: true})
                    .jpeg({"quality": 100})
                    .toBuffer(function (err, data, info) {
                        if (err) {
@@ -177,7 +177,7 @@ exports.handler = function(event, context, callback) {
         function transformImage(rawImage, next) {
             original = sharp(rawImage);
             original.resize({width: MAX_IMAGE_DIMENSION, height: MAX_IMAGE_DIMENSION,
-                             fit: 'contain', withoutEnlargement: true})
+                             fit: 'inside', withoutEnlargement: true})
                     .jpeg({"quality": 100})
                     .toBuffer(function (err, data, info) {
                         if (err) {
@@ -207,7 +207,7 @@ exports.handler = function(event, context, callback) {
                 .then(function resizeIt(metadata) {
                     original
                         .resize({width: MAX_LARGE_IMAGE_DIMENSION, height: MAX_LARGE_IMAGE_DIMENSION,
-                                 fit: 'contain', withoutEnlargement: true})
+                                 fit: 'inside', withoutEnlargement: true})
                         .jpeg({"quality": 100})
                         .toBuffer(function (err, data, info) {
                             if (err) {
