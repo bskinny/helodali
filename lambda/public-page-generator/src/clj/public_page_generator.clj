@@ -144,6 +144,21 @@
                       :metadata {:content-length (count html)
                                  :content-type "text/html"})))
 
+(defn sort-by-keys
+  "Used as a comparator to sort, comparing the string-value of keys in 'ks' between
+   maps. This function is called recursively, with an empty ks list signifying equality."
+  [ks reverse? m1 m2]
+  (if (empty? ks)
+    0
+    (let [asc-desc (if reverse? (partial * -1) identity)
+          k (first ks)]
+      (if (or (nil? m1) (nil? m2))
+        (asc-desc (compare m1 m2))
+        (let [result (asc-desc (compare (get m1 k) (get m2 k)))]
+          (if (not= 0 result)
+            result
+            (sort-by-keys (rest ks) reverse? m1 m2)))))))
+
 (defn sort-by-date
   "Used as a comparator to sort, comparing two datetime key values and
    falling back to :created time of the item. If the input maps do not
@@ -326,6 +341,13 @@
     (catch Exception e
       (pprint (ex->map e)))))
 
+(defn sort-artwork
+  "Fetch all the user's artwork and sort according to :year and then :created"
+  [uref]
+  (->> (:items (ddb/query :table-name :artwork :key-conditions {:uref {:attribute-value-list [uref]
+                                                                       :comparison-operator "EQ"}}))
+       (sort (partial sort-by-keys [:year :created] true))))
+
 (defn publish-site
   [pages-profile]
   (pprint (str "Publishing site for user " (:s (:uuid pages-profile))))
@@ -335,8 +357,7 @@
         ;; Create of map representation of the public exhibitions keyed by :uuid values
         public-exhibitions (reduce (fn [m e] (assoc m (get e :ref) (dissoc e :ref))) {} (:public-exhibitions page-config))
         ;; Retrieve all artwork items
-        artwork (:items (ddb/query :table-name :artwork :key-conditions {:uref {:attribute-value-list [uref]
-                                                                                :comparison-operator "EQ"}}))
+        artwork (sort-artwork uref)
         ;; Retrieve all exhibition items
         exhibitions (:items (ddb/query :table-name :exhibitions :key-conditions {:uref {:attribute-value-list [uref]
                                                                                         :comparison-operator "EQ"}}))]
@@ -346,7 +367,7 @@
     (copy-resources uref)
     ;; Create contact form
     (create-contact-form-page uref page-config)
-    ;; Create CV page
+    ;; Create CV page+
     (create-cv-page uref page-config exhibitions)
     ;; Create the individual exhibition pages
     (doall (map (partial create-exhibition-page uref page-config public-exhibitions exhibitions artwork) (keys public-exhibitions)))

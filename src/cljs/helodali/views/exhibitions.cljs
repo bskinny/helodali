@@ -110,7 +110,7 @@
                   (when (not (empty? @notes))
                     [v-box :gap "4px" :align :start :justify :start :max-width "480px"
                             :children [[:span.uppercase.light-grey "notes"]
-                                       [:span @notes]]])]
+                                       [:pre @notes]]])]
             create-control [h-box :gap "30px" :align :center
                               :children [[button :label "Create" :class "btn-default"
                                            :on-click #(dispatch [:create-from-placeholder :exhibitions []])]

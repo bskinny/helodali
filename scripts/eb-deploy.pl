@@ -5,7 +5,7 @@
 use strict;
 use warnings FATAL => 'all';
 
-$ENV{AWS_PROFILE} = "helodali";
+$ENV{AWS_PROFILE} = "default";
 
 my @diffs = qx(git diff --name-only);
 foreach my $file (@diffs) {
@@ -21,6 +21,7 @@ qx(perl -p -i -e "s/app.js/app-$ct.js/g" resources/public/index.html);
 
 # Build the war file and rename it
 qx(lein clean);
+qx(lein with-profile webapp cljsbuild once);
 qx(lein with-profile webapp ring uberwar);
 my $war = "helodali-$ct.war";
 qx(mv target/helodali.war "target/$war");

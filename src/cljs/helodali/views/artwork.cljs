@@ -51,7 +51,7 @@
                     (when (not (empty? (:notes exhibition-history)))
                       [h-box :gap "6px" :align :start ;:style {:border "dashed 1px red"}
                            :children [[label :width "11ch" :class "uppercase light-grey" :label "Notes: "]
-                                      [re-com/box :max-width "360px" :child [:p (:notes exhibition-history)]]]])]])))
+                                      [re-com/box :max-width "360px" :child [:pre (:notes exhibition-history)]]]])]])))
 
 (defn display-exhibition-history-edit
   [id idx odd-row?]
@@ -125,7 +125,7 @@
                                     [:span (:name @dealer-contact)]]])
                     (when (not (empty? (:notes purchase)))
                       [h-box :gap "6px" :children [[:span.uppercase.light-grey "Notes: "]
-                                                   [:span (:notes purchase)]]])]])))
+                                                   [:pre (:notes purchase)]]])]])))
 
 (defn display-purchase-edit
   [id idx odd-row?]
@@ -415,7 +415,7 @@
                   :else "/image-assets/thumb-stub.png")
             object-fit (cond
                           @processing :fit-none
-                          (or (= @display-type :contact-sheet) @editing) :fit-cover
+                          (or (= @display-type :contact-sheet) @editing) :fit-contain
                           :else :fit-contain)]
         ;; Perform some dispatching if the artwork is not in sync with S3 and database
         (if @processing
@@ -431,7 +431,7 @@
           [h-box :gap "4px" :align :start :justify :start :style {:flex-flow "row wrap"} ; :style container-style
             :children [[item-properties-panel id]]]
           [h-box :gap "4px" :align :start :justify :start :padding "20px" :style {:flex-flow "row wrap"} ; :style container-style
-            :children [[v-box :gap "2px" :width image-size :align :center :justify :center :height "100%"
+            :children [[v-box :gap "2px" :width image-size :align :center :justify :center
                          :children [[v-box
                                        :children [[box :max-width image-size :max-height image-size
                                                     :child [:img {:src url :class object-fit
@@ -496,7 +496,7 @@
                                         [v-box :align :start :justify :start
                                             :children (into [] (mapv (fn [color] ^{:key (clojure.string/join "-" color)} (palette-color-display color)) colors))]))
                                     (when (not @expanded) [v-box :gap "2px" :align :start :justify :start
-                                                               :children [[:span.semibold (title-string @title)]
+                                                               :children [[:span (title-string @title)]
                                                                           [:span (str @year (when @dimensions (str " - " @dimensions)))]]])]]
                        (when @expanded [item-properties-panel id])]])))))
 
@@ -652,7 +652,7 @@
                                     :tooltip "Sort by Type" :on-click #(if (= (first @sort-key) :type)
                                                                          (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
                                                                          (dispatch [:set-local-item-val [:sort-keys :artwork] [:type false]]))]]]]
-        [v-box :gap "4px" :align :center :justify :start :margin "10px"
+        [v-box :gap "4px" :align :center :justify :start :margin "10px" :min-width "1100px"
            :children (into [header] (mapv (fn [id bg] ^{:key id} [item-list-view @widths id bg]) @items (cycle [true false])))]))))
 
 (def instagram-api-url "https://api.instagram.com/oauth/authorize/?client_id=cbfda8d4f3c445af9dbf79dd90f03b90&redirect_uri=")
@@ -727,9 +727,9 @@
       (let [title (if @artwork-uuid
                     (subscribe [:item-attribute-by-uuid :artwork @artwork-uuid :title])
                     (r/atom "(no title)"))]
-        [v-box :gap "6px" :padding "20px" :width image-size :align :center :justify :start ;:height "100%"
+        [v-box :gap "6px" :padding "20px" :width image-size :align :center :justify :start
             :children [[box :max-width image-size :max-height image-size
-                         :child [:img {:src @thumb-url :class :fit-cover :width image-size :height image-size}]]
+                         :child [:img {:src @image-url :class :fit-contain :width image-size :height image-size}]]
                        (if (nil? @artwork-uuid)
                          [md-circle-icon-button :md-icon-name "zmdi-plus" :tooltip "Import to artwork"
                                    :emphasise? true :size :smaller :on-click #(dispatch [:create-from-instagram id])]

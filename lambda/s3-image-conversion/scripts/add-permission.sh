@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-export AWS_PROFILE = helodali
+export AWS_PROFILE = default
 
 aws lambda add-permission \
 	--function-name image-conversion \

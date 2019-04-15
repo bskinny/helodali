@@ -3,7 +3,7 @@
 use warnings FATAL => 'all';
 use strict;
 
-$ENV{AWS_PROFILE} = "helodali";
+$ENV{AWS_PROFILE} = "default";
 
 my $KEY = "image-conversion-$$";
 
