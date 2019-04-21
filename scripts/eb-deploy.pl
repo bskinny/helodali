@@ -4,7 +4,9 @@
 # eb-deploy.pl [environment name]
 # e.g. eb-deploy.pl uatest
 
-# NOTE: `eb init` should have been executed prior to this.
+# NOTES:
+# `eb init` should have been executed prior to this.
+# Make sure all changes are committed as `eb deploy` will use git archive.
 
 use strict;
 use warnings FATAL => 'all';
