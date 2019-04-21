@@ -99,7 +99,7 @@
      :children [[re-com/throbber :size :large]]])
 
 (def cognito-base-url "https://helodali.auth.us-east-1.amazoncognito.com")
-(def cognito-client-id "4pbu2aidkc3ev5er82j6in8q96")
+(def cognito-client-id "2j61fm7lap9t771afkndvc9uof")
 (def origin (.-origin (.-location js/document)))
 (def authorize-url (str cognito-base-url "/oauth2/authorize?redirect_uri=" origin
                         "/login&response_type=code&client_id=" cognito-client-id "&state=" (rand)

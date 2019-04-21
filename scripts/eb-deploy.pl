@@ -1,35 +1,37 @@
 #!/usr/bin/perl
 
-# We are going to alter project.clj and resources/public/index.html and then checkout them out again.
-# So make sure it is not currently modified.
+# Usage:
+# eb-deploy.pl [environment name]
+# e.g. eb-deploy.pl uatest
+
+# NOTE: `eb init` should have been executed prior to this.
+
 use strict;
 use warnings FATAL => 'all';
 
+my $REGION = "us-east-1";
+
+# Make sure the AWS eb cli is installed
+qx(eb --version) or die "Must install aws eb cli, see README.MD";
+
 $ENV{AWS_PROFILE} = "default";
 
-my @diffs = qx(git diff --name-only);
-foreach my $file (@diffs) {
-	chomp($file);
-	if ($file =~ /^project.clj$/ or $file =~ /^resources\/public\/index.html$/) {
-		die "Changes to $file should be commited before deployment.\n";
-	}
-}
+# Perform an eb status
+print qx(eb status);
+($? != 0) and die "Unable to execute eb status: $!\n";
 
-my $ct = time(); # Seconds since epoch
-qx(perl -p -i -e "s/app.js/app-$ct.js/g" project.clj);
-qx(perl -p -i -e "s/app.js/app-$ct.js/g" resources/public/index.html);
+my $env = "";
+(@ARGV == 1) and $env = $ARGV[0];
 
-# Build the war file and rename it
+print "Continue with deploy (y|n)? [y] ";
+my $response = <STDIN>;
+chomp($response);
+die "Exiting" if ($response !~ /^y?$/i);
+
+# Clean out the target of any previous build as we do not want to rebuild in the container
 qx(lein clean);
-qx(lein with-profile webapp cljsbuild once);
-qx(lein with-profile webapp ring uberwar);
-my $war = "helodali-$ct.war";
-qx(mv target/helodali.war "target/$war");
+($? != 0) and die "Unable to lein clean: $!\n";
 
-# Deploy the war
-print qx(aws s3 cp "target/$war" s3://elasticbeanstalk-us-east-1-128225160927/);
-print qx(aws elasticbeanstalk create-application-version --application-name helodali --version-label "v$ct" --source-bundle S3Bucket="elasticbeanstalk-us-east-1-128225160927",S3Key="$war");
-print qx(aws elasticbeanstalk update-environment --application-name helodali --environment-name Helodali-env --version-label "v$ct");
-
-qx(git checkout project.clj resources/public/index.html);
-
+# Deploy the project and let EB build + run the docker container
+print qx(eb deploy $env);
+($? != 0) and die "Unable to deploy: $!\n";
