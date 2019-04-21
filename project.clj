@@ -29,7 +29,7 @@
                  [yogthos/config "1.1.1"]
                  [clj-jwt "0.1.1"]
                  [buddy/buddy-core "1.5.0"]
-                 [cljsjs/aws-sdk-js "2.394.0-0"]  ;; This is a local build of aws-sdk-js for now (see README).
+                 [org.clojars.bskinny/aws-sdk-js "2.394.0-1"]  ;; This is a local build of aws-sdk-js for now (see README).
                  [ring/ring-defaults "0.3.2"]
                  [ring-middleware-format "0.7.4"]
                  [ring-logger "0.7.8"]
@@ -41,28 +41,28 @@
                  [venantius/accountant "0.2.4"]]
 
   :plugins [[lein-cljsbuild "1.1.7"]
+
+            ;;lein-tools-deps is needed to avoid duplicate dependency definition between lein and deps.edn. As of v0.4.5
+            ;; it is not working.
+            ;[lein-tools-deps "0.4.5"]
+
             [lein-ring "0.12.5"]
             [lein-asset-minifier "0.4.5"
                :exclusions [org.clojure/clojure]]]
 
+  ;; The following configuration is for the lein-tools-deps plugin (commented out above). As of version 0.4.5 it still
+  ;; does not work for this project.
+  ;:middleware [lein-tools-deps.plugin/resolve-dependencies-with-deps-edn]
+  ;:lein-tools-deps/config {:config-files [:project]}
+  ;:clojure-executables ["/usr/local/bin/clojure"]
+
   :min-lein-version "2.9.1"
 
   :source-paths ["src/clj" "src/cljc"]
-
   :test-paths ["test/clj" "test/cljc"]
-
-  :clean-targets ^{:protect false} ["resources/public/js/compiled" "target"
-                                    "test/js"]
-
-  :figwheel {:css-dirs ["resources/public/css"]
-             :server-logfile "/Users/brianww/gitlab/helodali-figwheel.log"
-             :ring-handler helodali.handler/dev-handler}
+  :clean-targets ^{:protect false} ["resources/public/js/compiled" "target" "test/js"]
 
   :war-resources-path "war-resources" ;; Used only for packaging .ebextensions at the top level of the war
-
-  :aliases {"fig"       ["trampoline" "run" "-m" "figwheel.main"]
-            "fig:build" ["trampoline" "run" "-m" "figwheel.main" "-b" "dev" "-r"]
-            "fig:min"   ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "dev"]}
 
   :profiles
     {:dbmgmt {:dependencies [[org.clojure/tools.nrepl "0.2.13"]]}
@@ -86,8 +86,11 @@
                               :external-config      {:devtools/config {:features-to-install :all}}}}}}}
 
      :webapp    ;; Do not name this profile :uberjar or lein ring uberwar will not work
-       {:ring {:handler helodali.handler/handler
+       {:prep-tasks ["compile" ["cljsbuild" "once"]]
+        :ring {:handler helodali.handler/handler
                :uberwar-name "helodali.war"
+               :open-browser? false
+               :jar-exclusions []
                :war-exclusions []}  ;; This prevents excluding hidden files (default behavior) such as .ebextensions
         :cljsbuild
          {:builds
