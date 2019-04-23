@@ -17,6 +17,8 @@ use strict;
 use Term::ANSIColor;
 use warnings FATAL => 'all';
 
+# Unbuffer I/O
+$| = 1;
 
 # Make sure the AWS eb cli is installed
 qx(eb --version) or die "Must install aws eb cli, see README.MD";
