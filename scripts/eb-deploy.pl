@@ -59,14 +59,14 @@ if ($response !~ /^y?$/i) {
     exit 0;
 }
 
-# Clean out the target of any previous build as we do not want to rebuild in the container
+# Clean out the target of any previous build as we want to rebuild in the docker image
 qx(lein clean);
 if ($? != 0) {
     printError("Unable to lein clean: $!\n");
     exit 1;
 };
 
-# Deploy the project and let EB build + run the docker container
+# Deploy the project and let EB build and run the docker container
 print qx(eb deploy $env);
 if ($? != 0) {
     printError("Unable to deploy: $!\n");

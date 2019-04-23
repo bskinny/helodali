@@ -20,7 +20,10 @@ COPY . /app
 # Perform some asset renaming for cache busting purposes
 RUN ts=$(date +%s) \
     && sed -i "s/app.js/app-$ts.js/g" project.clj \
-    && sed -i "s/app.js/app-$ts.js/g" resources/public/index.html
+    && sed -i "s/app.js/app-$ts.js/g" resources/public/index.html \
+    && mv resources/public/css/helodali.css resources/public/css/helodali-$ts.css \
+    && sed -i "s/helodali.css/helodali-$ts.css/g" resources/public/index.html \
+    && sed -i "s/helodali.css/helodali-$ts.css/g" resources/public/static/privacy.html
 
 EXPOSE 3000
 
