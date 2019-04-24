@@ -1,35 +1,87 @@
 #!/usr/bin/perl
 
-# We are going to alter project.clj and resources/public/index.html and then checkout them out again.
-# So make sure it is not currently modified.
+# Usage:
+# eb-deploy.pl [--ignore-changes] [environment name]
+# e.g. eb-deploy.pl uatest
+
+# This script is intended for use in deploying the helodali app to AWS Elastic
+# Beanstalk. The eb client should be installed and initialized with the application
+# target (e.g. helodali-prod, helodali-test). Specifically, `eb init` should have
+# been executed prior to this. Make sure all changes are committed as `eb deploy`
+# will use git archive.
+#
+# If an environment name is not provided to this script, then the default
+# environment is targeted.
+
 use strict;
+use Term::ANSIColor;
 use warnings FATAL => 'all';
+
+# Unbuffer I/O
+$| = 1;
+
+# Make sure the AWS eb cli is installed
+qx(eb --version) or die "Must install aws eb cli, see README.MD";
 
 $ENV{AWS_PROFILE} = "default";
 
-my @diffs = qx(git diff --name-only);
-foreach my $file (@diffs) {
-	chomp($file);
-	if ($file =~ /^project.clj$/ or $file =~ /^resources\/public\/index.html$/) {
-		die "Changes to $file should be commited before deployment.\n";
-	}
+# Sanity check of uncommitted changes
+if (@ARGV and $ARGV[0] =~ /--ignore-changes/i) {
+    # Remove the arg from ARGV
+    shift(@ARGV);
+
+} else {
+    # Look for any uncommitted changes and exit if found.
+    my @diffs = qx(git diff HEAD --name-only);
+    if (@diffs) {
+        printError("Changes to the following files should be committed before deployment.\n");
+        foreach my $file (@diffs) {
+            print $file;
+        }
+        printWarning("Override this check with --ignore-changes\n");
+        exit 1;
+    }
 }
 
-my $ct = time(); # Seconds since epoch
-qx(perl -p -i -e "s/app.js/app-$ct.js/g" project.clj);
-qx(perl -p -i -e "s/app.js/app-$ct.js/g" resources/public/index.html);
+# Perform an eb status
+print qx(eb status);
+if ($? != 0) {
+    printError("Unable to execute eb status: $!\n");
+    exit 1;
+};
 
-# Build the war file and rename it
+my $env = "";
+(@ARGV == 1) and $env = $ARGV[0];
+
+print "Continue with deploy (y|n)? [y] ";
+my $response = <STDIN>;
+chomp($response);
+if ($response !~ /^y?$/i) {
+    printWarning("Exiting without deployment\n");
+    exit 0;
+}
+
+# Clean out the target of any previous build as we want to rebuild in the docker image
 qx(lein clean);
-qx(lein with-profile webapp cljsbuild once);
-qx(lein with-profile webapp ring uberwar);
-my $war = "helodali-$ct.war";
-qx(mv target/helodali.war "target/$war");
+if ($? != 0) {
+    printError("Unable to lein clean: $!\n");
+    exit 1;
+};
 
-# Deploy the war
-print qx(aws s3 cp "target/$war" s3://elasticbeanstalk-us-east-1-128225160927/);
-print qx(aws elasticbeanstalk create-application-version --application-name helodali --version-label "v$ct" --source-bundle S3Bucket="elasticbeanstalk-us-east-1-128225160927",S3Key="$war");
-print qx(aws elasticbeanstalk update-environment --application-name helodali --environment-name Helodali-env --version-label "v$ct");
+# Deploy the project and let EB build and run the docker container
+print qx(eb deploy $env);
+if ($? != 0) {
+    printError("Unable to deploy: $!\n");
+    exit 1;
+}
 
-qx(git checkout project.clj resources/public/index.html);
 
+sub printWarning {
+    my $msg = shift;
+    print color('bold yellow'), $msg, color('reset');
+}
+
+sub printError {
+    my $msg = shift;
+    print color('bold red'), $msg, color('reset');
+}

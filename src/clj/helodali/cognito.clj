@@ -19,11 +19,13 @@
                      (System/getProperty "HD_COGNITO_REDIRECT_URI"))})
 
 (def options {:timeout 900  ;; ms
-              ;:debug true
-              ;:debug-body true
+              :debug true
+              :debug-body true
               :basic-auth [(:id client) (:secret client)]
               :as :auto  ;; Try to automatically coerce the output based on the content-type
               :headers {:Accept "application/json"}})
+
+(def jwks (atom {}))
 
 (def base-url "https://helodali.auth.us-east-1.amazoncognito.com")
 (def jwks-url "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_0cJWyWe5Z/.well-known/jwks.json")
@@ -38,16 +40,20 @@
   Return a map which includes the above as well as the public key representation:
     <kid> {:jwk <above list element> :public-key <public-key>}."
   []
-  (let [jwks (try+
-               (http/get jwks-url options)
-               (catch Object _
-                 (pprint (str (:throwable &throw-context) " unexpected error"))
-                 (throw+)))]
-    (->> (:body jwks)
+  (let [key-set (try+
+                  (http/get jwks-url options)
+                  (catch Object _
+                    (pprint (str (:throwable &throw-context) " unexpected error"))
+                    (throw+)))]
+    (->> (:body key-set)
          (:keys)
          (reduce #(assoc %1 (:kid %2) {:jwk %2 :public-key (keys/jwk->public-key %2)}) {}))))
 
-(def jwks (atom (get-jwks)))
+(defn init
+  "Invoked at server startup...
+   - Initialize the jwks map."
+  []
+  (reset! jwks (get-jwks)))
 
 (defn get-token
   "Passed an authorization code, request the access, id and refresh tokens from Cognito"
@@ -113,13 +119,15 @@
   Pull the kid and alg from the JWT header and pass to the verify function. Then check expiration.
   If the  token is expired, attempt to refresh."
   [session]
+  (when (empty? @jwks)
+    (reset! jwks (get-jwks)))
   (let [jwt (str->jwt (:token session))
         jwt-header (:header jwt)
         public-key (get-in @jwks [(:kid jwt-header) :public-key])]
     (if (nil? public-key)
       ;; This kid is unknown, refresh the jwks list
       (do
-        (swap! jwks (get-jwks))
+        (reset! jwks (get-jwks))
         (if (nil? (get-in @jwks [(:kid jwt-header) :public-key]))
           (throw (IllegalArgumentException. (str "Unable to find kid in jwks list: " (:kid jwt-header))))
           ;; Reprocess the request
