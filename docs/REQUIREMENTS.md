@@ -8,7 +8,7 @@ associated with it and references to purchases, exhibitions, press.
 
 The following basic data types are needed.
 
-####Artwork
+#### Artwork
 Define and optionally upload an image representing artwork. The image can potentially be several gbs in size and have
 the following properties. The only required property is Year, which is bolded.
   * Title - String(512) - A string of maximum length 512 characters
