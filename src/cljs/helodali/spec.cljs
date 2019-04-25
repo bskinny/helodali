@@ -125,7 +125,7 @@
 (s/def ::publication-date (s/nilable ::date))
 (s/def ::press-ref (s/keys :req-un [::uuid]
                            :opt-un [::title ::author-first-name ::author-last-name ::publication ::url ::volume
-                                    ::publication-date ::page-numbers ::include-in-cv ::notes ::associated-documents ::notes]))
+                                    ::publication-date ::page-numbers ::include-in-cv ::notes ::associated-documents]))
 
 ;; Expenses
 (s/def ::expense-type #{:materials :advertising :packaging-shipping :other
