@@ -29,12 +29,12 @@ the following properties. The only required property is Year, which is bolded.
   * Medium - String(256)
   * Dimensions - String(64)
   * Condition - String(512)
-  * List Price - Number, can be zero and have two-digit precision
+  * List Price - Integer, 0 or greater
   * Exhibitions - Multi-valued of uuid references to exhibitions (defined below)
   * Purchases - List of purchases. There will typically be a single value in the list of; multiple values 
                 are applicable in the context of prints or tracking secondary sales.
     A Purchase has the following properties:
-    * __Price__ - A number stored with at most two-digit precision 
+    * __Price__ - A float stored with at most two-digit precision 
     * Buyer - A uuid reference to a contact (defined below), nil for unknown buyer (.e.g bought through dealer)
     * Donated - Boolean representing a donated artwork
     * Commissioned - Boolean
@@ -96,7 +96,7 @@ contain a review of the artist's work.
 
 #### Expenses
 Expenses are items with the following properties:
-  * __Price__ - Number, can be zero and have two-digit precision
+  * __Price__ - Float, can be zero and have two-digit precision
   * __Date__ - A Date with day-level granularity
   * Expense-Type - Member of { materials advertising packaging-shipping other
                                miscellaneous dues-subscriptions})

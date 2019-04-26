@@ -48,13 +48,17 @@ is performed on the helodali server using the Oauth2 `authentication_code` flow,
 and approval, returning an authorization code to the helodali server. The server will then exchange the code for an Instagram access 
 token which is stored in the `accounts` database table for reuse. 
 
+Users can select individual Instagram posts to import into helodali with basic attempts at parsing title, medium, and dimensions from the 
+post comment.
+
 #### Website Creation
-Helodali can also produce an artist website, as seen [here](http://mayalane.com). The generation of the website is handled by
+Helodali can also produce an artist website, as seen [here](https://mayalane.com). The generation of the website is handled by
 multiple AWS Lambda functions: public-page-generator, ribbon-maker, and contact-form.
 
 
-### Development Mode
+### Local Development
 
+The application can be run locally though it points to AWS for database and cognito. 
 Define the following environment variables before proceeding (the INSTAGRAM values are optional):
 
 ```
@@ -73,78 +77,44 @@ export HD_COGNITO_REDIRECT_URI=http://localhost:9500/login
 export HD_CREATE_RIBBON_TOPIC_ARN=<arn for hd-create-ribbon only needed for website deployment>
 ```
 
-Once the environment is defined, you can run figwheel in one of two ways. With lein:
+Once the environment is defined, you can run figwheel with:
 
 ```
-lein clean
-rlwrap lein figwheel
+clojure -A:fig:build
 ```
 
-Or with the clojure command line tool:
-```
-clojure -m figwheel.main --build dev --repl
-```
+This will launch a browser to [http://localhost:9500](http://localhost:9500).
 
-Wait a bit, then browse to [http://localhost:9500](http://localhost:9500).
 
-#### Local builds of aws-sdk-js dependency
-Until the [issue](https://github.com/cljsjs/packages/issues/1619) with the externs file is addressed, there is a local copy of aws-sdk-js installed
-using the following process in a [branch](https://github.com/bskinny/packages/tree/aws-sdk-js-update) of cljsjs/packages:
-1. Define the minimal externs for S3 and Cognito services like so in aws-sdk-js/resources/cljsjs/aws-sdk-js/common/aws-sdk-js.ext.js:
-```
-/**********************************************************************
- * Minimal externs for AWS S3 and Cognito
- **********************************************************************/
-var AWS = {
-  "S3": {
-    "getObject": function () {},
-    "putObject": function () {},
-    "copyObject": function () {},
-    "deleteObjects": function () {},
-    "getSignedUrl": function () {}
-  },
-  "config": {
-    "region": function () {},
-    "credentials": function () {}
-  }
-};
-AWS.CognitoIdentityCredentials.prototype = {
-  "cacheId": function () {},
-  "clearCachedId": function () {},
-  "clearIdOnNotAuthorized": function () {},
-  "constructor": function () {},
-  "createClients": function () {},
-  "expiryWindow": function () {},
-  "get": function () {},
-  "getCredentialsForIdentity": function () {},
-  "getCredentialsFromSTS": function () {},
-  "getId": function () {},
-  "getPromise": function () {},
-  "getStorage": function () {},
-  "loadCachedId": function () {},
-  "loadCredentials": function () {},
-  "localStorageKey": function () {},
-  "needsRefresh": function () {},
-  "refresh": function () {},
-  "refreshPromise": function () {},
-  "setStorage": function () {},
-  "storage": function () {}
-};
+## Deployments to AWS
+
+To deploy to an AWS Elastic Beanstalk application environment, first configure the aws eb cli. The eb cli requires python3.
+There is a convenience script to set this up via python3 virtual env. Run:
 
 ```
-2. Update the version number if necessary in aws-sdk-js/build.boot
-3. `boot package install target`
-
-## Production Builds
-
-The helodali webapp can be built with the webapp profile like so:
+./scripts/eb-cli-setup.pl <application-name>
 ```
-lein clean
-lein with-profile webapp ring uberwar
-```
+Where _application-name_ is likely __helodali-prod__ or __helodali-test__. The application should already be configured in AWS Elastic
+Beanstalk. 
 
-And then deployed with:
+The `eb-cli-setup.pl` script will install a local python3 environment with aws eb cli and 
+shell `python3-venv/bin/activate` to activate it. It will output your next command which is an invocation of `eb init` to 
+configure your environment context. You should define your eb application and environment (as a default environment) using `eb init`
+and confirm it with `eb status`. 
+
+Other parameters of the `eb init` to be aware of are:
+* The platform is Docker
+* Enable ssh access (if prompted)
+
+With the eb client configured, we can now deploy the application to AWS EB with the following. Ensure all changes are committed.
 
 ```
 scripts/eb-deploy.pl
 ```
+
+
+
+#### Local builds of aws-sdk-js dependency
+Until the [issue](https://github.com/cljsjs/packages/issues/1619) with the externs file is addressed, there is a modified copy of 
+aws-sdk-js required. The process is described [here](docs/CLJSJS.md).
+
