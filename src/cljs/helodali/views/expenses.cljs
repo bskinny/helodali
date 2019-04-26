@@ -19,6 +19,11 @@
 ;; A map of the above labels keyed by expense-type keyword. E.g {:materials "Materials"}
 (def expense-type-to-display-string (reduce (fn [acc m] (assoc acc (:id m) (:label m))) {} expense-type-options))
 
+(defn price-format
+  "Convert number (integer or float) to two-decimal precision and string format"
+  [n]
+  (.toFixed (js/Number n) 2))
+
 (defn item-view
   "Display an expense item"
   [id]
@@ -41,7 +46,7 @@
                                [:span.all-small-caps (get expense-type-to-display-string @expense-type)]]]
                   [h-box :gap "4px" :align :start :justify :start :max-width "480px"
                    :children [[:span.uppercase.light-grey "price"]
-                              [:span (str @price)]]]
+                              [:span (price-format @price)]]]
                   (when (not (empty? @notes))
                     [v-box :gap "4px" :align :start :justify :start :max-width "480px"
                      :children [[:span.uppercase.light-grey "notes"]
@@ -65,7 +70,7 @@
                                        :on-change #(dispatch [:set-local-item-val [:expenses id :expense-type] %])]]]
                   [h-box :gap "4px" :align :center
                     :children [[:span.uppercase.bold "price"]
-                               [input-text :width "80px" :model (str @price) :style {:border "none"} :validation-regex #"^\d*\.?\d*?$"
+                               [input-text :width "80px" :model (price-format @price) :style {:border "none"} :validation-regex #"^\d*\.?\d*?$"
                                      :attr {:max-length 12} :on-change #(dispatch [:set-local-item-val [:expenses id :price] (js/Number %)])]]]
                   [:span.uppercase.light-grey "Notes"]
                   [input-textarea :model (str @notes) :width "360px"
@@ -95,7 +100,7 @@
                    [h-box :gap "0px" :align :center :justify :between
                       :children [[label :width (str (:expense-type widths) "ch") :class "all-small-caps" :label (get expense-type-to-display-string @expense-type)]
                                  [label :width (str (:notes widths) "ch") :label (trunc (safe-string @notes "") (:notes widths))]
-                                 [box :width (str (:price widths) "ch") :justify :end :class "all-small-caps" :child (str @price)]]]
+                                 [box :width (str (:price widths) "ch") :justify :end :class "all-small-caps" :child (price-format @price)]]]
                    [gap :size "22px"]
                    [h-box :gap "2px" :justify :center :align :center :style {:font-size "18px"}
                       :children [[row-button :md-icon-name "zmdi zmdi-copy"
