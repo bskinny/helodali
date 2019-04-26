@@ -62,8 +62,6 @@
   :test-paths ["test/clj" "test/cljc"]
   :clean-targets ^{:protect false} ["resources/public/js/compiled" "target" "test/js"]
 
-  :war-resources-path "war-resources" ;; Used only for packaging .ebextensions at the top level of the war
-
   :profiles
     {:dbmgmt {:dependencies [[org.clojure/tools.nrepl "0.2.13"]]}
 
@@ -85,13 +83,11 @@
                               :preloads             [devtools.preload]
                               :external-config      {:devtools/config {:features-to-install :all}}}}}}}
 
-     :webapp    ;; Do not name this profile :uberjar or lein ring uberwar will not work
+     :webapp    ;; Do not name this profile :uberjar
        {:prep-tasks ["compile" ["cljsbuild" "once"]]
         :ring {:handler helodali.handler/handler
-               :uberwar-name "helodali.war"
                :open-browser? false
-               :jar-exclusions []
-               :war-exclusions []}  ;; This prevents excluding hidden files (default behavior) such as .ebextensions
+               :jar-exclusions []}  ;; This prevents excluding hidden files (default behavior) such as .ebextensions
         :cljsbuild
          {:builds
            {:app
@@ -103,8 +99,7 @@
                          :closure-defines {goog.DEBUG false}
                          :pretty-print    false}}}}}}
 
-    :api {:ring {:handler helodali.handler/api-handler
-                 :uberwar-name "helodali-api.war"}
+    :api {:ring {:handler helodali.handler/api-handler}
           :cljsbuild {:builds []}}
 
   :main helodali.server
