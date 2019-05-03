@@ -43,9 +43,13 @@ exports.handler = function(event, context, callback) {
   var srcBucket = event.Records[0].s3.bucket.name;
   // Object key may have spaces or unicode non-ASCII characters.
   var srcKey = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, " "));
-  var fileSize = event.Records[0].s3.object.size;
-  var dstKey = srcKey;
   var nameComponents = srcKey.split('/');
+  var fileSize = event.Records[0].s3.object.size;
+
+  // If the src name has an extension (e.g. .png), replace it with .jpg
+  // as we are creating jpegs for thumb, normal, and large versions of the image.
+  var dstKey = srcKey.replace(/\.[^\.]*$/, ".jpg");
+
 
   // Sanity check: validate that source and destination are different buckets.
   if (srcBucket == BUCKET_IMAGES) {
@@ -58,15 +62,39 @@ exports.handler = function(event, context, callback) {
     async.waterfall([
         function removeFile(next) {
             // Remove the associated object in the bucket helodali-images
-            s3.deleteObject({Bucket: BUCKET_IMAGES, Key: dstKey}, next)
+            s3.deleteObject({Bucket: BUCKET_IMAGES, Key: dstKey},
+                            function (err, data) {
+                              if (err) {
+                                // Try removing the srcKey - only needed for backwards compatibility of older accounts
+                                s3.deleteObject({Bucket: BUCKET_IMAGES, Key: srcKey}, next);
+                              } else {
+                                next(null, data);
+                              }
+                            })
         },
         function removeThumb(result, next) {
             // Remove the associated object in the bucket helodali-thumbs
-            s3.deleteObject({Bucket: BUCKET_THUMBS, Key: dstKey}, next)
+            s3.deleteObject({Bucket: BUCKET_THUMBS, Key: dstKey},
+                            function (err, data) {
+                              if (err) {
+                                // Try removing the srcKey - only needed for backwards compatibility of older accounts
+                                s3.deleteObject({Bucket: BUCKET_IMAGES, Key: srcKey}, next);
+                              } else {
+                                next(null, data);
+                              }
+                            })
         },
         function removeLargeImage(result, next) {
             // Remove the associated object in the bucket helodali-large-images
-            s3.deleteObject({Bucket: BUCKET_LARGE_IMAGES, Key: dstKey}, next)
+            s3.deleteObject({Bucket: BUCKET_LARGE_IMAGES, Key: dstKey},
+                           function (err, data) {
+                             if (err) {
+                               // Try removing the srcKey - only needed for backwards compatibility of older accounts
+                               s3.deleteObject({Bucket: BUCKET_IMAGES, Key: srcKey}, next);
+                             } else {
+                               next(null, data);
+                             }
+                           })
         },
         function getUref(result, next) {
             // Find the user's uuid to later reference in the artwork table
@@ -108,7 +136,7 @@ exports.handler = function(event, context, callback) {
             }
             var images = data.Item.images;
             var idx = images.findIndex(function (img) {
-                                         return img.key == srcKey;
+                                         return img.key == dstKey || img.key == srcKey;
                                        });
             if (idx == -1) {
               next("The image was not found in the db, for key: " + srcKey)
@@ -128,9 +156,9 @@ exports.handler = function(event, context, callback) {
                if (err) {
                    console.error('Unable to remove ' + dstKey + ' from buckets' +
                                  ' due to an error: ' + err);
-                   callback(err)
+                   callback(err);
                } else {
-                   console.log('Successfully removed ' + dstKey + ' from buckets: '  + result);
+                   console.log('Successfully removed ' + dstKey + ' from buckets: '  + JSON.stringify(result));
                    callback(null, {StatusCode: 200});
                }
         }
@@ -261,7 +289,8 @@ exports.handler = function(event, context, callback) {
             var params = {TableName: 'artwork',
                           Key: {'uref': data.Item.uref,
                                 'uuid': nameComponents[1]},
-                          AttributeUpdates: {'images': {Action: 'ADD', Value: [{'key': srcKey,
+                          AttributeUpdates: {'images': {Action: 'ADD', Value: [{'key': dstKey,
+                                                                                'raw-key': srcKey,
                                                                                 'uuid': nameComponents[2],
                                                                                 'metadata': originalMetadata,
                                                                                 'filename': nameComponents[3]}]}}};
@@ -271,10 +300,10 @@ exports.handler = function(event, context, callback) {
             if (err) {
                 console.error('Unable to resize ' + srcBucket + '/' + srcKey +
                               ' and upload to buckets due to an error: ' + err);
-                callback(err)
+                callback(err);
             } else {
                 console.log('Successfully resized ' + srcBucket + '/' + srcKey +
-                            ' into buckets: ' + result);
+                            ' into buckets: ' + JSON.stringify(result));
                 callback(null, {StatusCode: 200});
             }
         }

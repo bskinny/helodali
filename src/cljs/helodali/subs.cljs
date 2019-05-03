@@ -112,7 +112,7 @@
       (sort #(sort-by-key-then-created kw reverse? (:purchase %1) (:purchase %2)) (filter predicate purchases)))))
 
 (def various-keys-to-filter-out-of-search-results
-  #{:key :signed-thumb-url :signed-thumb-url-expiration-time :signed-raw-url :signed-raw-url-expiration-time
+  #{:key :raw-key :signed-thumb-url :signed-thumb-url-expiration-time :signed-raw-url :signed-raw-url-expiration-time
     :uuid :uref})
 
 (defn- tagged-match

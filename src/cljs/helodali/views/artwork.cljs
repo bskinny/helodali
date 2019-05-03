@@ -386,7 +386,7 @@
     (fn []
       (let [single-item (or (= @display-type :single-item) (= @display-type :new-item))
             controls [h-box :gap "2px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
-                        :children [;(when (not (= @display-type :contact-sheet))
+                        :children [;(when (not (= @display-type :summary-view))
                                    ;  [row-button :disabled? (not @editing) :md-icon-name "zmdi zmdi-plus-circle-o"
                                    ;    :mouse-over-row? true :tooltip "Add image" :tooltip-position :right-center
                                    ;    :on-click #(dispatch [:set-local-item-val [:artwork id :show-add-image-input] true])
@@ -405,8 +405,8 @@
                                      [md-icon-button :md-icon-name "zmdi zmdi-more mdc-text-blue"  :tooltip "Show more..."
                                         :on-click #(route-single-item :artwork @uuid)])]]
             image (first @images) ;; Note that images may be empty, hence image is nil
-            ;; Set image size and source based on contact-sheet vs. other views
-            [image-size image-bucket signed-url url-expiration signed-url-key signed-url-expiration-key] (if (or (= @display-type :contact-sheet) @editing)
+            ;; Set image size and source based on summary-view vs. other views
+            [image-size image-bucket signed-url url-expiration signed-url-key signed-url-expiration-key] (if (or (= @display-type :summary-view) @editing)
                                                                                                            ["240px" "helodali-thumbs" signed-thumb-url thumb-expiration :signed-thumb-url :signed-thumb-url-expiration-time]
                                                                                                            ["480px" "helodali-images" signed-image-url image-expiration :signed-image-url :signed-image-url-expiration-time])
             url (cond
@@ -415,17 +415,17 @@
                   :else "/image-assets/thumb-stub.png")
             object-fit (cond
                           @processing :fit-none
-                          (or (= @display-type :contact-sheet) @editing) :fit-contain
+                          (or (= @display-type :summary-view) @editing) :fit-contain
                           :else :fit-contain)]
         ;; Perform some dispatching if the artwork is not in sync with S3 and database
         (if @processing
           (dispatch [:refresh-image [:artwork id :images 0]])
           (when (and (not (nil? image)) (nil? @url-expiration))
             (dispatch [:get-signed-url [:artwork id :images 0] image-bucket (:key image) signed-url-key signed-url-expiration-key])))
-        (when (and (:key image) (expired? @raw-expiration))
-          (dispatch [:get-signed-url [:artwork id :images 0] "helodali-raw-images" (:key image) :signed-raw-url :signed-raw-url-expiration-time]))
+        (when (and (:raw-key image) (expired? @raw-expiration))
+          (dispatch [:get-signed-url [:artwork id :images 0] "helodali-raw-images" (:raw-key image) :signed-raw-url :signed-raw-url-expiration-time]))
 
-        ;; Base UI on new-item versus single-item versus inline display within contact-sheet
+        ;; Base UI on new-item versus single-item versus inline display within :summary-view
         ;; A new-item view does not present the image or edit/delete controls
         (if (= @display-type :new-item)
           [h-box :gap "4px" :align :start :justify :start :style {:flex-flow "row wrap"} ; :style container-style
@@ -499,6 +499,36 @@
                                                                :children [[:span (title-string @title)]
                                                                           [:span (str @year (when @dimensions (str " - " @dimensions)))]]])]]
                        (when @expanded [item-properties-panel id])]])))))
+
+(defn item-contact-view
+  "Display an item image only, clicking on image transitions to single item view."
+  [id]
+  (let [uuid (subscribe [:item-key :artwork id :uuid])
+        images (subscribe [:item-key :artwork id :images])
+        signed-thumb-url (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url]])
+        thumb-expiration (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url-expiration-time]])
+        processing (subscribe [:by-path [:artwork id :images 0 :processing]])]
+    (fn []
+      (let [image (first @images) ;; Note that images may be empty, hence image is nil
+            ;; Set image size and source based on contact-sheet vs. other views
+            [image-size image-bucket signed-url-key signed-url-expiration-key] ["240px" "helodali-thumbs" :signed-thumb-url :signed-thumb-url-expiration-time]
+            url (cond
+                  @processing "/image-assets/ajax-loader.gif"
+                  (not (nil? @signed-thumb-url)) @signed-thumb-url
+                  :else "/image-assets/thumb-stub.png")
+            object-fit (cond
+                         @processing :fit-none
+                         :else :fit-contain)]
+        ;; Perform some dispatching if the artwork is not in sync with S3 and database
+        (if @processing
+          (dispatch [:refresh-image [:artwork id :images 0]])
+          (when (and (not (nil? image)) (nil? @thumb-expiration))
+            (dispatch [:get-signed-url [:artwork id :images 0] image-bucket (:key image) signed-url-key signed-url-expiration-key])))
+
+        [box :max-width image-size :max-height image-size :class "contact-sheet-element"
+              :child [:img {:src url :class object-fit
+                            :on-error #(dispatch [:flush-signed-urls [:artwork id :images 0]])
+                            :on-click #(route-single-item :artwork @uuid)}]]))))
 
 (defn item-row-view
   "Display item as thumbnail and selective properties. The 'widths' map contains the string
@@ -669,11 +699,11 @@
         uuid (subscribe [:by-path [:profile :uuid]])]
     (fn []
       [h-box :gap "18px" :align :center :justify :center
-         :children [[md-icon-button :md-icon-name "zmdi zmdi-apps mdc-text-grey" :tooltip "Contact Sheet"
+         :children [[md-icon-button :md-icon-name "zmdi zmdi-view-module mdc-text-grey" :tooltip "Summary View"
                                     :on-click #(do (dispatch [:sweep-and-set :artwork :expanded false])
-                                                   (route-view-display :artwork :contact-sheet))]
-                    [md-icon-button :md-icon-name "zmdi zmdi-view-list mdc-text-grey" :tooltip "Row View"
-                                    :on-click #(route-view-display :artwork :row)]
+                                                   (route-view-display :artwork :summary-view))]
+                    [md-icon-button :md-icon-name "zmdi zmdi-view-comfy mdc-text-grey" :tooltip "Contact Sheet"
+                                    :on-click #(route-view-display :artwork :contact-sheet)]
                     [md-icon-button :md-icon-name "zmdi zmdi-view-headline mdc-text-grey" :tooltip "List View"
                                     :on-click #(route-view-display :artwork :list)]
                     [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey" :tooltip "Create New Item"
@@ -769,6 +799,25 @@
             [h-box :gap "20px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
                :children (concat (apply vector (map (fn [id] ^{:key id} [instagram-item-view id]) @items))
                                  controls)]))))))
+(defn artwork-summary-view
+  "Display summary view of items"
+  []
+  (let [items (subscribe [:items-keys-sorted-by-key :artwork sort-by-key-then-created])
+        instagram-media (subscribe [:items-keys :instagram-media])
+        uuid (subscribe [:by-path [:profile :uuid]])]
+    (fn []
+      (if-not (empty? @items)
+        [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
+         :children (into [] (map (fn [id] ^{:key id} [item-view id]) @items))]
+        [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
+         :children [[:p "Create your first artwork with "]
+                    [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
+                     :on-click #(route-new-item :artwork)]
+                    [:p " or import from Instagram with "]
+                    [md-icon-button :md-icon-name "zmdi zmdi-instagram mdc-text-grey"
+                     :on-click #(if @instagram-media
+                                  (route-instagram-refresh)
+                                  (instagram-auth @uuid))]]]))))
 
 (defn artwork-contact-sheet
   "Display contact sheet of items"
@@ -779,7 +828,7 @@
     (fn []
       (if-not (empty? @items)
         [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
-           :children (into [] (map (fn [id] ^{:key id} [item-view id]) @items))]
+           :children (into [] (map (fn [id] ^{:key id} [item-contact-view id]) @items))]
         [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
          :children [[:p "Create your first artwork with "]
                     [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
@@ -798,6 +847,7 @@
       [v-box :gap "16px" :align :center :justify :start
          :children [[view-selection]
                     (condp = @display-type
+                      :summary-view [artwork-summary-view]
                       :contact-sheet [artwork-contact-sheet]
                       :list [list-view]
                       :row [row-view]

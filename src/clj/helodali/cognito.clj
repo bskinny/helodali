@@ -19,8 +19,8 @@
                      (System/getProperty "HD_COGNITO_REDIRECT_URI"))})
 
 (def options {:timeout 900  ;; ms
-              :debug true
-              :debug-body true
+              ;:debug true
+              ;:debug-body true
               :basic-auth [(:id client) (:secret client)]
               :as :auto  ;; Try to automatically coerce the output based on the content-type
               :headers {:Accept "application/json"}})

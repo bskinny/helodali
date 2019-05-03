@@ -91,7 +91,6 @@
             user-artwork (query-by-uref :artwork uref {:proj-expr "#uuid, #instagramMediaRef"
                                                        :expr-attr-names {"#uuid" "uuid" "#instagramMediaRef" "instagram-media-ref"}})
             user-artwork-lookup (by-instagram-id user-artwork)]
-        (pprint (str "user-artwork-lookup: " user-artwork-lookup))
         (map (partial convert-to-item user-artwork-lookup) media)))))
 
 (defn refresh-instagram

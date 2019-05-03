@@ -57,6 +57,10 @@ pre {
   object-fit: none;
 }
 
+.contact-sheet-element {
+  margin: 10px;
+}
+
 .login-page {
   background-image:url("/image-assets/file-cabinet.png"), linear-gradient(#e4e0ba, #f7d9aa);
   background-position: top;

@@ -43,15 +43,15 @@ if (@ARGV and $ARGV[0] =~ /--ignore-changes/i) {
     }
 }
 
+my $env = "";
+(@ARGV == 1) and $env = $ARGV[0];
+
 # Perform an eb status
-print qx(eb status);
+print qx(eb status $env);
 if ($? != 0) {
     printError("Unable to execute eb status: $!\n");
     exit 1;
 };
-
-my $env = "";
-(@ARGV == 1) and $env = $ARGV[0];
 
 print "Continue with deploy (y|n)? [y] ";
 my $response = <STDIN>;

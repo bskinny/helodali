@@ -63,7 +63,8 @@
   :clean-targets ^{:protect false} ["resources/public/js/compiled" "target" "test/js"]
 
   :profiles
-    {:dbmgmt {:dependencies [[org.clojure/tools.nrepl "0.2.13"]]}
+    {;; The dbmgmt profile is used from a repl to interact with DynamoDB
+     :dbmgmt {:dependencies [[org.clojure/tools.nrepl "0.2.13"]]}
 
      :dev
        {:dependencies [[binaryage/devtools "0.9.10"]]
