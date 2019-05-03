@@ -107,9 +107,10 @@ Other parameters of the `eb init` to be aware of are:
 * Enable ssh access (if prompted)
 
 With the eb client configured, we can now deploy the application to AWS EB with the following. Ensure all changes are committed.
+Provide an environment name if no default environment has been configured.
 
 ```
-scripts/eb-deploy.pl
+scripts/eb-deploy.pl [environment-name]
 ```
 
 
