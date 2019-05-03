@@ -187,7 +187,7 @@
    :ui-defaults ui-defaults
    :view :artwork
    :static-page nil
-   :display-type :contact-sheet ;; Can be :new-item :contact-sheet :row :list :single-item :instagram
+   :display-type :summary-view ;; Can be :new-item :summary-view :contact-sheet :row :list :single-item :instagram
    :single-item-uuid nil ;; Used to defined which entity is being viewed in detail
    :messages {}
    :search-pattern nil
@@ -233,6 +233,15 @@
 (defn default-view-for-type
   [type]
   (condp = type
-     :artwork :contact-sheet
+     :artwork :summary-view
      :list))
+
+(defn s3-key-for-bucket
+  "Given a s3 bucket name, return the associated map key that defines the s3
+   objectKey. E.g. resized image maps and documents use :key while
+   the raw image key on helodali-raw-images is defined in :raw-key"
+  [bucket]
+  (condp = bucket
+    "helodali-raw-images" :raw-key
+    :key))
 

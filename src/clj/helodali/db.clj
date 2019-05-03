@@ -426,7 +426,9 @@
       session
       {})))
 
-;; Maintenance functions
+;;
+;; Maintenance functions not invoked by the helodali server-side
+;;
 
 (defn create-table
   [name]

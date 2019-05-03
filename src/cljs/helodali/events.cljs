@@ -6,6 +6,7 @@
     [helodali.misc :refer [expired? generate-uuid find-element-by-key-value find-item-by-key-value
                            remove-vector-element into-sorted-map trunc search-item-by-key-value]]
     [helodali.routes :refer [route]]
+    [helodali.db :refer [s3-key-for-bucket]]
     [cljs-time.core :as ct]
     [cljs-time.coerce :refer [from-long]]
     [cljs.reader]
@@ -777,6 +778,7 @@
           new-db (cond-> new-db
                     (= type :artwork) (assoc-in [type id :images] []) ;; Empty out images as they will be copied separately
                     (= type :documents) (assoc-in [type id] (merge (get-in new-db [type id]) {:key nil
+                                                                                              :raw-key nil
                                                                                               :signed-raw-url nil
                                                                                               :signed-raw-url-expiration-time nil
                                                                                               :processing nil})))
@@ -1312,10 +1314,11 @@
       {:dispatch-later [{:ms 400 :dispatch [:add-s3-object bucket item-path js-file]}]}
       (let [filename (.-name js-file)
             s3 (:aws-s3 db)
+            key-name (s3-key-for-bucket bucket)
             this-uuid (generate-uuid)
             object-key (str (:sub (:userinfo db)) "/" (get-in db (conj item-path :uuid)) "/" this-uuid "/" filename)
             params (clj->js {:Bucket bucket :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})
-            changes {:key object-key :filename filename :size (.-size js-file)}]
+            changes {key-name object-key :filename filename :size (.-size js-file)}]
         {:s3-operation {:op-type :put-object :s3 s3 :params params
                         :on-success #(dispatch [:on-s3-success item-path changes])}
          :db (-> db
@@ -1333,11 +1336,12 @@
       {:dispatch-later [{:ms 400 :dispatch [:replace-s3-object bucket item-path js-file]}]}
       (let [filename (.-name js-file)
             s3 (:aws-s3 db)
+            key-name (s3-key-for-bucket bucket)
             this-uuid (generate-uuid)
             object-key (str (:sub (:userinfo db)) "/" (get-in db (conj item-path :uuid)) "/" this-uuid "/" filename)
             s3-object-to-delete (get-in db item-path)
             params (clj->js {:Bucket bucket :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})
-            changes {:key object-key :filename filename :size (.-size js-file)}]
+            changes {key-name object-key :filename filename :size (.-size js-file)}]
         (pprint (str "object-key: " object-key))
         (pprint (str "ContentType: " (.-type js-file)))
         {:s3-operation {:op-type :put-object :s3 s3 :params params
@@ -1358,11 +1362,12 @@
     (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
       {:dispatch-later [{:ms 400 :dispatch [:copy-s3-object bucket source-object-map target-item-path]}]}
       (let [s3 (:aws-s3 db)
-            copy-source (str bucket "/" (:key source-object-map))
+            key-name (s3-key-for-bucket bucket)
+            copy-source (str bucket "/" (key-name source-object-map))
             this-uuid (generate-uuid)
             object-key (str (:sub (:userinfo db)) "/" (get-in db (conj target-item-path :uuid)) "/" this-uuid "/" (:filename source-object-map))
             params (clj->js {:Bucket bucket :Key object-key :CopySource copy-source})
-            changes {:key object-key}]
+            changes {key-name object-key}]
         (pprint (str "object-key: " object-key))
         {:s3-operation {:op-type :copy-object :s3 s3 :params params
                         :on-success #(dispatch [:on-s3-success target-item-path changes])}
@@ -1401,7 +1406,8 @@
         {:db (assoc-in db images-path (conj images {:uuid new-uuid :processing true}))}))))
 
 ;; Delete all objects defined in vector argument for given S3 bucket. Each object is a map
-;; with a mandatory :key key with objectKey value.
+;; with a key defining the S3 objectKey value. Note: If deleting from helodali-raw-images, we
+;; should reference the :raw-key inside the image map.
 (reg-event-fx
   :delete-s3-objects
   manual-check-spec
@@ -1412,11 +1418,12 @@
       (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
         {:dispatch-later [{:ms 400 :dispatch [:delete-s3-objects bucket objects]}]}
         (let [s3 (:aws-s3 db)
+              key-name (s3-key-for-bucket bucket)
               callback (fn [err data]
                          (if (not (nil? err))
                            (pprint (str "Err from deleteObjects: " err))
                            (pprint (str "successful deleteObjects" data))))
-              object-keys (apply vector (map (fn [m] {:Key (get m :key)}) objects))
+              object-keys (apply vector (map (fn [m] {:Key (get m key-name)}) objects))
               params (clj->js {:Bucket bucket :Delete {:Objects object-keys
                                                        :Quiet false}})
               _ (js->clj (.deleteObjects s3 params callback))]
