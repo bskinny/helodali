@@ -717,7 +717,7 @@
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
                   :on-success      [:complete-logout]
-                  :on-failure      [:bad-result {} false]}
+                  :on-failure      [:bad-result {} #(dispatch [:logout])]}
      :sync-to-local-storage [{:k "helodali.access-token" :v nil}
                              {:k "helodali.id-token" :v nil}]}))
 
@@ -734,7 +734,7 @@
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
                   :on-success      [:complete-logout]
-                  :on-failure      [:bad-result {} false]}
+                  :on-failure      [:bad-result {} #(dispatch [:delete-account])]}
      :sync-to-local-storage [{:k "helodali.access-token" :v nil}
                              {:k "helodali.id-token" :v nil}
                              {:k "helodali.signed-urls" :v nil}]}))
