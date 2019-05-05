@@ -52,6 +52,7 @@
   "Display account"
   [id]
   (let [cn (subscribe [:by-path [:userinfo :name]])
+        email (subscribe [:by-path [:userinfo :email]])
         created (subscribe [:by-path [:account :created]])
         user-uuid (subscribe [:by-path [:profile :uuid]])
         instagram-user (subscribe [:by-path [:account :instagram-user]])]
@@ -60,16 +61,24 @@
     (fn []
       (let [header [title :level :level2 :label "My Account"]
             view [[h-box :gap "8px" :align :center :justify :start
+                   :children [[:span.bold "Name"]
+                              (when (not (nil? @cn))
+                                [:span @cn])]]
+                  [h-box :gap "8px" :align :center :justify :start
+                   :children [[:span.bold "Email"]
+                              (when (not (nil? @email))
+                                [:span @email])]]
+                  [h-box :gap "8px" :align :center :justify :start
                      :children [[:span.bold "Created"]
                                 (when (not (nil? @created))
                                   [:span (safe-date-string @created)])]]
                   [h-box :gap "8px" :align :center :justify :start
                      :children [[:span.bold "Id"]
-                                [:span @user-uuid]]]]]
-                   ;(when (not (empty? @instagram-user))
-                   ;  [h-box :gap "8px" :align :center :justify :start
-                   ;          :children [[:span.uppercase.light-grey ""]
-                   ;                     [:span (str @birth-place)]]])]]
+                                [:span @user-uuid]]]
+                  (when (not (empty? @instagram-user))
+                    [h-box :gap "8px" :align :center :justify :start
+                            :children [[:span.bold "Instagram Username"]
+                                       [:span (:username @instagram-user)]]])]]
         [v-box :gap "10px" :align :start :justify :start ;:style {:border "dashed 1px red"}
                :children (concat [header] view)]))))
 

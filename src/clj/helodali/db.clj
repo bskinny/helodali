@@ -98,7 +98,8 @@
         (recur (drop 25 items))))))
 
 (defn delete-user
-  "Delete everything except for portions of the :accounts needed for later processes."
+  "Delete everything except for portions of the :accounts needed for later processes
+   (e.g. cleanup of public-pages feature)."
   [uref sub]
   ; TODO: Trigger account removal
   (let [query-opts {:proj-expr "#uref, #uuid"
@@ -117,14 +118,15 @@
 (defn initialize-db
   "Given an openid claims map, with :sub key, resolve the user against :openid and :profiles
    tables and then construct the user's app-db for the client. Also take this opportunity to
-   make sure our openid table item is in sync with the provided claims map - update the
-   email or name in our database."
+   make sure our openid table item is in sync with the provided claims map by updating the
+   email or name in the database."
   [sub session]
   (if (nil? sub)
     {}
     (let [[openid-item profile] (get-profile-by-sub sub)
           uref (:uuid profile)
           account (get-account uref)]
+      ;; openid-item contains :sub, :uref, :name, and :email keys.
       {:artwork (query-by-uref :artwork uref)
        :documents (query-by-uref :documents uref)
        :exhibitions (query-by-uref :exhibitions uref)
@@ -140,7 +142,7 @@
        :account (-> account
                     (dissoc :instagram-access-token)
                     (assoc :instagram-user (select-keys (:instagram-user account) [:bio :website :full_name :profile_picture :username])))
-       :userinfo openid-item})))   ;; TODO: Fix this, should be userinfo
+       :userinfo openid-item})))
 
 (defn- undash
   "Replace '-' with 'D' in given string"
@@ -564,6 +566,15 @@
                             :expr-attr-names {"#uref" "uref"}
                             :expr-attr-vals  {":val" uuid}
                             :return          :all-new})))
+
+;; The tables which have a user's uuid defined in a :uref indexed field
+(def tables-indexed-by-uref
+  [:sessions :press :openid :expenses :exhibitions :documents :contacts :artwork])
+
+;; The tables which have a user's uuid defined in a :uuid indexed field
+(def tables-indexed-by-uuid
+  [:profiles :pages :accounts])
+
 
 (comment
   (associate-user-sub-and-uuid "facebook|10208723122690596" "1073c8b0-ab47-11e6-8f9d-c83ff47bbdcb")
