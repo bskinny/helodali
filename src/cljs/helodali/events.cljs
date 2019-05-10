@@ -407,6 +407,13 @@
         (assoc-in new-db [:ui-defaults item-defaults-type field] val)
         new-db))))
 
+(reg-event-db
+  :set-app-db-val
+  interceptors
+  (fn [db [path val]]
+    ;; The path points into app-db, e.g. [:display-count]
+    (assoc-in db path val)))
+
 ;; Add a message to the stack, e.g. :form-error "All required fields must have a value before changes can be saved."
 (reg-event-db
   :add-message
@@ -526,7 +533,8 @@
 
 (def signed-url-keys [:signed-thumb-url :signed-thumb-url-expiration-time
                       :signed-raw-url :signed-raw-url-expiration-time :signed-image-url
-                      :signed-image-url-expiration-time])
+                      :signed-image-url-expiration-time :signed-large-image-url
+                      :signed-large-image-url-expiration-time])
 
 (defn copy-signed-urls
   "Copy signed-urls for matching images (matching on :key) from images to new-images."
@@ -717,7 +725,7 @@
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
                   :on-success      [:complete-logout]
-                  :on-failure      [:bad-result {} false]}
+                  :on-failure      [:bad-result {} #(dispatch [:logout])]}
      :sync-to-local-storage [{:k "helodali.access-token" :v nil}
                              {:k "helodali.id-token" :v nil}]}))
 
@@ -734,7 +742,7 @@
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
                   :on-success      [:complete-logout]
-                  :on-failure      [:bad-result {} false]}
+                  :on-failure      [:bad-result {} #(dispatch [:delete-account])]}
      :sync-to-local-storage [{:k "helodali.access-token" :v nil}
                              {:k "helodali.id-token" :v nil}
                              {:k "helodali.signed-urls" :v nil}]}))
@@ -1020,7 +1028,9 @@
                  (dissoc :signed-thumb-url)
                  (dissoc :signed-thumb-url-expiration-time)
                  (dissoc :signed-image-url)
-                 (dissoc :signed-image-url-expiration-time))
+                 (dissoc :signed-image-url-expiration-time)
+                 (dissoc :signed-large-image-url)
+                 (dissoc :signed-large-image-url-expiration-time))
           new-db (assoc-in db path-to-item val)]
       (merge (update-fx path-to-item {:key nil :filename nil :size 0} false new-db)
              {:dispatch-n dispatches}))))
@@ -1137,7 +1147,8 @@
     (let [o (-> (get-in db path-to-object-map)
                 (dissoc :signed-raw-url :signed-raw-url-expiration-time
                         :signed-thumb-url :signed-thumb-url-expiration-time
-                        :signed-image-url :signed-image-url-expiration-time))]
+                        :signed-image-url :signed-image-url-expiration-time
+                        :signed-large-image-url :signed-large-image-url-expiration-time))]
       (assoc-in db path-to-object-map o))))
 
 (reg-event-fx
@@ -1151,7 +1162,7 @@
       ;; else merge the map into the artwork and unset :processing
       (let [image (-> (get-in db path-to-image)
                      (merge result)
-                     (dissoc :signed-raw-url-expiration-time :signed-thumb-url-expiration-time :signed-image-url-expiration-time)
+                     (dissoc :signed-raw-url-expiration-time :signed-thumb-url-expiration-time :signed-image-url-expiration-time :signed-large-image-url-expiration-time)
                      (coerce-int [:density :size :width :height])
                      (dissoc :processing))]
         {:db (-> db

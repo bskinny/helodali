@@ -375,6 +375,8 @@
         thumb-expiration (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url-expiration-time]])
         signed-image-url (subscribe [:by-path [:artwork id :images 0 :signed-image-url]])
         image-expiration (subscribe [:by-path [:artwork id :images 0 :signed-image-url-expiration-time]])
+        signed-large-image-url (subscribe [:by-path [:artwork id :images 0 :signed-large-image-url]])
+        large-image-expiration (subscribe [:by-path [:artwork id :images 0 :signed-large-image-url-expiration-time]])
         raw-expiration (subscribe [:by-path [:artwork id :images 0 :signed-raw-url-expiration-time]])
         raw-image-url (subscribe [:by-path [:artwork id :images 0 :signed-raw-url]])
         processing (subscribe [:by-path [:artwork id :images 0 :processing]])
@@ -406,9 +408,13 @@
                                         :on-click #(route-single-item :artwork @uuid)])]]
             image (first @images) ;; Note that images may be empty, hence image is nil
             ;; Set image size and source based on summary-view vs. other views
-            [image-size image-bucket signed-url url-expiration signed-url-key signed-url-expiration-key] (if (or (= @display-type :summary-view) @editing)
-                                                                                                           ["240px" "helodali-thumbs" signed-thumb-url thumb-expiration :signed-thumb-url :signed-thumb-url-expiration-time]
-                                                                                                           ["480px" "helodali-images" signed-image-url image-expiration :signed-image-url :signed-image-url-expiration-time])
+            thumbs-config ["240px" "helodali-thumbs" signed-thumb-url thumb-expiration :signed-thumb-url :signed-thumb-url-expiration-time]
+            images-config ["480px" "helodali-images" signed-image-url image-expiration :signed-image-url :signed-image-url-expiration-time]
+            large-images-config ["960px" "helodali-large-images" signed-large-image-url large-image-expiration :signed-large-image-url :signed-large-image-url-expiration-time]
+            [image-size image-bucket signed-url url-expiration signed-url-key signed-url-expiration-key] (cond
+                                                                                                           (or @editing (and (= @display-type :summary-view) (not @expanded))) thumbs-config
+                                                                                                           (and (= @display-type :single-item) (not @expanded)) large-images-config
+                                                                                                           :else images-config)
             url (cond
                   @processing "/image-assets/ajax-loader.gif"
                   (not (nil? @signed-url)) @signed-url
@@ -804,11 +810,23 @@
   []
   (let [items (subscribe [:items-keys-sorted-by-key :artwork sort-by-key-then-created])
         instagram-media (subscribe [:items-keys :instagram-media])
-        uuid (subscribe [:by-path [:profile :uuid]])]
+        uuid (subscribe [:by-path [:profile :uuid]])
+        summary-display-count (subscribe [:app-key :summary-display-count])
+        items-batch-size 10]
     (fn []
       (if-not (empty? @items)
-        [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
-         :children (into [] (map (fn [id] ^{:key id} [item-view id]) @items))]
+        (let [display-items (into [] (map (fn [id] ^{:key id} [item-view id]) (take @summary-display-count @items)))
+              less-more-options [v-box :margin "40px" :gap "20px" :align-self :center
+                                   :children [(when (< @summary-display-count (count @items))
+                                                [md-circle-icon-button :md-icon-name "zmdi-plus-circle-o" :size :larger
+                                                 :tooltip "Display more items"
+                                                 :on-click #(dispatch [:set-app-db-val [:summary-display-count] (+ @summary-display-count items-batch-size)])])
+                                              (when (> @summary-display-count items-batch-size)
+                                                [md-circle-icon-button :md-icon-name "zmdi-minus-circle-outline" :size :larger
+                                                 :tooltip "Display fewer items"
+                                                 :on-click #(dispatch [:set-app-db-val [:summary-display-count] (- @summary-display-count items-batch-size)])])]]]
+          [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
+           :children (into display-items [less-more-options])])
         [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
          :children [[:p "Create your first artwork with "]
                     [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"

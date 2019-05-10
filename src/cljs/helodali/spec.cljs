@@ -52,7 +52,8 @@
 (s/def ::image (s/keys :req-un [::uuid]
                        :opt-un [::key ::raw-key ::filename ::processing ::signed-thumb-url ::signed-thumb-url-expiration-time
                                 ::signed-raw-url ::signed-raw-url-expiration-time ::signed-image-url
-                                ::signed-image-url-expiration-time ::metadata]))
+                                ::signed-image-url-expiration-time ::signed-large-image-url
+                                ::signed-large-image-url-expiration-time ::metadata]))
 (s/def ::images (s/coll-of ::image))
 (s/def ::medium (s/nilable string?))
 (s/def ::dimensions (s/nilable string?))
@@ -220,6 +221,7 @@
                 :search-results :account :pages :static-page :expenses :landing})
 (s/def ::static-page (s/nilable #{:privacy-policy}))
 (s/def ::display-type #{:summary-view :contact-sheet :single-item :new-item :list :row :instagram})
+(s/def ::summary-display-count (s/nilable int?))
 (s/def ::contacts (s/every-kv ::id ::contact))
 (s/def ::expenses (s/every-kv ::id ::expense))
 (s/def ::exhibitions (s/every-kv ::id ::exhibition))

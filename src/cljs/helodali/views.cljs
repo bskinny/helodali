@@ -187,6 +187,7 @@
        authenticated? (subscribe [:app-key :authenticated?])
        do-cognito-logout? (subscribe [:app-key :do-coginito-logout?])
        refresh-aws-creds? (subscribe [:app-key :refresh-aws-creds?])
+       aws-creds-created-time (subscribe [:app-key :aws-creds-created-time])
        initialized? (subscribe [:app-key :initialized?])
        csrf-token (subscribe [:app-key :csrf-token])
        access-token (subscribe [:app-key :access-token])
@@ -213,7 +214,8 @@
 
      ;; Fetch AWS Credentials if first time in or if needing a refresh after credential expiration
      (when (or (and @authenticated? @initialized? (empty? @aws-creds) (not (empty? @id-token)))
-               @refresh-aws-creds?)
+               @refresh-aws-creds?
+               (and @aws-creds-created-time (ct/after? (ct/now) (ct/plus @aws-creds-created-time (ct/hours 1)))))
        ;; Fetch the AWS credentials from Cognito and initialize AWS services like S3
        (let [aws-config (.-config js/AWS)
              logins {:IdentityPoolId "us-east-1:c5e15cf1-df1d-48df-85ba-f67d1ff45016"

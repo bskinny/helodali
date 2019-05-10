@@ -188,6 +188,7 @@
    :view :artwork
    :static-page nil
    :display-type :summary-view ;; Can be :new-item :summary-view :contact-sheet :row :list :single-item :instagram
+   :summary-display-count 10
    :single-item-uuid nil ;; Used to defined which entity is being viewed in detail
    :messages {}
    :search-pattern nil
