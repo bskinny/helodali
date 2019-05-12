@@ -197,7 +197,7 @@
           (db/create-user-if-necessary userinfo)
           (let [session-uuid (str (uuid/v1))]
             (db/cache-access-token session-uuid token-resp userinfo)
-            (pprint (str "/login with userinfo from id_token: " userinfo))
+            (pprint (str "/login session " session-uuid " with userinfo from id_token: " userinfo))
             (-> (redirect "/")
               ;; Stash the user's uuid in the session
               (assoc-in [:session :sub] (:sub userinfo))
