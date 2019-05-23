@@ -43,10 +43,10 @@
 (defn fix-date
   "Called with a list of maps, converts a date valued kw from string to java-time Instant."
   [kw l]
-  (apply vector (map #(if (get % kw)
-                        (assoc % kw (jt/local-date "yyyy-MM-dd" (get % kw)))
-                        %)
-                     l)))
+  (mapv #(if-let [kw-val (get % kw)]
+           (assoc % kw (jt/local-date "yyyy-MM-dd" kw-val))
+           %)
+       l))
 
 (defn delete-pages
   "Delete all existing content for uref."

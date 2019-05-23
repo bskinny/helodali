@@ -219,7 +219,7 @@
                                                     (fixer :begin-date)
                                                     (fixer :end-date)))
         ;; Convert the unix time :created to cljs-time objects
-        (has :instagram-media) (assoc :instagram-media (apply vector (map #(assoc % :created (from-long (get % :created))) (:instagram-media resp)))))))
+        (has :instagram-media) (assoc :instagram-media (mapv #(assoc % :created (from-long (get % :created))) (:instagram-media resp))))))
 
 (reg-event-fx
   :initialize-db-from-result
@@ -300,7 +300,7 @@
   (cond
     (map? in) (let [in (dissoc in :editing :expanded :images)]
                 (clojure.walk/walk (fn [[k v]] [k (walk-cleaner v)]) identity in))
-    (vector? in) (apply vector (map walk-cleaner in))
+    (vector? in) (mapv walk-cleaner in)
     (set? in) (set (map walk-cleaner in))
     :else (cleaner in)))
 
@@ -630,7 +630,7 @@
   manual-check-spec
   (fn [db [append? result]]
     (let [instagram-media (if (:instagram-media result)  ;; Convert the unix time :created to cljs-time objects
-                            (apply vector (map #(assoc % :created (from-long (get % :created))) (:instagram-media result))))]
+                            (mapv #(assoc % :created (from-long (get % :created))) (:instagram-media result)))]
       (if append?
         (assoc db :instagram-media (into-sorted-map (concat (vals (:instagram-media db)) instagram-media)))
         (assoc db :instagram-media (and instagram-media (into-sorted-map instagram-media)))))))
@@ -1434,7 +1434,7 @@
                          (if (not (nil? err))
                            (pprint (str "Err from deleteObjects: " err))
                            (pprint (str "successful deleteObjects" data))))
-              object-keys (apply vector (map (fn [m] {:Key (get m key-name)}) objects))
+              object-keys (mapv (fn [m] {:Key (get m key-name)}) objects)
               params (clj->js {:Bucket bucket :Delete {:Objects object-keys
                                                        :Quiet false}})
               _ (js->clj (.deleteObjects s3 params callback))]

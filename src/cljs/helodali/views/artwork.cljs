@@ -803,7 +803,7 @@
                                                         :tooltip "Load more media"
                                                         :on-click #(dispatch [:refresh-instagram :append])]]]]]]
             [h-box :gap "20px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
-               :children (concat (apply vector (map (fn [id] ^{:key id} [instagram-item-view id]) @items))
+               :children (concat (mapv (fn [id] ^{:key id} [instagram-item-view id]) @items)
                                  controls)]))))))
 (defn artwork-summary-view
   "Display summary view of items"
