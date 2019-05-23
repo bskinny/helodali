@@ -6,11 +6,12 @@
             [clj-time.format :refer [parse unparse formatters]]
             [helodali.types :as types]
             [clojure.java.io :as io]
-            [helodali.common :refer [coerce-int coerce-decimal-string fix-date keywordize-vals]]
+            [helodali.common :refer [log coerce-int coerce-decimal-string fix-date keywordize-vals]]
             [clojure.pprint :refer [pprint]]
             [helodali.s3 :as s3])
   (:import [java.time ZonedDateTime ZoneId]
-           (java.time.format DateTimeFormatter)))
+           (java.time.format DateTimeFormatter)
+           (com.amazonaws.services.dynamodbv2.model ConditionalCheckFailedException)))
 
 ;; These environment variables are only necessary when running the app locally
 ;; or outside AWS. Within AWS, we assign an IAM role to the ElasticBeanstalk
@@ -24,17 +25,16 @@
                    (System/getProperty "AWS_DYNAMODB_ENDPOINT"))})
 
 (defn- coerce-item
-  "This looks for specific cases where we need to convert string
-   values back to keywords and numbers to ints"
+  "This looks for specific cases where we need to convert string values back to keywords and numbers to ints"
   ;; TODO: this method of defining each integer attribute is far from ideal. We should instead determine
   ;; the predicate to catch the integer type returned by DynamoDB and walk the map and coerce everything found.
   [table m]
   (condp = table
     :artwork (-> (assoc m :style (set (map keyword (:style m))))
-                 (assoc :purchases (apply vector (map #(coerce-int % [:price :total-commission-percent]) (:purchases m))))
-                 (assoc :images (apply vector (map #(-> %
-                                                        (assoc :metadata (coerce-int (:metadata %) [:density :size :width :height]))
-                                                        (assoc :palette (map int (:palette %)))) (:images m))))
+                 (assoc :purchases (mapv #(coerce-int % [:price :total-commission-percent]) (:purchases m)))
+                 (assoc :images (mapv #(-> %
+                                           (assoc :metadata (coerce-int (:metadata %) [:density :size :width :height]))
+                                           (assoc :palette (mapv int (:palette %)))) (:images m)))
                  (keywordize-vals [:type :status])
                  (coerce-int [:expenses :list-price :year :editions])
                  (assoc :instagram-media-ref (and (:instagram-media-ref m)
@@ -49,10 +49,10 @@
     :documents (coerce-int m [:size])
     :profile (-> m
                  (coerce-int [:birth-year])
-                 (assoc :degrees (apply vector (map #(coerce-int % [:year]) (:degrees m))))
-                 (assoc :awards-and-grants (apply vector (map #(coerce-int % [:year]) (:awards-and-grants m))))
-                 (assoc :lectures-and-talks (apply vector (map #(coerce-int % [:year]) (:lectures-and-talks m))))
-                 (assoc :residencies (apply vector (map #(coerce-int % [:year]) (:residencies m)))))
+                 (assoc :degrees (mapv #(coerce-int % [:year]) (:degrees m)))
+                 (assoc :awards-and-grants (mapv #(coerce-int % [:year]) (:awards-and-grants m)))
+                 (assoc :lectures-and-talks (mapv #(coerce-int % [:year]) (:lectures-and-talks m)))
+                 (assoc :residencies (mapv #(coerce-int % [:year]) (:residencies m))))
     m))
 
 (defn get-profile-by-sub
@@ -177,10 +177,10 @@
                                 (if (or (nil? v) (and (string? v) (empty? v)) (and (coll? v) (empty? v)))
                                  false
                                  true)) in))
-    (vector? in) (apply vector (map filter-out-empty in))
+    (vector? in) (mapv filter-out-empty in)
     :else in))
 
-(defn- walk-cleaner
+(defn walk-cleaner
   "Walk the input and:
     - dissoc nil, \"\", [] and #{} valued keys, ignore non-map input"
   [in]
@@ -192,21 +192,30 @@
   "Update artwork, press, exhibitions, documents, expenses, or contacts table. The 'path'
    argument is a keyword or vector path into the item in given 'table'. E.g. :notes or
    [:purchases 1 :date]
-  If the val is nil or an empty set, then perform a REMOVE of the attribute as opposed to a SET of a nil value."
-  ;; TODO: Put in condition to assert existence of item. Otherwise a new, inchoate, item will be create
+  If the val is nil or an empty set, then perform a REMOVE of the attribute as opposed to a SET of a nil value.
+
+  A condition expression is attached to all updates to ensure that the item exists, otherwise an inchoate item
+  is created. An attribute is taken from the keys map for use in the cond-expr."
   [table primary-key path val]
   (let [[attr-expression expression-map] (convert-path-to-expression-attribute path)
         val (walk-cleaner val)
         change (if (or (nil? val) (and (set? val) (empty? val)))
                   {:update-expr     (str "REMOVE " attr-expression)
                    :expr-attr-names expression-map
+                   :cond-expr (str "attribute_exists(" (name (first (keys primary-key))) ")")
                    :return          :all-new}
                   {:update-expr     (str "SET " attr-expression " = :val")
                    :expr-attr-names expression-map
                    :expr-attr-vals  {":val" val}
+                   :cond-expr (str "attribute_exists(" (name (first (keys primary-key))) ")")
                    :return          :all-new})]
-    (pprint (str "Performing change: " change))
-    (far/update-item co table primary-key change)))
+    (log "Performing change" change)
+    (try
+      (far/update-item co table primary-key change)
+      (catch ConditionalCheckFailedException e (do (pprint "Attempt to update a non-existing item.")
+                                                   {}))
+      (catch Exception e (do (log "Unable to update item" e)
+                             {}))))) ;; TODO: Need to respond with error to client.
 
 (defn- build-db-changes
   "A reducer on a map representing updates to an item."
@@ -225,8 +234,10 @@
   "Update artwork, press, exhibitions, documents, expenses, or contacts table. The 'changes'
    argument is a map of changes to apply with keys representing paths, or attribute names, see DynamoDB
    UpdateExpressions (http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.Modifying.html).
-   Any nil values will result in REMOVE UpdateExpression."
-  ;; TODO: Put in condition to assert existence of item. Otherwise a new, inchoate, item will be create
+   Any nil values will result in REMOVE UpdateExpression.
+
+   A condition expression is attached to all updates to ensure that the item exists, otherwise an inchoate item
+   is created. An attribute is taken from the keys map for use in the cond-expr."
   [table primary-key changes]
   (let [indexed-changes (zipmap (range (count changes)) changes) ;; Yields {0 [[:purchases 0 :date] "2001-03-14"], 1 [[:name] "Bo"]}
         db-changes (-> (reduce-kv build-db-changes {} indexed-changes))
@@ -237,27 +248,31 @@
                               (str "REMOVE " (str/join ", " (:remove-update-expr db-changes)))))
         db-changes (-> (assoc db-changes :return :all-new)
                       (assoc :update-expr update-expression)
+                      (assoc :cond-expr (str "attribute_exists(" (name (first (keys primary-key))) ")"))
                       (dissoc :set-update-expr)
                       (dissoc :remove-update-expr))]
-    (pprint (str "Performing changes: " db-changes))
+    (log "Performing changes" db-changes)
     (if (nil? update-expression)
-      (pprint (str "No changes to apply for " changes))
-      (far/update-item co table primary-key db-changes))))
+      (log "No changes to apply for" changes)
+      (try
+        (far/update-item co table primary-key db-changes)
+        (catch ConditionalCheckFailedException e (do (pprint "Attempt to update a non-existing item.")
+                                                     {}))
+        (catch Exception e (do (log "Unable to apply updates to item" e)
+                               {})))))) ;; TODO: Need to respond with error to client.
 
 (defn update-item
   "Update items in artwork, press, exhibitions, documents, expenses, or contacts tables. The method of building
    the DynamoDB changeset depends on whether we are called with a single attribute change (path == [path to attribute])
    or multiple attribute changes within an item (path == nil and val is keyed with attribute paths).
 
-   The response should a map of the form {table [changes]} where table is the (keyword) table name and changes is a vector
+   The response should be a map of the form {table [changes]} where table is the (keyword) table name and changes is a vector
    2-tuple [<uuid of item> [path value]] where path is a vector that points into the item or can be nil to represent
    a whole-item overwrite on the client side. E.g. {:artwork [[d4544181-016f-11e9-9cfb-335dc3cb2f41 [[:year] 2017]]]}"
   [table uref uuid path val]
-  (if (nil? val)
-    {} ;; nothing to do)
-    (if (nil? path)
-      {table [[uuid [nil (coerce-item table (apply-attribute-changes table {:uref uref :uuid uuid} val))]]]}
-      {table [[uuid [nil (coerce-item table (apply-attribute-change table {:uref uref :uuid uuid} path val))]]]})))
+  (if (nil? path)
+    {table [[uuid [nil (coerce-item table (apply-attribute-changes table {:uref uref :uuid uuid} val))]]]}
+    {table [[uuid [nil (coerce-item table (apply-attribute-change table {:uref uref :uuid uuid} path val))]]]}))
 
 (defn update-user-table
   "Update a user table, such as :profiles or :pages. The method of building
