@@ -1,0 +1,50 @@
+{:description "Utility Poles - 2018 24 x 24 inches, oil on aluminum panel. #oilpainting #painting #contemporaryart #utilitypole"
+ :series false
+ :images [{:metadata {:size 9135250
+                      :density 72
+                      :format "png"
+                      :width 2722
+                      :space "srgb"
+                      :height 2716}
+           :palette []
+           :filename "PowerLines.png"
+           :raw-key "12345678-1571-46db-b944-0c7845e08d4b/a01398a0-6d20-11e8-84b1-7f0de084e1d9/30a31150-1b21-4a49-957b-7e329181a8a8/PowerLines.png"
+           :uuid "30a3abcd-1b21-4a49-957b-7e329181a8a8"
+           :key "12345678-1571-46db-b944-0c7845e08d4b/a01398a0-6d20-11e8-84b1-7f0de084e1d9/30a31150-1b21-4a49-957b-7e329181a8a8/PowerLines.png"}]
+ :medium "oil on dibond"
+ :editions 0
+ :style #{:abstract}
+ :list-price 0
+ :type :painting
+ :created "1970-01-18"
+ :dimensions "24 x 24 inches"
+ :title "Utility Poles"
+ :instagram-media-ref {:instagram-id "1747386156650028940_2218805490"
+                       :created "1970-01-18"
+                       :caption "Utility Poles - 2018 24 x 24 inches oil, on aluminum panel. #oilpainting #painting #contemporaryart #utilitypole"
+                       :thumb-url "https://scontent.cdninstagram.com/vp/27dd40bf9371c798e57eda8c00aa84bc/5BB95CCB/t51.2885-15/s150x150/e35/c2.0.1076.1076/29417032_163459764280925_6078758598047956992_n.jpg"
+                       :image-url "https://scontent.cdninstagram.com/vp/87e4d10eedb2454233628b786507433a/5BAB06DE/t51.2885-15/s640x640/sh0.08/e35/29417032_163459764280925_6078758598047956992_n.jpg"
+                       :media-type :image
+                       :tags ["oilpainting"
+                              "contemporaryart"
+                              "painting"
+                              "utilitypole"]
+                       :likes 39}
+ :year 2018
+ :status :sold
+ :exhibition-history [{:ref "9e3d6a17-4d7d-48e3-affd-63abb138933b" :notes nil}
+                      {:ref "ddf19da6-b7d3-4c1c-89c7-7bd663d555c0" :notes nil}]
+ :uref "48844840-5d26-11e9-9d54-5a9ae62eab53"
+ :purchases [{:total-commission-percent 40
+              :date "2018-04-22"
+              :dealer nil
+              :agent "44ed130e-2ba0-43f4-9797-7bd66837235f"
+              :notes nil
+              :donated false
+              :commissioned false
+              :buyer "fd799700-6b50-11e8-9573-094f06ce2361"
+              :location nil
+              :price 325
+              :on-public-display false}]
+ :sync-with-instagram true
+ :uuid "a01398a0-6d20-11e8-84b1-7f0de084e1d9"}
