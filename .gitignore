@@ -10,6 +10,7 @@ figwheel_server.log
 ProcFile
 .DS_Store
 .nrepl-port
+.lein-failures
 .lein-repl-history
 .idea
 *.iml
