@@ -84,6 +84,8 @@
                               :preloads             [devtools.preload]
                               :external-config      {:devtools/config {:features-to-install :all}}}}}}}
 
+     :test {:resource-paths ["test-resources"]}
+
      :webapp    ;; Do not name this profile :uberjar
        {:prep-tasks ["compile" ["cljsbuild" "once"]]
         :ring {:handler helodali.handler/handler
@@ -99,9 +101,6 @@
                          :optimizations   :advanced
                          :closure-defines {goog.DEBUG false}
                          :pretty-print    false}}}}}}
-
-    :api {:ring {:handler helodali.handler/api-handler}
-          :cljsbuild {:builds []}}
 
   :main helodali.server
 

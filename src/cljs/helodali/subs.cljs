@@ -81,22 +81,22 @@
   ;; like so: [{:uuid uuid :purchase <purchase-map>}} ...]. The purchase map includes the
   ;; artwork title to allow sorting on title form the :search-purchases subscription.
   [db uuid title l]
-  (apply vector (map (fn [m]
-                        (let [buyer-contact (if (nil? (:buyer m))
-                                              nil
-                                              (fetch-item-by-key-value (get db :contacts) :uuid (:buyer m)))
-                              agent-contact (if (nil? (:agent m))
-                                              nil
-                                              (fetch-item-by-key-value (get db :contacts) :uuid (:agent m)))
-                              dealer-contact (if (nil? (:dealer m))
-                                               nil
-                                               (fetch-item-by-key-value (get db :contacts) :uuid (:dealer m)))
-                              m (-> (assoc m :title title)
-                                   (assoc :buyer-name (:name buyer-contact))
-                                   (assoc :agent-name (:name agent-contact))
-                                   (assoc :dealer-name (:name dealer-contact)))]
-                          {:uuid uuid :purchase m}))
-                   l)))
+  (mapv (fn [m]
+           (let [buyer-contact (if (nil? (:buyer m))
+                                 nil
+                                 (fetch-item-by-key-value (get db :contacts) :uuid (:buyer m)))
+                 agent-contact (if (nil? (:agent m))
+                                 nil
+                                 (fetch-item-by-key-value (get db :contacts) :uuid (:agent m)))
+                 dealer-contact (if (nil? (:dealer m))
+                                  nil
+                                  (fetch-item-by-key-value (get db :contacts) :uuid (:dealer m)))
+                 m (-> (assoc m :title title)
+                      (assoc :buyer-name (:name buyer-contact))
+                      (assoc :agent-name (:name agent-contact))
+                      (assoc :dealer-name (:name dealer-contact)))]
+             {:uuid uuid :purchase m}))
+       l))
 
 ;; Search across artwork items and return all purchases in a list with the associated
 ;; artwork uuid: As in [{:uuid <uuid of artwork> :purchase {purchase map}} ...]

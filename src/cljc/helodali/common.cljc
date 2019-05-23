@@ -1,5 +1,6 @@
 (ns helodali.common
-  (:require #?(:cljs [cljs.reader :as cljsr])
+  (:require [clojure.pprint :refer [pprint]]
+            #?(:cljs [cljs.reader :as cljsr])
             #?(:clj  [clj-uuid :as uuid]
                :cljs [cljs-uuid-utils.core :as uuid])
             #?(:clj  [clj-time.core :refer [now days ago date-time]]
@@ -45,12 +46,12 @@
   (let [parse-unparse (if (= type :parse)
                         parse
                         unparse)
-        fix-date-key-val #(if (get % kw)
-                            (assoc % kw (parse-unparse (formatters :date) (get % kw)))
+        fix-date-key-val #(if-let [kw-val (get % kw)]
+                            (assoc % kw (parse-unparse (formatters :date) kw-val))
                             %)]
     (if (map? v-or-m)
       (fix-date-key-val v-or-m)
-      (apply vector (map fix-date-key-val v-or-m)))))
+      (mapv fix-date-key-val v-or-m))))
 
 (defn keywordize-vals
   "Given map and set of keys, convert the values associated with keys to keyword.
@@ -75,3 +76,8 @@
   "Called with clj-time or cljs-time object, convert to string"
   [d]
   (unparse (formatters :date-time) d))
+
+(defn log
+  [message data]
+  (prn (str message ":"))
+  (pprint data))
