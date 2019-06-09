@@ -1,6 +1,7 @@
 /*.log
 **/target
 **/node_modules
+package-lock.json
 lambda/**/*.zip
 /*-init.clj
 /resources/public/js/compiled

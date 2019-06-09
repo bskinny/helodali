@@ -97,7 +97,7 @@
              {:source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
               :jar true
               :compiler {:main            helodali.prod
-                         :output-to       "resources/public/js/compiled/app.js" ;; This filename is changed by eb-deploy.pl for cache busting
+                         :output-to       "resources/public/js/compiled/app.js" ;; This filename is changed by the Dockerfile for cache busting
                          :optimizations   :advanced
                          :closure-defines {goog.DEBUG false}
                          :pretty-print    false}}}}}}
