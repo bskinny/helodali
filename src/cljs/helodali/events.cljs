@@ -252,7 +252,8 @@
                        (assoc :initialized? true))]
         {:db app-db
          :sync-to-local-storage [{:k "helodali.access-token" :v (:access-token resp)}
-                                 {:k "helodali.id-token" :v (:id-token resp)}]}))))
+                                 {:k "helodali.id-token" :v (:id-token resp)}]
+         :route-client {:route-name helodali.routes/home :args {}}}))))
 
 ;; Update top-level app-db keys if supplied predicate evaluates true. The result can come from the server in the
 ;; form [type val] with type points to a top-level key into app-db and val is the whole item replacement. The result
@@ -653,21 +654,6 @@
                   :response-format (ajax/transit-response-format {:keywords? true})
                   :on-success      [:initialize-db-from-result]
                   :on-failure      [:bad-result {:access-token nil :id-token nil} false]}}))
-
-;; POST /login request and retrieve :profile
-(reg-event-fx
-  :login
-  (fn [{:keys [db]} _]
-    {:http-xhrio {:method          :post
-                  :uri             "/login"
-                  :params          {:access-token (:access-token db)
-                                    :id-token (:id-token db)}
-                  :headers         {:x-csrf-token (:csrf-token db)}
-                  :timeout         TIMEOUT
-                  :format          (ajax/transit-request-format {})
-                  :response-format (ajax/transit-response-format {:keywords? true})
-                  :on-success      [:initialize-db-from-result]
-                  :on-failure      [:bad-result {} false]}}))
 
 ;; GET /check-session and initialize db if a valid access token is refreshed on the server
 (reg-event-fx
