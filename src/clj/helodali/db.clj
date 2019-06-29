@@ -196,22 +196,24 @@
 
   A condition expression is attached to all updates to ensure that the item exists, otherwise an inchoate item
   is created. An attribute is taken from the keys map for use in the cond-expr."
-  [table primary-key path val]
+  [table primary-key-map path val]
   (let [[attr-expression expression-map] (convert-path-to-expression-attribute path)
+        primary-key-name (name (first (keys primary-key-map)))
+        expression-map (assoc-in expression-map [:expr-attr-names (str "#" primary-key-name)] primary-key-name)
         val (walk-cleaner val)
         change (if (or (nil? val) (and (set? val) (empty? val)))
                   {:update-expr     (str "REMOVE " attr-expression)
                    :expr-attr-names expression-map
-                   :cond-expr (str "attribute_exists(" (name (first (keys primary-key))) ")")
+                   :cond-expr (str "attribute_exists(#" primary-key-name ")")
                    :return          :all-new}
                   {:update-expr     (str "SET " attr-expression " = :val")
                    :expr-attr-names expression-map
                    :expr-attr-vals  {":val" val}
-                   :cond-expr (str "attribute_exists(" (name (first (keys primary-key))) ")")
+                   :cond-expr (str "attribute_exists(#" primary-key-name ")")
                    :return          :all-new})]
     (log "Performing change" change)
     (try
-      (far/update-item co table primary-key change)
+      (far/update-item co table primary-key-map change)
       (catch ConditionalCheckFailedException e (do (pprint "Attempt to update a non-existing item.")
                                                    {}))
       (catch Exception e (do (log "Unable to update item" e)
@@ -230,6 +232,14 @@
                 :expr-attr-names merged-expr-attr-names
                 :expr-attr-vals  (merge (:expr-attr-vals m) {(str ":val" idx) val})}))))
 
+;; Below is an example of db-changes computed above
+(comment {:expr-attr-names {"#version" "version", "#processing" "processing"},
+          :expr-attr-vals
+                           {":val0" "2562f477-8a3c-4a11-a7f0-921298595df2", ":val1" true},
+          :return :all-new,
+          :update-expr "SET #processing = :val1, #version = :val0 ",
+          :cond-expr "attribute_exists(pages.uuid)"})
+
 (defn apply-attribute-changes
   "Update artwork, press, exhibitions, documents, expenses, or contacts table. The 'changes'
    argument is a map of changes to apply with keys representing paths, or attribute names, see DynamoDB
@@ -238,9 +248,12 @@
 
    A condition expression is attached to all updates to ensure that the item exists, otherwise an inchoate item
    is created. An attribute is taken from the keys map for use in the cond-expr."
-  [table primary-key changes]
+  [table primary-key-map changes]
   (let [indexed-changes (zipmap (range (count changes)) changes) ;; Yields {0 [[:purchases 0 :date] "2001-03-14"], 1 [[:name] "Bo"]}
-        db-changes (-> (reduce-kv build-db-changes {} indexed-changes))
+        primary-key-name (name (first (keys primary-key-map)))
+        db-changes (-> (reduce-kv build-db-changes {} indexed-changes)
+                       ;; Add the primary-key to the list of expression attributes, e.g. {"#uuid" "uuid"}
+                       (assoc-in [:expr-attr-names (str "#" primary-key-name)] primary-key-name))
         update-expression (str
                             (when (:set-update-expr db-changes)
                               (str "SET " (str/join ", " (:set-update-expr db-changes)) " "))
@@ -248,14 +261,14 @@
                               (str "REMOVE " (str/join ", " (:remove-update-expr db-changes)))))
         db-changes (-> (assoc db-changes :return :all-new)
                       (assoc :update-expr update-expression)
-                      (assoc :cond-expr (str "attribute_exists(" (name (first (keys primary-key))) ")"))
+                      (assoc :cond-expr (str "attribute_exists(#" primary-key-name ")"))
                       (dissoc :set-update-expr)
                       (dissoc :remove-update-expr))]
     (log "Performing changes" db-changes)
     (if (nil? update-expression)
       (log "No changes to apply for" changes)
       (try
-        (far/update-item co table primary-key db-changes)
+        (far/update-item co table primary-key-map db-changes)
         (catch ConditionalCheckFailedException e (do (pprint "Attempt to update a non-existing item.")
                                                      {}))
         (catch Exception e (do (log "Unable to apply updates to item" e)
