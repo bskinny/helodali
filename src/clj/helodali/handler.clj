@@ -5,6 +5,7 @@
             [clj-jwt.core :refer [str->jwt]]
             [helodali.db :as db]
             [helodali.s3 :as s3]
+            [helodali.common :refer [log]]
             [helodali.instagram :refer [refresh-instagram process-instagram-auth]]
             [helodali.cognito :as cognito]
             [clj-uuid :as uuid]
@@ -83,11 +84,11 @@
     (process-request req uuid access-token #(db/update-user-table table uuid path val)))
 
   (POST "/update-item" [uref uuid table path val access-token :as req]
-    (pprint (str "update-item uref/uuid/path/val: " uref "/" uuid "/" path "/" val))
+    (pprint (str "update-item uref/uuid/table/path/val: " uref "/" uuid "/" table "/" path "/" val))
     (process-request req uref access-token #(db/update-item table uref uuid path val)))
 
   (POST "/create-item" [table item access-token :as req]
-    (pprint (str "create-item item: " item))
+    (pprint (str "create-item in " table ": " item))
     (process-request req (:uref item) access-token #(db/create-item table item)))
 
   (POST "/delete-item" [table uref uuid access-token :as req]
@@ -168,7 +169,7 @@
                 (response (merge verify-response {:refresh-access-token? false})))))))))
 
   (GET "/check-session" req
-    (pprint (str "Handle /check-session with req: " req))
+    (log "Handle /check-session with req" req)
     (let [sub (get-in req [:session :sub])
           session-uuid (get-in req [:session :uuid])]
       (if (or (empty? session-uuid) (empty? sub))
@@ -189,7 +190,7 @@
 
   ;; Redirected from Cognito server-side token request
   (GET "/login" [code :as req]
-    (pprint (str "Handle /login with req: " req))
+    (log "Handle /login with req" req)
     (let [token-resp (cognito/get-token code)]
       (if (nil? token-resp)
         {:message "Unable to get access token"}
@@ -197,8 +198,10 @@
           (db/create-user-if-necessary userinfo)
           (let [session-uuid (str (uuid/v1))]
             (db/cache-access-token session-uuid token-resp userinfo)
-            (pprint (str "/login session " session-uuid " with userinfo from id_token: " userinfo))
-            (-> (redirect "/")
+            (log (str "/login session " session-uuid " with userinfo from id_token") userinfo)
+            (->
+              (resource-response "index.html" {:root "public"})
+              (content-type "text/html")
               ;; Stash the user's uuid in the session
               (assoc-in [:session :sub] (:sub userinfo))
               (assoc-in [:session :uuid] session-uuid)))))))
@@ -243,26 +246,6 @@
     (pprint (str "POST REQ: " req))
     {:status 200}))
 
-
-(defn- wrap-debug
-  [handler]
-  (fn [request]
-    (pprint (str "REQUEST: " request))
-    (let [resp (handler request)]
-      (pprint (str "RESPONSE: " resp))
-      resp)))
-
-(def dev-handler (-> #'routes
-                    (wrap-defaults site-defaults)
-                    (wrap-restful-params)
-                    (wrap-restful-response)
-                    (wrap-reload)))
-                    ; (logger/wrap-with-logger {:logger (let [logger (make-tools-logging-logger)]
-                    ;                                     (reify logger.protocols/Logger
-                    ;                                       (add-extra-middleware [_ handler] handler)
-                    ;                                       (log [_ level throwable message]
-                    ;                                         (println "Level " level ": " message)
-                    ;                                         (logger.protocols/log logger level throwable (format "%s" message)))))})))
 
 ;; Don't use secure-site-defaults. We are using http->https redirection via AWS Elastic Beanstalk load balancing
 (def handler (-> #'routes

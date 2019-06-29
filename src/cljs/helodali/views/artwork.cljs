@@ -441,7 +441,9 @@
                          :children [[v-box
                                        :children [[box :max-width image-size :max-height image-size
                                                     :child [:img {:src url :class object-fit
-                                                                  :on-error #(dispatch [:flush-signed-urls [:artwork id :images 0]])
+                                                                  :on-error #(if (expired? @url-expiration)
+                                                                               (dispatch [:flush-signed-urls [:artwork id :images 0]])
+                                                                               (dispatch [:refresh-image [:artwork id :images 0]]))
                                                                   :on-click #(if (not (= @display-type :new-item)) ;; Don't toggle 'expanded' when in :new-item mode
                                                                                (dispatch [:set-local-item-val [:artwork id :expanded] (not @expanded)])
                                                                                nil)}]]
@@ -498,7 +500,6 @@
                                                                       [re-com/line :size "20px"
                                                                          :style {:width "40px"}
                                                                          :color (str "rgb(" (clojure.string/join "," [r g b]) ")")]))]
-                                        (pprint colors)
                                         [v-box :align :start :justify :start
                                             :children (into [] (mapv (fn [color] ^{:key (clojure.string/join "-" color)} (palette-color-display color)) colors))]))
                                     (when (not @expanded) [v-box :gap "2px" :align :start :justify :start

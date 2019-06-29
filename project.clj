@@ -63,26 +63,8 @@
   :clean-targets ^{:protect false} ["resources/public/js/compiled" "target" "test/js"]
 
   :profiles
-    {;; The dbmgmt profile is used from a repl to interact with DynamoDB
+    {;; The dbmgmt profile is used from a Cursive repl to interact with DynamoDB
      :dbmgmt {:dependencies [[org.clojure/tools.nrepl "0.2.13"]]}
-
-     :dev
-       {:dependencies [[binaryage/devtools "0.9.10"]]
-        :plugins      [[lein-figwheel "0.5.16"]
-                       [lein-doo "0.1.10"]]
-        :ring {:handler helodali.handler/dev-handler}
-        :cljsbuild
-          {:builds
-            {:app
-              {:source-paths ["src/cljs" "src/cljc" "env/dev/cljs"]
-               :figwheel     {:on-jsload "helodali.core/mount-root"}
-               :compiler     {:main                 helodali.dev
-                              :output-to            "resources/public/js/compiled/app.js"
-                              :output-dir           "resources/public/js/compiled/out"
-                              :asset-path           "js/compiled/out"
-                              :source-map-timestamp true
-                              :preloads             [devtools.preload]
-                              :external-config      {:devtools/config {:features-to-install :all}}}}}}}
 
      :test {:resource-paths ["test-resources"]}
 
@@ -97,7 +79,7 @@
              {:source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
               :jar true
               :compiler {:main            helodali.prod
-                         :output-to       "resources/public/js/compiled/app.js" ;; This filename is changed by eb-deploy.pl for cache busting
+                         :output-to       "resources/public/js/compiled/app.js" ;; This filename is changed by the Dockerfile for cache busting
                          :optimizations   :advanced
                          :closure-defines {goog.DEBUG false}
                          :pretty-print    false}}}}}}
