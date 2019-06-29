@@ -1,4 +1,4 @@
-^{:ring-handler helodali.handler/dev-handler
+^{:ring-handler helodali.handler/handler
   :watch-dirs ["src/cljs" "src/cljc" "env/dev/cljs"]
   :css-dirs ["resources/public/css" "resources/public/vendor/css"]}
 {:main helodali.dev
