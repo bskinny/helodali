@@ -6,6 +6,6 @@
   (:gen-class))
 
 (defn -main [& args]
-  (let [port (Integer/parseInt (or (env :port) "3449"))]
+  (let [port (Integer/parseInt (or (env :port) "9500"))]
     (cognito/init)
     (run-jetty handler {:port port :join? false})))
