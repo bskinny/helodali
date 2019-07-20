@@ -86,7 +86,7 @@
                   (when (or (not (empty? @email)))
                     [h-box :gap "8px" :align :center :justify :start
                             :children [[:span.uppercase.light-grey "Email"]
-                                       [:span (str @email)]]])
+                                       [:span {:id :email} (str @email)]]])
                   (when (or (not (empty? @phone)))
                     [h-box :gap "8px" :align :center :justify :start
                             :children [[:span.uppercase.light-grey "Phone"]

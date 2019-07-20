@@ -51,12 +51,12 @@
       [re-com/popover-content-wrapper :showing-injected? showing-account-popover? :position-injected position-injected
         :width "160px" :backdrop-opacity 0.3 :on-cancel #(reset! showing-account-popover? false) :style {:cursor "pointer"}
         :body [v-box
-                :children [[label :label "Artist Profile" :on-click #(select-fn :profile)]
-                           [label :label "My Account" :on-click #(select-fn :account)]
-                           [label :label "Publishing" :on-click #(select-fn :pages)]
-                           [label :label "Logout" :on-click (fn []
-                                                               (dispatch [:logout])
-                                                               (reset! showing-account-popover? false))]]]])))
+                :children [[label :label "Artist Profile" :attr {:id :artist-profile} :on-click #(select-fn :profile)]
+                           [label :label "My Account" :attr {:id :my-account} :on-click #(select-fn :account)]
+                           [label :label "Publishing" :attr {:id :publishing} :on-click #(select-fn :pages)]
+                           [label :label "Logout" :attr {:id :logout} :on-click (fn []
+                                                                                   (dispatch [:logout])
+                                                                                   (reset! showing-account-popover? false))]]]])))
 
 (defn header
   "Display in-app main page header"
@@ -75,7 +75,7 @@
                                                  :on-click #(do (dispatch [:sweep-and-set :artwork :expanded false])
                                                                 (route helodali.routes/view {:type (name :artwork)}))]
                                  [re-com/popover-anchor-wrapper :showing? showing-account-popover? :position :below-right
-                                   :anchor   [md-icon-button :md-icon-name "zmdi zmdi-account-o" :size :larger
+                                   :anchor   [md-icon-button :md-icon-name "zmdi zmdi-account-o" :size :larger :attr {:id :account-button}
                                                     :on-click #(reset! showing-account-popover? true)]
                                    :popover  [account-popover-body showing-account-popover?]]
                                  [re-com/popover-anchor-wrapper :showing? showing-more? :position :below-center
@@ -168,7 +168,7 @@
   ;; We are not checking the state value of the authorize request on the return visit.
   (let [style {:padding-top "10px" :color "rgb(110, 90, 90)" :font-weight "300" :text-decoration "none"}]
     [h-box :align :center :justify :center :gap "10px"
-      :children [[hyperlink :class "level3" :label "sign in" :style style :on-click (authorize-fn)]
+      :children [[hyperlink :class "level3" :label "sign in" :style style :attr {:id :sign-in} :on-click (authorize-fn)]
                  [md-icon-button :md-icon-name "zmdi zmdi-brush" :style style :on-click (authorize-fn)]
                  [hyperlink :class "level3" :label "register" :style style :on-click do-register]]]))
 
