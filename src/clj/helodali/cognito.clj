@@ -71,6 +71,12 @@
                      (throw+)))]
      response))
 
+(defn remove-session-and-force-login
+  [session msg]
+  (db/delete-item :sessions (select-keys session [:uuid]))
+  (pprint msg)
+  {:force-login true})
+
 (defn refresh-token
   "Passed a session which contains an expired token, use the refresh token to request
    a new token and replace the session in the database."
@@ -79,26 +85,30 @@
   (let [params {:client_id (:id client)
                 :grant_type "refresh_token"
                 :refresh_token (:refresh session)}
-        response (try+
-                   (-> (http/post (str base-url "/oauth2/token")
-                                  (merge options {:form-params params}))
-                       (:body))
-                   (catch Object _
-                     (pprint (str (:throwable &throw-context) " unexpected error"))
-                     (throw+)))
         tn (ZonedDateTime/now (ZoneId/of "Z"))]
-    (db/delete-item :sessions (select-keys session [:uuid]))
-    (db/put-items :sessions [{:uuid     (str (uuid/v1)) :uref (:uref session) :token (:access_token response)
-                              :refresh  (:refresh session)
-                              :id-token (:id_token response) :sub (:sub session)
-                              :ts       (.format tn DateTimeFormatter/ISO_INSTANT)}])
-    {:access-token (:access_token response)
-     :id-token (:id_token response)
-     :refresh-aws-creds? true}))
+    (try+
+      (let [response (-> (http/post (str base-url "/oauth2/token")
+                                    (merge options {:form-params params}))
+                         (:body))]
+        (db/delete-item :sessions (select-keys session [:uuid]))
+        (db/put-items :sessions [{:uuid     (str (uuid/v1)) :uref (:uref session) :token (:access_token response)
+                                  :refresh  (:refresh session)
+                                  :id-token (:id_token response) :sub (:sub session)
+                                  :ts       (.format tn DateTimeFormatter/ISO_INSTANT)}])
+        {:access-token (:access_token response)
+         :id-token (:id_token response)
+         :refresh-aws-creds? true})
+      (catch Object _
+        (pprint (:throwable &throw-context))
+        (remove-session-and-force-login session "Unable to refresh token, forcing login")))))
 
 (defn verify-token
   "Verify the signature of the access token and check expiration. If expired, attempt a refresh
   and return the new access, id-token. Side effect is made in replacing database session.
+
+  Also ensure that the client_id matches our oauth2 client.
+
+  If token verification fails, insert a :force-login key into the return map.
 
   The JWT, once decoded form the string, looks like this:
       :header {:kid \"TMd6w/1imj8aIiV0IVVKke5RyIctnQ3A750FVT0SLzk=\"
@@ -134,13 +144,14 @@
           (verify-token session)))
       ;; Verify the jwt
       (if (verify jwt (keyword (:alg jwt-header)) public-key)
-        ;; Signature is valid
-        (let [tn (ZonedDateTime/now (ZoneId/of "Z"))]
-          ;(pprint (str "Comparing " (.toEpochSecond tn) " and " (get-in jwt [:claims :exp])))
-          (if (> (.toEpochSecond tn) (get-in jwt [:claims :exp]))
-            ;; Expired token, try to refresh
-            (refresh-token session)
-            ;; Token still valid, no update needed
-            {}))
-        ;; Token signature verification failed.
-        (throw (IllegalArgumentException. "Signature verification failed for token."))))))
+        ;; Signature is valid, check client_id match.
+        (if (not= (:id client) (get-in jwt [:claims :client_id]))
+          (remove-session-and-force-login session "JWT client_id mismatch!")
+          (let [tn (ZonedDateTime/now (ZoneId/of "Z"))]
+            (if (> (.toEpochSecond tn) (get-in jwt [:claims :exp]))
+              ;; Expired token, try to refresh
+              (refresh-token session)
+              ;; Token still valid, no update needed
+              {})))
+        ;; Token signature verification failed. Force login.
+        (remove-session-and-force-login session "Signature verification failed for token.")))))

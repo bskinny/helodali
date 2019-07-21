@@ -38,7 +38,9 @@
     (if (empty? session)
       (force-login req)
       (let [verify-response (cognito/verify-token session)]
-        (response (merge (process-fx) verify-response))))))
+        (if (:force-login verify-response)
+          (force-login req)
+          (response (merge (process-fx) verify-response)))))))
 
 (defn- login-response
   [req sub session uref]
@@ -138,14 +140,16 @@
           (if (empty? session)
             ;; No session found for access token, force authentication.
             (force-login req)
-            (let [verify-response (cognito/verify-token session)
-                  ;; Fetch the session again as the tokens might have been refreshed
-                  session (db/query-session uref (get verify-response :access-token access-token))]
-              (if (empty? session)
-                ;; Refresh did not work
+            (let [verify-response (cognito/verify-token session)]
+              (if (:force-login verify-response)
                 (force-login req)
-                ;; Token is valid
-                (login-response req (:sub userinfo) session uref))))))))
+                ;; Fetch the session again as the tokens might have been refreshed
+                (let [session (db/query-session uref (get verify-response :access-token access-token))]
+                  (if (empty? session)
+                    ;; Refresh did not work
+                    (force-login req)
+                    ;; Token is valid
+                    (login-response req (:sub userinfo) session uref))))))))))
 
   ;; Check for the need to refresh the access token and do so if necessary.
   (POST "/refresh-token" [access-token id-token :as req]
@@ -158,15 +162,17 @@
           (if (empty? session)
             ;; No session found for access token, force authentication.
             (force-login req)
-            (let [verify-response (cognito/verify-token session)
-                  ;; Fetch the session again as the tokens might have been refreshed
-                  session (db/query-session uref (get verify-response :access-token access-token))]
-              (if (empty? session)
-                ;; Refresh did not work
+            (let [verify-response (cognito/verify-token session)]
+              (if (:force-login verify-response)
                 (force-login req)
-                ;; Token is valid or has been refreshed, in the former case the response will be a
-                ;; empty map, the latter will contain the tokens.
-                (response (merge verify-response {:refresh-access-token? false})))))))))
+                ;; Fetch the session again as the tokens might have been refreshed
+                (let [session (db/query-session uref (get verify-response :access-token access-token))]
+                  (if (empty? session)
+                    ;; Refresh did not work
+                    (force-login req)
+                    ;; Token is valid or has been refreshed, in the former case the response will be a
+                    ;; empty map, the latter will contain the tokens.
+                    (response (merge verify-response {:refresh-access-token? false})))))))))))
 
   (GET "/check-session" req
     (log "Handle /check-session with req" req)
@@ -179,14 +185,16 @@
               current-session (db/get-session session-uuid)]
           (if (empty? current-session)
             (force-login req)
-            (let [verify-response (cognito/verify-token current-session)
-                  ;; Fetch the session again as the tokens might have been refreshed
-                  session (db/query-session uref (get verify-response :access-token (:token current-session)))]
-              (if (empty? session)
-                ;; Refresh did not work
+            (let [verify-response (cognito/verify-token current-session)]
+              (if (:force-login verify-response)
                 (force-login req)
-                ;; Token is valid
-                (login-response req sub session uref))))))))
+                ;; Fetch the session again as the tokens might have been refreshed
+                (let [session (db/query-session uref (get verify-response :access-token (:token current-session)))]
+                  (if (empty? session)
+                    ;; Refresh did not work
+                    (force-login req)
+                    ;; Token is valid
+                    (login-response req sub session uref))))))))))
 
   ;; Redirected from Cognito server-side token request
   (GET "/login" [code :as req]
