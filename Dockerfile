@@ -8,6 +8,12 @@ FROM clojure:alpine
 # by the combination of .ebextensions/options.config and EB Configuration (see
 # the EB application environment configuration definition in the EB Console).
 
+# Install tini to act as an a init process (pid 1) to allow jstack/jmap of the
+# java process. This can also be done with docker run --init but passing
+# docker run command line args through to elastic beanstalk does not seem
+# possible at this time (07/21/19). See also the ENTRYPOINT below.
+RUN apk add --no-cache tini
+
 RUN mkdir -p /app
 WORKDIR /app
 COPY project.clj /app/
@@ -28,4 +34,6 @@ RUN ts=$(date +%s) \
 EXPOSE 3000
 
 RUN lein with-profile webapp ring uberjar
-CMD ["java", "-jar", "target/helodali.jar"]
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["java", "-Xms1g", "-Xmx1g", "-XX:NewSize=256m", "-XX:MaxNewSize=256m", "-verbose:gc", \
+     "-XX:+PrintGCDetails", "-XX:+PrintGCTimeStamps", "-jar", "target/helodali.jar"]
