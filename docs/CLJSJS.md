@@ -27,6 +27,7 @@ AWS.CognitoIdentityCredentials.prototype = {
   "cacheId": function () {},
   "clearCachedId": function () {},
   "clearIdOnNotAuthorized": function () {},
+  "coalesceRefresh": function () {},
   "constructor": function () {},
   "createClients": function () {},
   "expiryWindow": function () {},
@@ -36,6 +37,7 @@ AWS.CognitoIdentityCredentials.prototype = {
   "getId": function () {},
   "getPromise": function () {},
   "getStorage": function () {},
+  "load": function () {},
   "loadCachedId": function () {},
   "loadCredentials": function () {},
   "localStorageKey": function () {},
@@ -45,22 +47,21 @@ AWS.CognitoIdentityCredentials.prototype = {
   "setStorage": function () {},
   "storage": function () {}
 };
-
 ```
 
 1. Updated build.boot
 ```clojure
 (set-env!
   :resource-paths #{"resources"}
-  :dependencies '[[cljsjs/boot-cljsjs "0.10.3" :scope "test"]])
+  :dependencies '[[cljsjs/boot-cljsjs "0.10.4" :scope "test"]])
 
 (require '[cljsjs.boot-cljsjs.packaging :refer :all])
 
 ;; Example Build and Deploy to Clojars:
 ;; boot package target
-;; boot push --repo clojars --file target/aws-sdk-js-2.394.0-1.jar
+;; boot push --repo clojars --file target/aws-sdk-js-2.527.0-1.jar
 
-(def +lib-version+ "2.394.0")
+(def +lib-version+ "2.527.0")
 (def +version+ (str +lib-version+ "-1"))
 
 ;; The clojars username and password values will be pulled from .lein/credentials (see .boot/profile.boot)
@@ -90,7 +91,10 @@ AWS.CognitoIdentityCredentials.prototype = {
    (jar)
    (validate-checksums)))
 ```
-1. Update the version number in aws-sdk-js/build.boot, e.g. _2.394.0-1_.
+1. Update the externs. You can generate a new (humongous) ext.js using this [generator](http://jmmk.github.io/javascript-externs-generator) with the 
+input of https://sdk.amazonaws.com/js/aws-sdk-2.421.0.min.js (version number corrected) and then parse out the needed externs
+1. Update the version number in aws-sdk-js/build.boot, e.g. _2.527.0-1_.
+1. Comment out the (set-env! :repositories ...) in `build.boot` - FIXME: This needs to be present for the later invocation of `boot push`
 1. `boot package target`
 1. Configure authentication to clojars
 1. `boot push --repo clojars --file target/aws-sdk-js-2.394.0-1.jar`

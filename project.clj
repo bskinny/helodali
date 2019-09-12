@@ -29,7 +29,7 @@
                  [yogthos/config "1.1.1"]
                  [clj-jwt "0.1.1"]
                  [buddy/buddy-core "1.5.0"]
-                 [org.clojars.bskinny/aws-sdk-js "2.394.0-1"]  ;; This is a local build of aws-sdk-js for now (see README).
+                 [org.clojars.bskinny/aws-sdk-js "2.527.0-1"]  ;; This is a local build of aws-sdk-js for now (see README).
                  [ring/ring-defaults "0.3.2"]
                  [ring-middleware-format "0.7.4"]
                  [ring-logger "0.7.8"]
