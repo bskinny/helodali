@@ -249,7 +249,7 @@
        (and (not @authenticated?) (empty? @access-token) (= @view :static-page))
        ;; Display static html with login header
        [v-box :gap "20px" :width "100%" :height "100%" :margin "0" :justify :between
-          :children [[h-box :align :center :justify :around :children [(our-title @view) (login-button)]]
+          :children [[h-box :align :center :justify :around :class "header" :children [(our-title @view) (login-button)]]
                      [static-pages-view]
                      [footer]]]
 
