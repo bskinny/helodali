@@ -65,8 +65,8 @@
         showing-account-popover? (r/atom false)
         search-pattern (r/atom "")]
     (fn []
-      [h-box :size "0 0 auto" :height "100px" :gap "10px" :align :center :justify :around :class "header"
-         :children [[re-com/title :level :level2 :label "helodali"]
+      [h-box :size "0 0 auto" :gap "10px" :align :center :justify :around :class "header"
+         :children [[:img {:src "/image-assets/drawer-plus-hd.svg"}]
                     [input-text :width "200px" :model search-pattern :placeholder "Search" :style {:border "none"}
                          :on-change #(if (not (empty? %))
                                        (route-search %))]
@@ -86,7 +86,7 @@
 
 (defn footer
   []
-  [h-box :width "100%" :class "header" :height "100px" :gap "40px" :align :center :justify :center
+  [h-box :width "100%" :class "header" :gap "40px" :align :center :justify :center
             :children [[re-com/hyperlink-href :class "uppercase" :style {:color :black}
                           :label "Contact" :href "mailto:support@helodali.com"]
                        [hyperlink :class "uppercase" :label "privacy" :style {:color :black}
@@ -121,13 +121,16 @@
               "&scope=openid%20email%20profile")))
 
 (defn- our-title
-  "Display the HELODALI top-left title and link to either the landing page or login depending on context."
+  "Display the HELODALI top-left title and link to either the landing page or noop depending on context."
   [view]
   (let [back-to-landing? (r/atom (not= view :landing))
         style {:padding-top "10px" :color "rgb(110, 90, 90)" :text-decoration "none"}]
     (if @back-to-landing?
-       [hyperlink :class "level1" :label "helodali" :style style :on-click #(dispatch [:back-to-landing-page])]
-       [label :class "level1" :label "helodali" :style style])))
+       [:img {:src "/image-assets/drawer-plus-hd.svg"
+              :on-click #(dispatch [:back-to-landing-page])}]
+                    ;[hyperlink :class "level1" :label "helodali" :style style :on-click #(dispatch [:back-to-landing-page])]]]
+       [:img {:src "/image-assets/drawer-plus-hd.svg"}])))
+                    ;[label :class "level1" :label "helodali" :style style]]])))
 
 ;; Use the following panel if it is desired to display login buttons for external identity providers Google and FB. This is a shortcut
 ;; approach to the current "sign in" link. Unfortunately, a shortcut may not be easily available for native user login.
@@ -253,7 +256,8 @@
        (and @authenticated? @initialized? (not (empty? @aws-creds)) (not (nil? @aws-s3)))
        ;; Finally, display the app
        [v-box :gap "0px" :margin "0px" :justify :between :width "100%"
-          :children [[v-box
+          :children [;; This v-box within v-box approach is used to weigh down the footer from the rest of components
+                     [v-box
                        :children [[header]
                                   (if (not (empty? @msgs))
                                     [v-box :gap "12px" :justify :start :align :center

@@ -19,6 +19,7 @@ pre {
 
 .header {
   background-color: rgba(253, 253, 253, 0.3); /* #fdfdfd */
+  padding: 28px;
 }
 
 .red {
@@ -62,10 +63,8 @@ pre {
 }
 
 .login-page {
-  background-image:url("/image-assets/file-cabinet.png"), linear-gradient(#e4e0ba, #f7d9aa);
+  background-image:url("/image-assets/file-cabinet.png"),url("/image-assets/hd-home-bg.jpg"), linear-gradient(#e4e0ba, #f7d9aa);
   background-position: top;
-  /* background: -webkit-linear-gradient(#e4e0ba, #f7d9aa);
-  background: linear-gradient(#e4e0ba, #f7d9aa); */
   background-repeat: no-repeat;
 }
 
