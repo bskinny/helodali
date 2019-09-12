@@ -9,11 +9,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "aws-sdk": "^2.446.0",
+    "aws-sdk": "^2.527.0",
     "dependencies": "0.0.1",
-    "sharp": "^0.22.1"
+    "sharp": "^0.23.0"
   },
   "devDependencies": {
-    "bespoken-tools": "^2.1.1"
+    "bespoken-tools": "^2.4.6"
   }
 }
