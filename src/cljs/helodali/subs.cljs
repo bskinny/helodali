@@ -165,8 +165,9 @@
   "Accumulate matches for given pattern and item, using title-kw as the 'name' of the item."
   [item-type pattern item title-kw]
   (let [results (walk-searcher pattern nil item)]
-    ;; Results can look something like this:
-    ;; ("New3asdsd- that took awhile" [("This took more time to sell than imagined.")])
+    ;; Results can look something like this, searching for the string "some" and finding a couple matches
+    ;; in a particular :contact item's facebook and url fields:
+    ;; ("facebook: something-at-fb" "url: something.com")"
     ;; We assume the flatten function is trustworthy for flattening this.
     {:type item-type :uuid (:uuid item) :title (get item title-kw) :match (flatten results)}))
 
@@ -184,11 +185,12 @@
             pattern (re-pattern (str "(?im).*" (:search-pattern db) ".*"))
             artwork (filter #(not (empty? (:match %))) (map #(search-acc :artwork pattern % :title) (vals (get db :artwork))))
             contacts (filter #(not (empty? (:match %))) (map #(search-acc :contacts pattern % :name) (vals (get db :contacts))))
+            documents (filter #(not (empty? (:match %))) (map #(search-acc :documents pattern % :title) (vals (get db :documents))))
             expenses (filter #(not (empty? (:match %))) (map #(search-acc :expenses pattern % :name) (vals (get db :expenses))))
             exhibitions (filter #(not (empty? (:match %))) (map #(search-acc :exhibitions pattern % :expense-type) (vals (get db :exhibitions))))
             press (filter #(not (empty? (:match %))) (map #(search-acc :press pattern % :title) (vals (get db :press))))
             profile (filter #(not (empty? (:match %))) (list (search-acc :profile pattern (get db :profile) :name)))
-            matches (concat artwork contacts expenses exhibitions press profile)]
+            matches (concat artwork contacts documents expenses exhibitions press profile)]
         (if (= kw :match) ;; Handle the sorting on 'Match' column differently than the others
           (let [reverse (if reverse? -1 1)]
             (sort #(* reverse (compare (first (:match %1)) (first (:match %2)))) matches))
