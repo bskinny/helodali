@@ -28,14 +28,40 @@
   [m]
   ((fnil inc 0) (last (keys m))))
 
+(defn filter-out-placeholders
+  "Return the db with the placeholder items filtered out."
+  [db]
+  (-> db
+      (assoc :artwork (dissoc (:artwork db) 0))
+      (assoc :contacts (dissoc (:contacts db) 0))
+      (assoc :exhibitions (dissoc (:exhibitions db) 0))
+      (assoc :documents (dissoc (:documents db) 0))
+      (assoc :press (dissoc (:press db) 0))
+      (assoc :expenses (dissoc (:expenses db) 0))))
+
 (defn check-and-throw
   "throw an exception if db doesn't match the spec."
   [a-spec app-db]
-  (when-not (s/valid? a-spec app-db)
-    (throw (ex-info (str "spec check failed: " (s/explain-str a-spec app-db)) {}))))
+  ;; Suppress any validation errors in the 0-indexed "placeholder" items which are used during
+  ;; new item creation. If a user browses away from a new item creation, the spec for the placeholder
+  ;; item will likely not be valid (e.g. no :name value).
+  (let [db (filter-out-placeholders app-db)]
+    (when-not (s/valid? a-spec db)
+      (throw (ex-info (str "spec check failed: " (s/explain-str a-spec db)) {})))))
 
-;; This interceptor is run after each event handler has finished, and checks
-;; app-db against a spec.
+;; An interceptor which looks for expired AWS credentials and sets the app-db key :refresh-aws-creds? appropriately
+;; When :refresh-aws-creds? is true, the main-panel will react to it and start a refresh process.
+(def check-aws-credentials
+  (re-frame.core/->interceptor
+    :id      :check-aws-credentials
+    :before  (fn [context]
+               (let [db (get-in context [:coeffects :db])
+                     expired? (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1)))]
+                 (if expired?
+                   (update-in context [:effects :db :refresh-aws-creds?] true)
+                   context)))))
+
+;; This interceptor is run after an event handler has finished and validates app-db against spec
 (def check-spec-interceptor (after (partial check-and-throw :helodali.spec/db)))
 
 ;; the chain of interceptors we use for all handlers that manipulate the db
@@ -299,7 +325,7 @@
     - remove map keys that we do not want visiting the server, such as :images from :artwork"
   [in]
   (cond
-    (map? in) (let [in (dissoc in :editing :expanded :images)]
+    (map? in) (let [in (dissoc in :editing :images)]
                 (clojure.walk/walk (fn [[k v]] [k (walk-cleaner v)]) identity in))
     (vector? in) (mapv walk-cleaner in)
     (set? in) (set (map walk-cleaner in))
@@ -360,7 +386,7 @@
         item (-> item
                 (walk-cleaner)
                 (assoc :uref (get-in db [:profile :uuid]))
-                (dissoc :editing :expanded))
+                (dissoc :editing))
         retry-fx (or is-retry? (partial create-fx table item true))
         fx (if is-retry? {} {:db db})]
     (merge fx {:http-xhrio {:method          :post
@@ -483,7 +509,6 @@
                      (:signed-raw-url-expiration-time diffA) (dissoc :signed-raw-url-expiration-time) ;; For :documents
                      (:processing diffA) (dissoc :processing) ;; For :documents
                      (:editing diffA) (dissoc :editing)
-                     (:expanded diffA) (dissoc :expanded)
                      (and (= type :profile) (or (:degrees diffA) (:degrees diffB))) (assoc :degrees (:degrees item))
                      (and (= type :profile) (or (:collections diffA) (:collections diffB))) (assoc :collections (:collections item))
                      (and (= type :profile) (or (:lectures-and-talks diffA) (:lectures-and-talks diffB))) (assoc :lectures-and-talks (:lectures-and-talks item))
@@ -550,13 +575,12 @@
 
 (defn replace-item
   "Perform a smart replacement of the new-item for the old db item. Specifically, don't throw away valid
-   signed urls for artwork or the item's :expanded UI state. This is a bit tricky for the signed-urls as
+   signed urls for artwork. This is a bit tricky for the signed-urls as
    we need to match on the image :key as the image itself may have changed."
   [db type id new-item]
   (let [item (get-in db [type id])]
     (cond-> new-item
-            (= :artwork type) (assoc :images (copy-signed-urls (:images new-item) (get-in db [type id :images])))
-            (contains? item :expanded) (assoc :expanded (:expanded item)))))
+            (= :artwork type) (assoc :images (copy-signed-urls (:images new-item) (get-in db [type id :images]))))))
 
 ;; Update items under :artwork, :instagram-media, etc. The incoming data is a map keyed by item type
 ;; with values a list of changes. A change is structured as [<uuid of item> [path value]] where
@@ -842,13 +866,11 @@
                     (assoc :display-type :new-item)
                     (assoc :view type)
                     (assoc-in [type id] (merge (helodali.db/defaults-for-type db type) (helodali.db/ui-defaults-for-type db type))) ;; This also assigns an uuid
-                    (assoc-in [type id :editing] true)
-                    (assoc-in [type id :expanded] true))]
+                    (assoc-in [type id :editing] true))]
       (assoc new-db :single-item-uuid (get-in new-db [type id :uuid])))))
 
 ;; Create item based on contents of placeholder item (id == 0) but confirm
-;; the existence of values for required fields. If confirmation fails,
-;; add a warning message.
+;; the existence of values for required fields. If confirmation fails, add a warning message.
 (reg-event-fx
   :create-from-placeholder
   manual-check-spec
@@ -1028,8 +1050,7 @@
     (-> db
       (assoc :display-type :single-item)
       (assoc :view type)
-      (assoc :single-item-uuid uuid)
-      (assoc-in [type (find-item-by-key-value (get db type) :uuid uuid) :expanded] true))))
+      (assoc :single-item-uuid uuid))))
 
 (reg-event-db
   :noop
@@ -1157,10 +1178,10 @@
 ;; Get the signed URL to access designated S3 object. Define a 1 hour expiration.
 (reg-event-fx
   :get-signed-url
-  manual-check-spec
+  (conj manual-check-spec check-aws-credentials)
   (fn [{:keys [db]} [path-to-object-map bucket object-key url-key expiration-key]]
     ;; If the AWS Credentials have expired, then delay the execution of this event
-    (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
+    (if (:refresh-aws-creds? db)
       {:dispatch-later [{:ms 400 :dispatch [:get-signed-url path-to-object-map bucket object-key url-key expiration-key]}]}
       ;; Get the signed url
       (let [s3 (:aws-s3 db)
@@ -1231,10 +1252,10 @@
 ;;       filename is the basename of the file selected by the user
 (reg-event-fx
   :add-image
-  manual-check-spec
+  (conj manual-check-spec check-aws-credentials)
   (fn [{:keys [db]} [item-path js-file]]
     ;; If the AWS Credentials have expired, then delay the execution of this event
-    (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
+    (if (:refresh-aws-creds? db)
       {:dispatch-later [{:ms 400 :dispatch [:add-image item-path js-file]}]}
       (let [filename (.-name js-file)
             uuid (generate-uuid)
@@ -1249,10 +1270,10 @@
 ;; Similar to add-image but replace the existing image
 (reg-event-fx
   :replace-image
-  manual-check-spec
+  (conj manual-check-spec check-aws-credentials)
   (fn [{:keys [db]} [item-path image-uuid js-file]]
     ;; If the AWS Credentials have expired, then delay the execution of this event
-    (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
+    (if (:refresh-aws-creds? db)
       {:dispatch-later [{:ms 400 :dispatch [:replace-image item-path image-uuid js-file]}]}
       (let [filename (.-name js-file)
             images-path (conj item-path :images)
@@ -1304,10 +1325,10 @@
 ;; the database (as opposed to Lambda being triggered).
 (reg-event-fx
   :add-s3-object
-  manual-check-spec
+  (conj manual-check-spec check-aws-credentials)
   (fn [{:keys [db]} [bucket item-path js-file]]
     ;; If the AWS Credentials have expired, then delay the execution of this event
-    (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
+    (if (:refresh-aws-creds? db)
       {:dispatch-later [{:ms 400 :dispatch [:add-s3-object bucket item-path js-file]}]}
       (let [filename (.-name js-file)
             s3 (:aws-s3 db)
@@ -1326,10 +1347,10 @@
 ;; Similar to add-s3-object but replace the existing object - delete the existing and add the new with a unique object-key
 (reg-event-fx
   :replace-s3-object
-  manual-check-spec
+  (conj manual-check-spec check-aws-credentials)
   (fn [{:keys [db]} [bucket item-path js-file]]
     ;; If the AWS Credentials have expired, then delay the execution of this event
-    (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
+    (if (:refresh-aws-creds? db)
       {:dispatch-later [{:ms 400 :dispatch [:replace-s3-object bucket item-path js-file]}]}
       (let [filename (.-name js-file)
             s3 (:aws-s3 db)
@@ -1353,10 +1374,10 @@
 ;; Construct new object key from new item's uuid and generate-uuid.
 (reg-event-fx
   :copy-s3-object
-  manual-check-spec
+  (conj manual-check-spec check-aws-credentials)
   (fn [{:keys [db]} [bucket source-object-map target-item-path]]
     ;; If the AWS Credentials have expired, then delay the execution of this event
-    (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
+    (if (:refresh-aws-creds? db)
       {:dispatch-later [{:ms 400 :dispatch [:copy-s3-object bucket source-object-map target-item-path]}]}
       (let [s3 (:aws-s3 db)
             key-name (s3-key-for-bucket bucket)
@@ -1380,10 +1401,10 @@
 ;; the target image map with just :uuid and :processing=true and is appended to images vector.
 (reg-event-fx
   :copy-s3-within-bucket
-  manual-check-spec
+  (conj manual-check-spec check-aws-credentials)
   (fn [{:keys [db]} [bucket source-object-map target-item-path]]
     ;; If the AWS Credentials have expired, then delay the execution of this event
-    (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
+    (if (:refresh-aws-creds? db)
       {:dispatch-later [{:ms 400 :dispatch [:copy-s3-within-bucket bucket source-object-map target-item-path]}]}
       (let [callback (fn [err data]
                        (if (not (nil? err))
@@ -1407,12 +1428,12 @@
 ;; should reference the :raw-key inside the image map.
 (reg-event-fx
   :delete-s3-objects
-  manual-check-spec
+  (conj manual-check-spec check-aws-credentials)
   (fn [{:keys [db]} [bucket objects]]
     (if (empty? objects)
       {:db db} ;; nothing to do
       ;; If the AWS Credentials have expired, then delay the execution of this event
-      (if (or (:refresh-aws-creds? db) (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1))))
+      (if (:refresh-aws-creds? db)
         {:dispatch-later [{:ms 400 :dispatch [:delete-s3-objects bucket objects]}]}
         (let [s3 (:aws-s3 db)
               key-name (s3-key-for-bucket bucket)
