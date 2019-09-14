@@ -221,6 +221,7 @@
 (s/def ::static-page (s/nilable #{:privacy-policy}))
 (s/def ::display-type #{:summary-view :contact-sheet :single-item :new-item :list :row :instagram})
 (s/def ::summary-display-count (s/nilable int?))
+(s/def ::contact-sheet-display-count (s/nilable int?))
 (s/def ::contacts (s/every-kv ::id ::contact))
 (s/def ::expenses (s/every-kv ::id ::expense))
 (s/def ::exhibitions (s/every-kv ::id ::exhibition))

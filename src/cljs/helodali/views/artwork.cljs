@@ -631,7 +631,6 @@
                        :on-click #(route-single-item :artwork @uuid)]
                    [label :width "6ch" :label @year]
                    [label :width "12ch" :label (clojure.string/replace (name @status) #"-" " ")]
-                   ; [label :width "16ch" :label (clojure.string/join ", " (map name @style))]
                    [label :width (str (max 8 (:medium widths)) "ch") :label (trunc @medium (:medium widths))]
                    [label :width "20ch" :label (str @dimensions)]
                    [label :width "12ch" :label (str @list-price)]
@@ -658,48 +657,6 @@
                             :medium (+ 4 (max-string-length @mediums 20))})]
         [v-box :gap "4px" :align :center :justify :start
            :children (into [] (mapv (fn [id bg] ^{:key id} [item-row-view @widths id bg]) @items (cycle [true false])))]))))
-
-(defn list-view
-  "Display list of items, one per line"
-  []
-  (let [sort-key (subscribe [:by-path [:sort-keys :artwork]])
-        items (subscribe [:items-keys-sorted-by-key :artwork sort-by-key-then-created])
-        titles (subscribe [:items-vals :artwork :title])
-        mediums (subscribe [:items-vals :artwork :medium])]
-    (fn []
-      (let [widths (r/atom {:title (+ 4 (max-string-length @titles 40))
-                            :medium (+ 4 (max-string-length @mediums 16))})
-            header [h-box :align :center :justify :start :width "100%"
-                      :children [[hyperlink :class "uppercase" :style {:width (str (max 14 (:title @widths)) "ch")} :label "Artwork Title"
-                                    :tooltip "Sort by Title" :on-click #(if (= (first @sort-key) :title)
-                                                                          (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
-                                                                          (dispatch [:set-local-item-val [:sort-keys :artwork] [:title true]]))]
-                                 [hyperlink :class "uppercase" :style {:width "6ch"} :label "year"
-                                     :tooltip "Sort by Year" :on-click #(if (= (first @sort-key) :year)
-                                                                          (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
-                                                                          (dispatch [:set-local-item-val [:sort-keys :artwork] [:year false]]))]
-                                 [hyperlink :class "uppercase" :style {:width "12ch"} :label "status"
-                                     :tooltip "Sort by Status" :on-click #(if (= (first @sort-key) :status)
-                                                                            (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
-                                                                            (dispatch [:set-local-item-val [:sort-keys :artwork] [:status true]]))]
-                                 [hyperlink :class "uppercase" :style {:width (str (max 8 (get @widths :medium)) "ch")} :label "medium"
-                                    :tooltip "Sort by Medium" :on-click #(if (= (first @sort-key) :medium)
-                                                                          (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
-                                                                          (dispatch [:set-local-item-val [:sort-keys :artwork] [:medium false]]))]
-                                 [hyperlink :class "uppercase" :style {:width "20ch"} :label "dimensions"
-                                    :tooltip "Sort by Dimensions" :on-click #(if (= (first @sort-key) :dimensions)
-                                                                              (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
-                                                                              (dispatch [:set-local-item-val [:sort-keys :artwork] [:dimensions false]]))]
-                                 [hyperlink :class "uppercase" :style {:width "12ch"} :label "list price"
-                                    :tooltip "Sort by Price" :on-click #(if (= (first @sort-key) :list-price)
-                                                                          (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
-                                                                          (dispatch [:set-local-item-val [:sort-keys :artwork] [:list-price false]]))]
-                                 [hyperlink :class "uppercase" :style {:width "12ch"} :label "type"
-                                    :tooltip "Sort by Type" :on-click #(if (= (first @sort-key) :type)
-                                                                         (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
-                                                                         (dispatch [:set-local-item-val [:sort-keys :artwork] [:type false]]))]]]]
-        [v-box :gap "4px" :align :center :justify :start :margin "10px" :min-width "1100px"
-           :children (into [header] (mapv (fn [id bg] ^{:key id} [item-list-view @widths id bg]) @items (cycle [true false])))]))))
 
 (def instagram-api-url "https://api.instagram.com/oauth/authorize/?client_id=cbfda8d4f3c445af9dbf79dd90f03b90&redirect_uri=")
 
@@ -814,12 +771,70 @@
             [h-box :gap "20px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
                :children (concat (mapv (fn [id] ^{:key id} [instagram-item-view id]) @items)
                                  controls)]))))))
+
+(defn no-items-to-display
+  "Return the display elements when there are no artwork items yet in the db"
+  [instagram-media]
+  [[:p "Create your first artwork with "]
+   [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
+    :on-click #(route-new-item :artwork)]
+   [:p " or import from Instagram with "]
+   [md-icon-button :md-icon-name "zmdi zmdi-instagram mdc-text-grey"
+    :on-click #(if instagram-media
+                 (route-instagram-refresh)
+                 (instagram-auth @uuid))]])
+
+(defn list-view
+  "Display list of items, one per line"
+  []
+  (let [sort-key (subscribe [:by-path [:sort-keys :artwork]])
+        items (subscribe [:items-keys-sorted-by-key :artwork sort-by-key-then-created])
+        instagram-media (subscribe [:items-keys :instagram-media])
+        titles (subscribe [:items-vals :artwork :title])
+        mediums (subscribe [:items-vals :artwork :medium])]
+    (fn []
+      (if (not-empty @items)
+        (let [widths (r/atom {:title (+ 4 (max-string-length @titles 40))
+                              :medium (+ 4 (max-string-length @mediums 16))})
+              header [h-box :align :center :justify :start :width "100%"
+                      :children [[hyperlink :class "uppercase" :style {:width (str (max 14 (:title @widths)) "ch")} :label "Artwork Title"
+                                  :tooltip "Sort by Title" :on-click #(if (= (first @sort-key) :title)
+                                                                        (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
+                                                                        (dispatch [:set-local-item-val [:sort-keys :artwork] [:title true]]))]
+                                 [hyperlink :class "uppercase" :style {:width "6ch"} :label "year"
+                                  :tooltip "Sort by Year" :on-click #(if (= (first @sort-key) :year)
+                                                                       (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
+                                                                       (dispatch [:set-local-item-val [:sort-keys :artwork] [:year false]]))]
+                                 [hyperlink :class "uppercase" :style {:width "12ch"} :label "status"
+                                  :tooltip "Sort by Status" :on-click #(if (= (first @sort-key) :status)
+                                                                         (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
+                                                                         (dispatch [:set-local-item-val [:sort-keys :artwork] [:status true]]))]
+                                 [hyperlink :class "uppercase" :style {:width (str (max 8 (get @widths :medium)) "ch")} :label "medium"
+                                  :tooltip "Sort by Medium" :on-click #(if (= (first @sort-key) :medium)
+                                                                         (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
+                                                                         (dispatch [:set-local-item-val [:sort-keys :artwork] [:medium false]]))]
+                                 [hyperlink :class "uppercase" :style {:width "20ch"} :label "dimensions"
+                                  :tooltip "Sort by Dimensions" :on-click #(if (= (first @sort-key) :dimensions)
+                                                                             (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
+                                                                             (dispatch [:set-local-item-val [:sort-keys :artwork] [:dimensions false]]))]
+                                 [hyperlink :class "uppercase" :style {:width "12ch"} :label "list price"
+                                  :tooltip "Sort by Price" :on-click #(if (= (first @sort-key) :list-price)
+                                                                        (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
+                                                                        (dispatch [:set-local-item-val [:sort-keys :artwork] [:list-price false]]))]
+                                 [hyperlink :class "uppercase" :style {:width "12ch"} :label "type"
+                                  :tooltip "Sort by Type" :on-click #(if (= (first @sort-key) :type)
+                                                                       (dispatch [:set-local-item-val [:sort-keys :artwork 1] (not (second @sort-key))])
+                                                                       (dispatch [:set-local-item-val [:sort-keys :artwork] [:type false]]))]]]]
+          [v-box :gap "4px" :align :center :justify :start :margin "10px" :min-width "1100px"
+           :children (into [header] (mapv (fn [id bg] ^{:key id} [item-list-view @widths id bg]) @items (cycle [true false])))])
+        [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
+         :children (no-items-to-display @instagram-media)]))))
+
 (defn artwork-summary-view
   "Display summary view of items"
   []
   (let [items (subscribe [:items-keys-sorted-by-key :artwork sort-by-key-then-created])
         instagram-media (subscribe [:items-keys :instagram-media])
-        uuid (subscribe [:by-path [:profile :uuid]])
         summary-display-count (subscribe [:app-key :summary-display-count])
         items-batch-size 10]
     (fn []
@@ -837,34 +852,31 @@
           [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
            :children (into display-items [less-more-options])])
         [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
-         :children [[:p "Create your first artwork with "]
-                    [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
-                     :on-click #(route-new-item :artwork)]
-                    [:p " or import from Instagram with "]
-                    [md-icon-button :md-icon-name "zmdi zmdi-instagram mdc-text-grey"
-                     :on-click #(if @instagram-media
-                                  (route-instagram-refresh)
-                                  (instagram-auth @uuid))]]]))))
+         :children (no-items-to-display @instagram-media)]))))
 
 (defn artwork-contact-sheet
   "Display contact sheet of items"
   []
   (let [items (subscribe [:items-keys-sorted-by-key :artwork sort-by-key-then-created])
         instagram-media (subscribe [:items-keys :instagram-media])
-        uuid (subscribe [:by-path [:profile :uuid]])]
+        contact-sheet-display-count (subscribe [:app-key :contact-sheet-display-count])
+        items-batch-size 100]
     (fn []
       (if-not (empty? @items)
+        (let [display-items (into [] (map (fn [id] ^{:key id} [item-contact-view id]) (take @contact-sheet-display-count @items)))
+              less-more-options [v-box :margin "40px" :gap "20px" :align-self :center
+                                 :children [(when (< @contact-sheet-display-count (count @items))
+                                              [md-circle-icon-button :md-icon-name "zmdi-plus-circle-o" :size :larger
+                                               :tooltip "Display more items"
+                                               :on-click #(dispatch [:set-app-db-val [:contact-sheet-display-count] (+ @contact-sheet-display-count items-batch-size)])])
+                                            (when (> @contact-sheet-display-count items-batch-size)
+                                              [md-circle-icon-button :md-icon-name "zmdi-minus-circle-outline" :size :larger
+                                               :tooltip "Display fewer items"
+                                               :on-click #(dispatch [:set-app-db-val [:contact-sheet-display-count] (- @contact-sheet-display-count items-batch-size)])])]]]
+          [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
+             :children (into display-items [less-more-options])])
         [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
-           :children (into [] (map (fn [id] ^{:key id} [item-contact-view id]) @items))]
-        [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
-         :children [[:p "Create your first artwork with "]
-                    [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
-                                      :on-click #(route-new-item :artwork)]
-                    [:p " or import from Instagram with "]
-                    [md-icon-button :md-icon-name "zmdi zmdi-instagram mdc-text-grey"
-                        :on-click #(if @instagram-media
-                                     (route-instagram-refresh)
-                                     (instagram-auth @uuid))]]]))))
+         :children (no-items-to-display @instagram-media)]))))
 
 (defn artwork-view
   "Display artwork"
