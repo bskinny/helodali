@@ -63,7 +63,7 @@
         include-in-cv? (subscribe [:item-key :exhibitions id :include-in-cv])
         associated-documents (subscribe [:by-path-and-deref-set-sorted-by [:exhibitions id :associated-documents] :documents (partial sort-by-key-then-created :title false)])
         associated-press (subscribe [:by-path-and-deref-set-sorted-by [:exhibitions id :associated-press] :press (partial sort-by-datetime :publication-date true)])
-        documents (subscribe [:items-vals-with-uuid :documents :title]) ;; TODO: a document may not have a title, resulting in an empty string in the selection list
+        documents (subscribe [:items-vals-with-uuid :documents :title])
         press (subscribe [:items-vals-with-uuid :press :title])
         kind (subscribe [:item-key :exhibitions id :kind])
         notes (subscribe [:item-key :exhibitions id :notes])
@@ -147,12 +147,16 @@
                             :on-change #(dispatch [:set-local-item-val [:exhibitions id :include-in-cv] (not @include-in-cv?)])]
                   [h-box :gap "6px" :align :center
                      :children [[:span.input-label "Press"]
-                                [selection-list :choices (uuid-label-list-to-options @press false) :model (if (empty? @associated-press) #{} (set @associated-press)) ;:height "140px"
-                                       :on-change #(dispatch [:set-local-item-val [:exhibitions id :associated-press] %])]]]
+                                (if (empty? @press)
+                                  [:span.all-small-caps "must first be defined before associating with this exhibition"]
+                                  [selection-list :choices (uuid-label-list-to-options @press false) :model (if (empty? @associated-press) #{} (set @associated-press))
+                                         :on-change #(dispatch [:set-local-item-val [:exhibitions id :associated-press] %])])]]
                   [h-box :gap "6px" :align :center
                      :children [[:span.input-label "Documents"]
-                                [selection-list :choices (uuid-label-list-to-options @documents false) :model (if (empty? @associated-documents) #{} (set @associated-documents)) ;:height "140px"
-                                       :on-change #(dispatch [:set-local-item-val [:exhibitions id :associated-documents] %])]]]
+                                (if (empty? @documents)
+                                  [:span.all-small-caps "must first be defined before associating with this exhibition"]
+                                  [selection-list :choices (uuid-label-list-to-options @documents false) :model (if (empty? @associated-documents) #{} (set @associated-documents))
+                                         :on-change #(dispatch [:set-local-item-val [:exhibitions id :associated-documents] %])])]]
                   [:span.uppercase.light-grey "Notes"]
                   [input-textarea :model (str @notes) :width "360px"
                       :rows 4 :on-change #(dispatch [:set-local-item-val [:exhibitions id :notes] %])]]

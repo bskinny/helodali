@@ -35,7 +35,7 @@
         volume (subscribe [:item-key :press id :volume])
         url (subscribe [:item-key :press id :url])
         associated-documents (subscribe [:by-path-and-deref-set-sorted-by [:press id :associated-documents] :documents (partial sort-by-key-then-created :title false)])
-        documents (subscribe [:items-vals-with-uuid :documents :title]) ;; TODO: a document may not have a title, resulting in an empty string in the selection list
+        documents (subscribe [:items-vals-with-uuid :documents :title])
         publication-date (subscribe [:item-key :press id :publication-date])
         page-numbers (subscribe [:item-key :press id :page-numbers])
         include-in-cv? (subscribe [:item-key :press id :include-in-cv])
@@ -131,8 +131,10 @@
                      :on-change #(dispatch [:set-local-item-val [:press id :include-in-cv] (not @include-in-cv?)])]
                   [h-box :gap "6px" :align :center
                      :children [[:span.input-label "Documents"]
-                                [selection-list :choices (uuid-label-list-to-options @documents false) :model (if (empty? @associated-documents) #{} (set @associated-documents)) ;:height "140px"
-                                       :on-change #(dispatch [:set-local-item-val [:press id :associated-documents] %])]]]
+                                (if (empty? @documents)
+                                  [:span.all-small-caps "must first be defined before associating with this item"]
+                                  [selection-list :choices (uuid-label-list-to-options @documents false) :model (if (empty? @associated-documents) #{} (set @associated-documents)) ;:height "140px"
+                                         :on-change #(dispatch [:set-local-item-val [:press id :associated-documents] %])])]]
                   [:span.uppercase.light-grey "Notes"]
                   [input-textarea :model (str @notes) :width "360px"
                       :rows 4 :on-change #(dispatch [:set-local-item-val [:press id :notes] %])]]]

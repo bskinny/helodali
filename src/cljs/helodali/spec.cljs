@@ -7,9 +7,8 @@
 ;; Common types
 (s/def ::id int?)
 (s/def ::uuid string?)
-(s/def ::title (s/nilable string?))
+(s/def ::title (s/and string? #(< 0 (count %))))
 (s/def ::editing boolean?)
-(s/def ::expanded boolean?)
 (s/def ::description (s/nilable string?))
 (s/def ::notes (s/nilable string?))
 (s/def ::date #(instance? goog.date.Date %)) ;; a DateTime, down to the day
@@ -21,7 +20,7 @@
 (s/def ::associated-documents (s/nilable (s/coll-of ::uuid)))
 (s/def ::associated-press (s/nilable (s/coll-of ::uuid)))
 (s/def ::processing (s/nilable boolean?))
-(s/def ::name string?)
+(s/def ::name (s/and string? #(< 0 (count %))))
 
 ;; Instagram items
 (s/def ::instagram-id (s/nilable string?))
@@ -95,7 +94,7 @@
 (s/def ::artwork-item (s/keys :req-un [::uuid ::title ::year ::images ::medium ::created
                                        ::type ::dimensions ::series ::status]
                               :opt-un [::description ::editions ::condition ::style ::associated-documents ::purchases
-                                       ::list-price ::current-location ::expanded ::editing ::exhibition-history
+                                       ::list-price ::current-location ::editing ::exhibition-history
                                        ::instagram-media-ref ::sync-with-instagram]))
 (s/def ::artwork (s/every-kv ::id ::artwork-item))
 (s/def ::artwork-defaults (s/keys :req-un [::type ::dimensions ::medium]))
@@ -124,8 +123,8 @@
 (s/def ::volume (s/nilable string?))
 (s/def ::page-numbers (s/nilable string?))  ;; e.g. 55-60
 (s/def ::publication-date (s/nilable ::date))
-(s/def ::press-ref (s/keys :req-un [::uuid]
-                           :opt-un [::title ::author-first-name ::author-last-name ::publication ::url ::volume
+(s/def ::press-ref (s/keys :req-un [::uuid ::title]
+                           :opt-un [::author-first-name ::author-last-name ::publication ::url ::volume
                                     ::publication-date ::page-numbers ::include-in-cv ::notes ::associated-documents]))
 
 ;; Expenses
@@ -148,8 +147,8 @@
                                      ::images ::associated-documents ::associated-press]))
 
 ;; Document
-(s/def ::document (s/keys :req-un [::uuid ::created]
-                          :opt-un [::notes ::size ::processing ::filename ::last-modified ::title
+(s/def ::document (s/keys :req-un [::uuid ::created ::title]
+                          :opt-un [::notes ::size ::processing ::filename ::last-modified
                                    ::key ::signed-raw-url ::signed-raw-url-expiration-time]))
 
 ;; Public Pages
