@@ -361,15 +361,17 @@
                           create-control
                           save-control))]]))))
 
+;; TODO: This function is far too convoluted, having grown this way over time. Separate functions should be defined
+;; for each of the :single-item and non-:single-item contexts.
 (defn item-view
-  "Display an item"
+  "Display an item in one of multiple contexts: as part of the row or sheet or as an individual item with details."
   [id]
   (let [uuid (subscribe [:item-key :artwork id :uuid])
         title (subscribe [:item-key :artwork id :title])
         year (subscribe [:item-key :artwork id :year])
+        status (subscribe [:item-key :artwork id :status])
         dimensions (subscribe [:item-key :artwork id :dimensions])
         images (subscribe [:item-key :artwork id :images])
-        expanded (subscribe [:item-key :artwork id :expanded])
         editing (subscribe [:item-key :artwork id :editing])
         signed-thumb-url (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url]])
         thumb-expiration (subscribe [:by-path [:artwork id :images 0 :signed-thumb-url-expiration-time]])
@@ -384,15 +386,12 @@
         image-input-id (str "image-upload-" id "-0")
         showing-download-tooltip? (r/atom false)
         showing-primary-image-info? (r/atom false)
+        enlarged (r/atom false)
         display-type (subscribe [:app-key :display-type])]
     (fn []
       (let [single-item (or (= @display-type :single-item) (= @display-type :new-item))
             controls [h-box :gap "2px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
-                        :children [;(when (not (= @display-type :summary-view))
-                                   ;  [row-button :disabled? (not @editing) :md-icon-name "zmdi zmdi-plus-circle-o"
-                                   ;    :mouse-over-row? true :tooltip "Add image" :tooltip-position :right-center
-                                   ;    :on-click #(dispatch [:set-local-item-val [:artwork id :show-add-image-input] true])
-                                   (when (not single-item)
+                        :children [(when (not single-item)
                                      [row-button :md-icon-name "zmdi zmdi-copy"
                                        :mouse-over-row? true :tooltip "Copy this item" :tooltip-position :right-center
                                        :on-click #(dispatch [:copy-item :artwork id :title])])
@@ -408,12 +407,12 @@
                                         :on-click #(route-single-item :artwork @uuid)])]]
             image (first @images) ;; Note that images may be empty, hence image is nil
             ;; Set image size and source based on summary-view vs. other views
-            thumbs-config ["240px" "helodali-thumbs" signed-thumb-url thumb-expiration :signed-thumb-url :signed-thumb-url-expiration-time]
+            thumb-config ["240px" "helodali-thumbs" signed-thumb-url thumb-expiration :signed-thumb-url :signed-thumb-url-expiration-time]
             images-config ["480px" "helodali-images" signed-image-url image-expiration :signed-image-url :signed-image-url-expiration-time]
             large-images-config ["960px" "helodali-large-images" signed-large-image-url large-image-expiration :signed-large-image-url :signed-large-image-url-expiration-time]
             [image-size image-bucket signed-url url-expiration signed-url-key signed-url-expiration-key] (cond
-                                                                                                           (or @editing (and (= @display-type :summary-view) (not @expanded))) thumbs-config
-                                                                                                           (and (= @display-type :single-item) (not @expanded)) large-images-config
+                                                                                                           (or @editing (and (= @display-type :summary-view) (not @enlarged))) thumb-config
+                                                                                                           (and (= @display-type :single-item) @enlarged) large-images-config
                                                                                                            :else images-config)
             url (cond
                   @processing "/image-assets/ajax-loader.gif"
@@ -428,8 +427,14 @@
           (dispatch [:refresh-image [:artwork id :images 0]])
           (when (and (not (nil? image)) (nil? @url-expiration))
             (dispatch [:get-signed-url [:artwork id :images 0] image-bucket (:key image) signed-url-key signed-url-expiration-key])))
-        (when (and (:raw-key image) (expired? @raw-expiration))
+
+        ;; Update the signed-url for the raw image if necessary. It has been observed that the signed-raw-url gets assigned "https://aws.amazon.com/s3/" somehow,
+        ;; so this value is included in a check for re-dispatch.
+        (when (and (:raw-key image) (or (expired? @raw-expiration) (= "https://aws.amazon.com/s3/" @raw-image-url)))
           (dispatch [:get-signed-url [:artwork id :images 0] "helodali-raw-images" (:raw-key image) :signed-raw-url :signed-raw-url-expiration-time]))
+
+        (pprint (str "Raw image expiration " @raw-expiration " expired? " (expired? @raw-expiration)))
+        (pprint (str "Raw image url: " @raw-image-url))
 
         ;; Base UI on new-item versus single-item versus inline display within :summary-view
         ;; A new-item view does not present the image or edit/delete controls
@@ -444,9 +449,10 @@
                                                                   :on-error #(if (expired? @url-expiration)
                                                                                (dispatch [:flush-signed-urls [:artwork id :images 0]])
                                                                                (dispatch [:refresh-image [:artwork id :images 0]]))
-                                                                  :on-click #(if (not (= @display-type :new-item)) ;; Don't toggle 'expanded' when in :new-item mode
-                                                                               (dispatch [:set-local-item-val [:artwork id :expanded] (not @expanded)])
-                                                                               nil)}]]
+                                                                  :on-click #(when (not= @display-type :new-item) ;; nothing to do for new-item context
+                                                                               (if (not= @display-type :single-item)
+                                                                                 (route-single-item :artwork @uuid)
+                                                                                 (swap! enlarged not)))}]]
                                                   (when (or (and @editing (= @display-type :single-item) (not @processing))
                                                             (and (not @editing) (= @display-type :single-item) (nil? image)))
                                                     [h-box :gap "8px" :align :center :justify :center :style {:background-color "#428bca"}
@@ -478,10 +484,11 @@
                                                                   (when-not (empty? (:key image))
                                                                     [md-icon-button :md-icon-name "zmdi zmdi-delete"
                                                                        :emphasise? true :tooltip "Delete this image"
-                                                                       :on-click #(if-not (empty? @images)  ;; TODO: fix this when we support multiple images
+                                                                       :on-click #(if-not (empty? @images)  ;; TODO: fix this if we support multiple images
                                                                                     (dispatch [:delete-s3-vector-element ["helodali-raw-images"]
                                                                                                         [:artwork id :images] (:uuid (first @images))]))])]])
-                                                  (when (and @expanded (not (or single-item @editing (empty? (:key image)) (:processing image))))
+                                                  ;; Display button for downloading original image
+                                                  (when (and (= @display-type :single-item) (not (or @enlarged @editing)) @raw-image-url)
                                                     [h-box :gap "8px" :align :center :justify :center :style {:background-color "#428bca"}
                                                        :children [[popover-tooltip :label "Download original image"
                                                                      :showing? showing-download-tooltip? :position :below-center
@@ -490,7 +497,7 @@
                                                                                   :on-mouse-over (handler-fn (reset! showing-download-tooltip? true))
                                                                                   :on-mouse-out  (handler-fn (reset! showing-download-tooltip? false))
                                                                                   :href @raw-image-url}]]]])]]
-                                    (when (and @expanded (or (not @editing) (not single-item))) controls)
+                                    (when (and (not @enlarged) (not @editing) (= @display-type :single-item)) controls)
                                     (when (and (not @editing) single-item @palette)
                                       ;; Display the color palette. @palette is a vec of ints where every five ints represent r g b a w
                                       ;; where w is the weight or occurrence of the color in the palette.
@@ -502,10 +509,12 @@
                                                                          :color (str "rgb(" (clojure.string/join "," [r g b]) ")")]))]
                                         [v-box :align :start :justify :start
                                             :children (into [] (mapv (fn [color] ^{:key (clojure.string/join "-" color)} (palette-color-display color)) colors))]))
-                                    (when (not @expanded) [v-box :gap "2px" :align :start :justify :start
-                                                               :children [[:span (title-string @title)]
-                                                                          [:span (str @year (when @dimensions (str " - " @dimensions)))]]])]]
-                       (when @expanded [item-properties-panel id])]])))))
+                                    (when (or (not single-item) @enlarged) [v-box :gap "2px" :align :start :justify :start
+                                                                                :children [[:span (title-string @title)]
+                                                                                           [:span (str @year (when @dimensions (str " - " @dimensions)))]
+                                                                                           (when (not= @status :for-sale)
+                                                                                             [:span.uppercase (clojure.string/replace (name @status) #"-" " ")])]])]]
+                       (when (and single-item (not @enlarged)) [item-properties-panel id])]])))))
 
 (defn item-contact-view
   "Display an item image only, clicking on image transitions to single item view."
@@ -707,8 +716,7 @@
     (fn []
       [h-box :gap "18px" :align :center :justify :center
          :children [[md-icon-button :md-icon-name "zmdi zmdi-view-module mdc-text-grey" :tooltip "Summary View"
-                                    :on-click #(do (dispatch [:sweep-and-set :artwork :expanded false])
-                                                   (route-view-display :artwork :summary-view))]
+                                    :on-click #(route-view-display :artwork :summary-view)]
                     [md-icon-button :md-icon-name "zmdi zmdi-view-comfy mdc-text-grey" :tooltip "Contact Sheet"
                                     :on-click #(route-view-display :artwork :contact-sheet)]
                     [md-icon-button :md-icon-name "zmdi zmdi-view-headline mdc-text-grey" :tooltip "List View"

@@ -72,8 +72,7 @@
                                        (route-search %))]
                     [h-box :gap "8px" :justify :around
                       :children [[md-icon-button :md-icon-name "zmdi zmdi-collection-image-o" :size :larger
-                                                 :on-click #(do (dispatch [:sweep-and-set :artwork :expanded false])
-                                                                (route helodali.routes/view {:type (name :artwork)}))]
+                                                 :on-click #(route helodali.routes/view {:type (name :artwork)})]
                                  [re-com/popover-anchor-wrapper :showing? showing-account-popover? :position :below-right
                                    :anchor   [md-icon-button :md-icon-name "zmdi zmdi-account-o" :size :larger :attr {:id :account-button}
                                                     :on-click #(reset! showing-account-popover? true)]
@@ -249,7 +248,7 @@
        (and (not @authenticated?) (empty? @access-token) (= @view :static-page))
        ;; Display static html with login header
        [v-box :gap "20px" :width "100%" :height "100%" :margin "0" :justify :between
-          :children [[h-box :align :center :justify :around :children [(our-title @view) (login-button)]]
+          :children [[h-box :align :center :justify :around :class "header" :children [(our-title @view) (login-button)]]
                      [static-pages-view]
                      [footer]]]
 

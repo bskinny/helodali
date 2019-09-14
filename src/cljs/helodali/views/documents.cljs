@@ -70,9 +70,10 @@
                                         [button :label "Cancel" :class "btn-default"
                                           :on-click #(dispatch [:cancel-edit-item [:documents id]])]]]
             edit [[h-box :gap "4px" :align :center
-                     :children [[:span.uppercase.light-grey "Title"]
+                     :children [[:span.uppercase.bold "Title"]
                                 [input-text :width "280px" :model (str @title) :style {:border "none"}
                                      :on-change #(dispatch [:set-local-item-val [:documents id :title] %])]]]
+                  [:span.all-small-caps "The document can be uploaded after a title is created."]
                   [v-box :gap "4px" :align :start :justify :start
                      :children [[:span.uppercase.light-grey "Notes"]
                                 [input-textarea :model (str @notes) :width "360px"

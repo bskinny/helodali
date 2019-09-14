@@ -41,8 +41,7 @@
    :role :person ;; Can also be :agent :company :dealer :gallery :institution
    :notes nil
    :associated-documents #{}
-   :editing false
-   :expanded false})
+   :editing false})
 
 (defn default-expense
   []
@@ -52,8 +51,7 @@
    :expense-type :materials
    :notes nil
    :price 0
-   :editing false
-   :expanded false})
+   :editing false})
 
 (defn default-document
   []
@@ -67,8 +65,7 @@
    :filename nil
    :size 0
    :notes nil
-   :editing false
-   :expanded false})
+   :editing false})
 
 (defn default-press
   []
@@ -169,7 +166,6 @@
    ; :square {:category :artwork}
 
    ;; The following are housekeeping attributes for the web client
-   :expanded false
    :editing false})
 
 
