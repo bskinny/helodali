@@ -21,6 +21,8 @@
                                               input-text input-textarea single-dropdown selection-list]]))
 
 
+(def drawer-logo "/image-assets/drawer-plus-hd.svg")
+
 (defn- gap
   "Return a re-com/gap of the given size"
   [size]
@@ -66,7 +68,7 @@
         search-pattern (r/atom "")]
     (fn []
       [h-box :size "0 0 auto" :gap "10px" :align :center :justify :around :class "header"
-         :children [[:img {:src "/image-assets/drawer-plus-hd.svg"}]
+         :children [[:img {:src drawer-logo}]
                     [input-text :width "200px" :model search-pattern :placeholder "Search" :style {:border "none"}
                          :on-change #(if (not (empty? %))
                                        (route-search %))]
@@ -125,11 +127,9 @@
   (let [back-to-landing? (r/atom (not= view :landing))
         style {:padding-top "10px" :color "rgb(110, 90, 90)" :text-decoration "none"}]
     (if @back-to-landing?
-       [:img {:src "/image-assets/drawer-plus-hd.svg"
+       [:img {:src drawer-logo
               :on-click #(dispatch [:back-to-landing-page])}]
-                    ;[hyperlink :class "level1" :label "helodali" :style style :on-click #(dispatch [:back-to-landing-page])]]]
-       [:img {:src "/image-assets/drawer-plus-hd.svg"}])))
-                    ;[label :class "level1" :label "helodali" :style style]]])))
+       [:img {:src drawer-logo}])))
 
 ;; Use the following panel if it is desired to display login buttons for external identity providers Google and FB. This is a shortcut
 ;; approach to the current "sign in" link. Unfortunately, a shortcut may not be easily available for native user login.
@@ -221,6 +221,7 @@
        ;; Fetch the AWS credentials from Cognito and initialize AWS services like S3
        (let [aws-config (.-config js/AWS)
              logins {:IdentityPoolId "us-east-1:c5e15cf1-df1d-48df-85ba-f67d1ff45016"
+                     :RoleArn "arn:aws:iam::128225160927:role/Cognito_HelodaliIdentityPoolAuth_Role"
                      :Logins {"cognito-idp.us-east-1.amazonaws.com/us-east-1_0cJWyWe5Z" @id-token}}]
          (set! (.-region aws-config) "us-east-1")
          (set! (.-credentials aws-config) (js/AWS.CognitoIdentityCredentials. (clj->js logins)))
