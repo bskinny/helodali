@@ -716,6 +716,7 @@
     (let [aws-creds {:accessKeyId (.-accessKeyId aws-creds-js)
                      :secretAccessKey (.-secretAccessKey aws-creds-js)
                      :sessionToken (.-sessionToken aws-creds-js)}]
+      (pprint (str "IdentityId: " (.-identityId aws-creds-js)))
       (-> db
           (assoc :refresh-aws-creds? false)
           (assoc :aws-creds-created-time (ct/now))
