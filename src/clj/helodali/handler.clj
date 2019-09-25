@@ -1,6 +1,6 @@
 (ns helodali.handler
   (:require [compojure.core :refer [GET POST HEAD ANY defroutes]]
-            [compojure.route :refer [resources]]
+            [compojure.route :refer [resources not-found]]
             [clojure.pprint :refer [pprint]]
             [clj-jwt.core :refer [str->jwt]]
             [helodali.db :as db]
@@ -245,21 +245,9 @@
     (-> (resource-response js {:root "public/js/compiled"})
        (header "Cache-Control" "max-age=86400, must-revalidate")))
 
-    ;; Everything else
-  (resources "/"))
-
-(defroutes api-routes
-  (HEAD "/" [] "") ;; For default AWS health checks
-  (GET "/" [] "")
-  (GET "/health" [] "<html><body><h1>healthy</h1></body></html>")
-  ;; The Instagram subscription callback for GET requests is used for subscription setup.
-  (GET "/instagram/subscription-handler" [:as req]
-    (pprint (str "REQ: " req))
-    (get (:params req) "hub.challenge"))
-
-  (POST "/instagram/subscription-handler" [:as req]
-    (pprint (str "POST REQ: " req))
-    {:status 200}))
+  ;; Everything else is either a public resource or not-found.
+  (resources "/")
+  (not-found "Not Found"))
 
 
 ;; Don't use secure-site-defaults. We are using http->https redirection via AWS Elastic Beanstalk load balancing
@@ -267,10 +255,3 @@
                 (wrap-defaults site-defaults)
                 (wrap-restful-params)
                 (wrap-restful-response)))
-
-;; The handler for non-browser clients such as Instagram subscriptions. A separate build target
-;; references this handler.
-(def api-handler (-> #'api-routes
-                    (wrap-defaults api-defaults)
-                    (wrap-restful-params)
-                    (wrap-restful-response)))
