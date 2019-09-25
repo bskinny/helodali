@@ -4,7 +4,7 @@ An artist image inventory system with Instagram integration
 
 ![Helodali Screenshot](https://raw.githubusercontent.com/bskinny/helodali/master/resources/doc/images/helodali-screenshot.png)
 
-Helodali is a SPA style webapp using [re-frame](https://github.com/Day8/re-frame) backed by server-side clojure, AWS Elastic Beanstalk, 
+Helodali is a SPA style webapp using [re-frame](https://github.com/Day8/re-frame) backed by server-side clojure, Route 53, AWS Elastic Beanstalk, 
 DynamoDB, S3, Cognito, and Lambda. The server is deployed using a single docker container with load balancing and auto-scaling managed by 
 Elastic Beanstalk.
 
@@ -12,7 +12,7 @@ Artwork images are uploaded directly or imported from an Instagram feed and anno
 Basic revenue and expense is tracked as well as artist CV information. See [REQUIREMENTS](docs/REQUIREMENTS.md) for more detail. 
 
 #### Users and Authentication
-Users of the application are assigned identities by AWS Cognito based on native account creation with Amazon or 
+Users of the application are stored in an AWS Cognito User Pool which is configured to allow native account creation along with  
 external identity provider authentication with Google or Facebook. The Oauth2 `authorization_code` grant type is used with the helodali
 server component performing the request for an access token on behalf of the user. The token is stored in a DynamoDB session table and also
 returned to the client for resubmission on future requests. Any authenticated request from a user must include the access token which
@@ -29,13 +29,20 @@ services such as Google, Facebook, or Instagram. Facebook is only used for authe
 The helodali clojurescript application communicates directly with AWS S3 when fetching or storing images and documents.
 Because images and documents are sensitive information they are stored in private S3 buckets and are under user-level access control
 based on the pathname of the files (S3 keys). For example, the bucket helodali-images contains the key 
-_8bcb5043-1571-46db-b944-0c7845e08d4b/1041b850...a2b/1041b8...3fa2b/some-image.jpg_
-which has a top-level basename of _8bcb5043-1571-46db-b944-0c7845e08d4b_. This value is the user's unique identifier found in the
-OIDC sub claim and the key element to enforcing user-level access control. The IAM policy definition resource reference is
-`"arn:aws:s3:::/${cognito-identity.amazonaws.com:sub}/*"`. See the _Cognito_HelodaliIdentityPoolAuth_Role_ role defined in IAM.
+_us-east-1:28c22d0b-e40b-4533-a067-23a07660254f/1041b850...a2b/1041b8...3fa2b/some-image.jpg_
+which has a top-level basename of _us-east-1:28c22d0b-e40b-4533-a067-23a07660254f_. This value is the `Identity Id` which is created 
+by Cognito and stored in an Identity Pool when temporary credentials are needed. The IAM policy definition resource reference is
+`"arn:aws:s3:::/${cognito-identity.amazonaws.com:sub}/*"` which is confusing since the value is not the _sub_ claim from OIDC. 
+See the _Cognito_HelodaliIdentityPoolAuth_Role_ role defined in IAM.
 
 A drawback of image privacy is the need to continually refresh the secure URLs provided by S3. The default one-hour timeout of the URLs is
-excessive for the purposes of this application.
+excessive for the purposes of this application so we set it to the maximum 12 hour value.
+
+#### External IdP Account Linking
+It is conceivable that a user may want to switch external IdPs yet preserve the Helodali account login, say login with Google after originally using Facebook.
+In this case a one-time external identity linking request must be made by a Helodali administrator (until an user-facing mechanism 
+can be put in place). The user's record in the Cognito User Pool would then show two values in `identities`, not to be confused with the 
+Identity Pool records.
 
 #### Image Upload and Resizing
 As mentioned above, the web application uploads and deletes images directly against S3, specifically the _helodali-raw-images_ bucket.

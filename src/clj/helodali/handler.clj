@@ -71,9 +71,9 @@
     (pprint (str "refresh-instagram with uref/max-id: " uref "/" max-id))
     (process-request req uref access-token #(refresh-instagram uref max-id)))
 
-  (POST "/create-from-instagram" [uref sub access-token media :as req]
+  (POST "/create-from-instagram" [uref cognito-identity-id access-token media :as req]
     (pprint (str "create-from-instagram media: " media))
-    (process-request req uref access-token #(db/create-artwork-from-instragram uref sub media)))
+    (process-request req uref access-token #(db/create-artwork-from-instragram uref cognito-identity-id media)))
 
   (GET "/instagram/oauth/callback" [code state]
     (process-instagram-auth code state)
@@ -84,6 +84,13 @@
   (POST "/update-user-table" [uuid table path val access-token :as req]
     (pprint (str "update-profile uuid/table/path/val: " uuid "/" table "/" path "/" val))
     (process-request req uuid access-token #(db/update-user-table table uuid path val)))
+
+  (POST "/update-identity-id" [access-token uref sub identity-id :as req]
+    (pprint (str "storing uref/sub/identity-id in openid table: " uref "/" sub "/" identity-id))
+    ;; This update of the identity-id should only be necessary after login and association with
+    ;; an identity in the Cognito Identity Pool. Otherwise, DynamoDB does not create a write
+    ;; for the case where there is no change in the attribute value.
+    (process-request req uref access-token #(db/update-generic :openid {:sub sub} [:identity-id] identity-id)))
 
   (POST "/update-item" [uref uuid table path val access-token :as req]
     (pprint (str "update-item uref/uuid/table/path/val: " uref "/" uuid "/" table "/" path "/" val))
@@ -103,7 +110,7 @@
 
   ;; Refresh image by uuid of image
   (POST "/refresh-image-data" [uref access-token item-uuid image-uuid :as req]
-    (pprint (str "refresh-image-data item-uuid/image-uuid: " item-uuid "/" image-uuid " token: " access-token))
+    (pprint (str "refresh-image-data item-uuid/image-uuid: " item-uuid "/" image-uuid))
     (process-request req uref access-token #(db/refresh-image-data uref item-uuid image-uuid)))
 
   (POST "/delete-account" [access-token uref :as req]

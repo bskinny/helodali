@@ -130,6 +130,7 @@
                                     :children [[popover-tooltip :label "Download document"
                                                   :showing? showing-download-tooltip? :position :below-center
                                                   :anchor [:a {:class "zmdi zmdi-download rc-md-icon-button rc-icon-emphasis"
+                                                               :target "_blank" :rel "noopener noreferrer"
                                                                :on-mouse-over (handler-fn (reset! showing-download-tooltip? true))
                                                                :on-mouse-out  (handler-fn (reset! showing-download-tooltip? false))
                                                                :href @signed-raw-url

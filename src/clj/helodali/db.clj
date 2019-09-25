@@ -24,6 +24,9 @@
    :endpoint   (or (System/getenv "AWS_DYNAMODB_ENDPOINT")
                    (System/getProperty "AWS_DYNAMODB_ENDPOINT"))})
 
+;; Batch size when calling batch-write-item to delete items from a table
+(def delete-batch-size 25)
+
 (defn- coerce-item
   "This looks for specific cases where we need to convert string values back to keywords and numbers to ints"
   ;; TODO: this method of defining each integer attribute is far from ideal. We should instead determine
@@ -87,15 +90,15 @@
   (far/delete-item co table key-map {:return :none}))
 
 (defn delete-items
-  "Delete, in batches of 25, the given items from given table. The item-list
+  "Delete, in batches, the given items from given table. The item-list
    should be of the form [{key} {key}]. E.g. For artwork [{:uref \"abc\" :uuid \"123\"}]"
   [table item-list]
   (loop [items item-list]
     (if (> (count items) 0)
       (do
-        (pprint (str "Removing " (vec (take 25 items))))
-        (far/batch-write-item co {table {:delete (vec (take 25 items))}})
-        (recur (drop 25 items))))))
+        (pprint (str "Removing " (vec (take delete-batch-size items))))
+        (far/batch-write-item co {table {:delete (vec (take delete-batch-size items))}})
+        (recur (drop delete-batch-size items))))))
 
 (defn delete-user
   "Delete everything except for portions of the :accounts needed for later processes
@@ -199,7 +202,7 @@
   [table primary-key-map path val]
   (let [[attr-expression expression-map] (convert-path-to-expression-attribute path)
         primary-key-name (name (first (keys primary-key-map)))
-        expression-map (assoc-in expression-map [:expr-attr-names (str "#" primary-key-name)] primary-key-name)
+        expression-map (assoc expression-map (str "#" primary-key-name) primary-key-name)
         val (walk-cleaner val)
         change (if (or (nil? val) (and (set? val) (empty? val)))
                   {:update-expr     (str "REMOVE " attr-expression)
@@ -234,8 +237,7 @@
 
 ;; Below is an example of db-changes computed above
 (comment {:expr-attr-names {"#version" "version", "#processing" "processing"},
-          :expr-attr-vals
-                           {":val0" "2562f477-8a3c-4a11-a7f0-921298595df2", ":val1" true},
+          :expr-attr-vals {":val0" "2562f477-8a3c-4a11-a7f0-921298595df2", ":val1" true},
           :return :all-new,
           :update-expr "SET #processing = :val1, #version = :val0 ",
           :cond-expr "attribute_exists(pages.uuid)"})
@@ -292,12 +294,18 @@
    the DynamoDB changeset depends on whether we are called with a single attribute change (path == [path to attribute])
    or multiple attribute changes within an item (path == nil and val is keyed with attribute paths)
 
-   The response should be of the form [path val] where path is a table name, e.g. :profiles, and val is the whole item
-   which will replace the corresponding client side item, e.g. :profiles val in app-db."
+   See 'update-item' for the response format."
   [table uuid path val]
   (if (nil? path)
     [table (coerce-item table (apply-attribute-changes table {:uuid uuid} val))]
     [table (coerce-item table (apply-attribute-change table {:uuid uuid} path val))]))
+
+(defn update-generic
+  "Update a table based on given key-map, single attribute change defined in path and val. See 'update-item' for the response format."
+  [table key-map path val]
+  (let [update-result (apply-attribute-change table key-map path val)]
+    (pprint (str "update-generic result: " update-result))
+    [table (coerce-item table update-result)]))
 
 (defn refresh-item-path
   "Fetch item from artwork, press, exhibitions, documents, expenses, or contacts table. The 'path'
@@ -320,7 +328,7 @@
   (pprint (str "refresh-image-data uref/item-uuid/image-uuid: " uref "/" item-uuid "/" image-uuid))
   (let [item (coerce-item :artwork (far/get-item co :artwork {:uref uref :uuid item-uuid}))
         image (filter #(= image-uuid (:uuid %)) (:images item))]
-    (pprint (str "Refresh image data returning: " (first image)))
+    ;(pprint (str "Refresh image data returning: " (first image)))
     (first image)))
 
 (defn create-item
@@ -352,7 +360,7 @@
     providing a metadata map with {:content-length N} to the s3/put-object invocation. The Instagram
     api does not provide the content size of images so we would have to buffer the image ourselves
     in order to determine this. Since Instagram images tend to be smallish, we'll let this slide for now."
-  [uref sub media]
+  [uref cognito-identity-id media]
   (let [artwork-uuid (str (uuid/v1))
         image-uuid (str (uuid/v1))
         caption (or (:caption media) "")
@@ -381,7 +389,7 @@
         filename (-> (.getPath url)
                     (str/split #"/")
                     (last))
-        object-key (str sub "/" artwork-uuid "/" image-uuid "/" filename)
+        object-key (str cognito-identity-id "/" artwork-uuid "/" image-uuid "/" filename)
         item (walk-cleaner item)]
     (with-open [ig-is (io/input-stream url)]
       ;; Create the database item and copy the image to S3
@@ -441,11 +449,11 @@
   [uref access-token]
   (if (or (empty? uref) (empty? access-token))
     {}
-    (let [session (far/query co :sessions {:uref [:eq uref] :token [:eq access-token]}
-                             {:index "uref-and-token" :limit 1})]
+    (let [sessions (far/query co :sessions {:uref [:eq uref] :token [:eq access-token]}
+                              {:index "uref-token-index" :limit 1})]
       ;; The projection will include :uuid, :uref, :token, :sub, :ts, and :refresh
-      (if session
-        (first session)
+      (if sessions
+        (first sessions)
         {}))))
 
 (defn get-session
@@ -476,8 +484,7 @@
 (defn table-creation
   "This recreates the database and will delete all existing data."
   []
-  (let [brianw "1073c8b0-ab47-11e6-8f9d-c83ff47bbdcb"
-        tables (far/list-tables co)]
+  (let [tables (far/list-tables co)]
     (doall (map #(far/delete-table co %) tables))
     (doall (map #(create-table %) [:press :exhibitions :documents :artwork :contacts :expenses]))
     (far/create-table co :profiles
@@ -489,21 +496,21 @@
     (far/create-table co :sessions
       [:uuid :s]  ; Hash key of uuid-valued session reference, (:s => string type)
       {:range-key [:uref :s] ; uuid user reference as second component to primary key
-       :throughput {:read 2 :write 2} ; Read & write capacity (units/sec)
-       :gsindexes [{:name "uref-and-token"
+       :throughput {:read 4 :write 2} ; Read & write capacity (units/sec)
+       :gsindexes [{:name "uref-token-index"
                     :hash-keydef [:uref :s]
                     :range-keydef [:token :s]
-                    :projection :all
-                    :throughput {:read 2 :write 2}}]
+                    :projection [:token :uuid :refresh]  ;; Note this list of attributes is in addition to the key (:uref)
+                    :throughput {:read 4 :write 2}}]
        :block? true})
     (far/create-table co :openid
       [:sub :s]  ; Hash key is the OpenID 'sub' claim (subject identifier, e.g. "google-oauth2|1234")
-      {:throughput {:read 2 :write 2} ; Read & write capacity (units/sec)
+      {:throughput {:read 4 :write 2} ; Read & write capacity (units/sec)
        :block? true
-       :gsindexes [{:name "email-index"
-                    :hash-keydef [:email :s]
+       :gsindexes [{:name "identity-id-uref-index"
+                    :hash-keydef [:identity-id :s]
                     :projection :keys-only
-                    :throughput {:read 2 :write 2}}]})))
+                    :throughput {:read 4 :write 2}}]})))
 
 ; (far/scan co :sessions)
 ; (cache-access-token "swizBbwU7cC7x123" {:sub "facebook|10208314583117362"})
@@ -535,7 +542,8 @@
       (do
         (pprint (str "Error attempting to copy " old-key " to " new-key " in bucket " bucket ": " copy-result))
         nil)
-      (try (s3/delete-objects bucket [old-key])
+      (try (Thread/sleep 800)
+           (s3/delete-objects bucket [old-key])
            new-key
         (catch Exception ex
           (do
