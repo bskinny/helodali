@@ -433,8 +433,8 @@
         (when (and (:raw-key image) (or (expired? @raw-expiration) (= "https://aws.amazon.com/s3/" @raw-image-url)))
           (dispatch [:get-signed-url [:artwork id :images 0] "helodali-raw-images" (:raw-key image) :signed-raw-url :signed-raw-url-expiration-time]))
 
-        (pprint (str "Raw image expiration " @raw-expiration " expired? " (expired? @raw-expiration)))
-        (pprint (str "Raw image url: " @raw-image-url))
+        ;(pprint (str "Raw image expiration " @raw-expiration " expired? " (expired? @raw-expiration)))
+        ;(pprint (str "Raw image url: " @raw-image-url))
 
         ;; Base UI on new-item versus single-item versus inline display within :summary-view
         ;; A new-item view does not present the image or edit/delete controls

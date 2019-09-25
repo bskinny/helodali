@@ -192,6 +192,7 @@
    :sit-and-spin false ;; A directive to show the spinner on the main page
    :initialized? false
    :authenticated? false
+   :cognito-identity-id nil
    :aws-creds nil
    :access-token nil
    :id-token nil

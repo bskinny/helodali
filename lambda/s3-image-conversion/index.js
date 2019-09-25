@@ -97,26 +97,47 @@ exports.handler = function(event, context, callback) {
                            })
         },
         function getUref(result, next) {
-            // Find the user's uuid to later reference in the artwork table
-            // console.log(nameComponents[0]);
-            dynamoDB.get({Key: {'sub': nameComponents[0]},
-                          TableName: 'openid',
-                          AttributesToGet: ['uref']},
-                          function (err, data) {
-                               if (err) {
-                                 next(err);
-                               } else {
-                                 next(null, data);
-                               }
-                        });
+            // Find the user's uuid to later reference in the artwork table, the search must be done by
+            // Cognito identity-id which is supposed to be a permanent id defined in the Cognito Identity Pool
+            // to associate with temporary AWS credentials. This value is used as the top-level 'directory' name
+            // in our S3 object naming convention, found in nameComponents[0]
+            dynamoDB.query({IndexName: 'identity-id-uref-index',
+                            TableName: 'openid',
+                            KeyConditionExpression: '#id = :val',
+                            ExpressionAttributeNames: { '#id': 'identity-id' },
+                            ExpressionAttributeValues: { ':val': nameComponents[0] }},
+                            function (err, data) {
+                                 if (err) {
+                                   // When unable to find an associated identity-id, take a look for a 'sub' value match
+                                   // though this will unlikely not be effective after code changes made on 09/25/19.
+                                   dynamoDB.get({Key: {'sub': nameComponents[0]},
+                                                 TableName: 'openid',
+                                                 AttributesToGet: ['uref']},
+                                                 function (err, data) {
+                                                      if (err) {
+                                                        next(err);
+                                                      } else {
+                                                        if (isEmptyObject(data)) {
+                                                          next('No openid item for user ' + nameComponents[0])
+                                                          // Must 'return' when invoking callback before end of function
+                                                          return;
+                                                        }
+                                                        next(null, data.Item);
+                                                      }
+                                               });
+                                 } else {
+                                   if (isEmptyObject(data) || (data.Items.length != 1)) {
+                                     next('No unique openid item for identity-id ' + nameComponents[0])
+                                     return;
+                                   }
+                                   next(null, data.Items[0]);
+                                 }
+                          });
         },
-        function fetchImages(data, next) {
-            if (isEmptyObject(data)) {
-              next('No openid item for user ' + nameComponents[0])
-              // Must 'return' when invoking callback before end of function
-              return;
-            }
-            dynamoDB.get({Key: {'uref': data.Item.uref,
+        function fetchImages(openidItem, next) {
+
+            console.log("Found matching item: " + JSON.stringify(openidItem));
+            dynamoDB.get({Key: {'uref': openidItem.uref,
                                 'uuid': nameComponents[1]},
                           TableName: 'artwork',
                           AttributesToGet: ['images', 'uref']},
@@ -154,11 +175,10 @@ exports.handler = function(event, context, callback) {
         }
         ], function (err, result) {
                if (err) {
-                   console.error('Unable to remove ' + dstKey + ' from buckets' +
-                                 ' due to an error: ' + err);
+                   console.error('Unable to remove ' + dstKey + ' from buckets' + ' due to an error: ' + err);
                    callback(err);
                } else {
-                   console.log('Successfully removed ' + dstKey + ' from buckets: '  + JSON.stringify(result));
+                   console.log('Successfully removed ' + dstKey + ' from buckets: ' + JSON.stringify(result));
                    callback(null, {StatusCode: 200});
                }
         }
@@ -260,23 +280,24 @@ exports.handler = function(event, context, callback) {
         },
         function getUref(metadata, next) {
             // Find the user's uuid to later reference in the artwork table
-            dynamoDB.get({Key: {'sub': nameComponents[0]},
-                          TableName: 'openid',
-                          AttributesToGet: ['uref']},
-                          function (err, data) {
-                               if (err) {
-                                 next(err);
-                               } else {
-                                 next(null, data, metadata);
-                               }
-                        });
+            dynamoDB.query({IndexName: 'identity-id-uref-index',
+                            TableName: 'openid',
+                            KeyConditionExpression: '#id = :val',
+                            ExpressionAttributeNames: { '#id': 'identity-id' },
+                            ExpressionAttributeValues: { ':val': nameComponents[0] }},
+                            function (err, data) {
+                                 if (err) {
+                                   next(err);
+                                 } else {
+                                   if (isEmptyObject(data) || (data.Items.length != 1)) {
+                                     next('No unique openid item for identity-id ' + nameComponents[0])
+                                     return;
+                                   }
+                                   next(null, data.Items[0], metadata);
+                                 }
+                          });
         },
-        function update(data, metadata, next) {
-
-            if (isEmptyObject(data)) {
-              next('No openid item for user ' + nameComponents[0])
-              return;
-            }
+        function update(openidItem, metadata, next) {
 
             // Update the artwork's images attributes by appending the new image to the
             // existing list of images. The "ADD" action does this for us.
@@ -286,14 +307,16 @@ exports.handler = function(event, context, callback) {
                                     'space': metadata.space,
                                     'size': fileSize,
                                     'density': metadata.density}
+
             var params = {TableName: 'artwork',
-                          Key: {'uref': data.Item.uref,
+                          Key: {'uref': openidItem.uref,
                                 'uuid': nameComponents[1]},
-                          AttributeUpdates: {'images': {Action: 'ADD', Value: [{'key': dstKey,
-                                                                                'raw-key': srcKey,
-                                                                                'uuid': nameComponents[2],
-                                                                                'metadata': originalMetadata,
-                                                                                'filename': nameComponents[3]}]}}};
+                          AttributeUpdates: {'images': {Action: 'ADD',
+                                                        Value: [{'key': dstKey,
+                                                                 'raw-key': srcKey,
+                                                                 'uuid': nameComponents[2],
+                                                                 'metadata': originalMetadata,
+                                                                 'filename': nameComponents[3]}]}}};
             dynamoDB.update(params, next);
         }
         ], function (err, result) {

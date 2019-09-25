@@ -548,7 +548,7 @@
       {:http-xhrio {:method          :post
                     :uri             "/create-from-instagram"
                     :params          {:uref (:uuid (:profile db)) :access-token (:access-token db)
-                                      :sub (:sub (:userinfo db)) :media media}
+                                      :cognito-identity-id (:cognito-identity-id db) :media media}
                     :headers         {:x-csrf-token (:csrf-token db)}
                     :timeout         TIMEOUT
                     :format          (ajax/transit-request-format {})
@@ -709,19 +709,33 @@
                   :on-success      [:update-db-from-result (fn [db] true)]
                   :on-failure      [:bad-result {:access-token nil :id-token nil} false]}}))
 
-(reg-event-db
+(reg-event-fx
   :set-aws-credentials
   interceptors
-  (fn [db [aws-creds-js]]
+  (fn [{:keys [db]} [aws-creds-js]]
     (let [aws-creds {:accessKeyId (.-accessKeyId aws-creds-js)
                      :secretAccessKey (.-secretAccessKey aws-creds-js)
-                     :sessionToken (.-sessionToken aws-creds-js)}]
-      (pprint (str "IdentityId: " (.-identityId aws-creds-js)))
-      (-> db
-          (assoc :refresh-aws-creds? false)
-          (assoc :aws-creds-created-time (ct/now))
-          (assoc :aws-s3 (js/AWS.S3. (clj->js aws-creds)))
-          (assoc :aws-creds aws-creds)))))
+                     :sessionToken (.-sessionToken aws-creds-js)}
+          cognito-identity-id (.-identityId aws-creds-js)]
+      (pprint (str "IdentityId: " cognito-identity-id))
+      {:db (-> db
+               (assoc :cognito-identity-id cognito-identity-id)
+               (assoc :refresh-aws-creds? false)
+               (assoc :aws-creds-created-time (ct/now))
+               (assoc :aws-s3 (js/AWS.S3. (clj->js aws-creds)))
+               (assoc :aws-creds aws-creds))
+       :http-xhrio {:method          :post
+                    :uri             "/update-identity-id"
+                    :params          {:access-token (:access-token db)
+                                      :uref (get-in db [:profile :uuid])
+                                      :sub (get-in db [:userinfo :sub])
+                                      :identity-id cognito-identity-id}
+                    :headers         {:x-csrf-token (:csrf-token db)}
+                    :timeout         TIMEOUT
+                    :format          (ajax/transit-request-format {})
+                    :response-format (ajax/transit-response-format {:keywords? true})
+                    :on-success      [:noop]
+                    :on-failure      [:bad-result {} false]}})))
 
 (reg-event-fx
   :logout
@@ -1053,6 +1067,7 @@
       (assoc :view type)
       (assoc :single-item-uuid uuid))))
 
+;; A No-op sink
 (reg-event-db
   :noop
   (fn [db _]
@@ -1186,7 +1201,7 @@
       {:dispatch-later [{:ms 400 :dispatch [:get-signed-url path-to-object-map bucket object-key url-key expiration-key]}]}
       ;; Get the signed url
       (let [s3 (:aws-s3 db)
-            expiration-seconds (* 60 60) ;; 1 hour
+            expiration-seconds (* 12 60 60) ;; 12 hours (must be within maximum defined for role in AWS IAM)
             expiration-time (ct/plus (ct/now) (ct/seconds expiration-seconds))
             params (clj->js {:Bucket bucket :Key object-key :Expires expiration-seconds})
             url (js->clj (.getSignedUrl s3 "getObject" params))
@@ -1260,7 +1275,7 @@
       {:dispatch-later [{:ms 400 :dispatch [:add-image item-path js-file]}]}
       (let [filename (.-name js-file)
             uuid (generate-uuid)
-            object-key (str (:sub (:userinfo db)) "/" (get-in db (conj item-path :uuid))
+            object-key (str (:cognito-identity-id db) "/" (get-in db (conj item-path :uuid))
                             "/" uuid "/" filename)
             params (clj->js {:Bucket "helodali-raw-images" :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})
             images-path (conj item-path :images)
@@ -1282,7 +1297,7 @@
             idx (find-element-by-key-value images :uuid image-uuid)
             new-uuid (generate-uuid)
             image-to-delete (get images idx)
-            object-key (str (:sub (:userinfo db)) "/" (get-in db (conj item-path :uuid))
+            object-key (str (:cognito-identity-id db) "/" (get-in db (conj item-path :uuid))
                             "/" new-uuid "/" filename)
             params (clj->js {:Bucket "helodali-raw-images" :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})]
         {:s3-operation {:op-type :put-object :s3 (:aws-s3 db) :params params
@@ -1335,7 +1350,7 @@
             s3 (:aws-s3 db)
             key-name (s3-key-for-bucket bucket)
             this-uuid (generate-uuid)
-            object-key (str (:sub (:userinfo db)) "/" (get-in db (conj item-path :uuid)) "/" this-uuid "/" filename)
+            object-key (str (:cognito-identity-id db) "/" (get-in db (conj item-path :uuid)) "/" this-uuid "/" filename)
             params (clj->js {:Bucket bucket :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})
             changes {key-name object-key :filename filename :size (.-size js-file)}]
         {:s3-operation {:op-type :put-object :s3 s3 :params params
@@ -1357,7 +1372,7 @@
             s3 (:aws-s3 db)
             key-name (s3-key-for-bucket bucket)
             this-uuid (generate-uuid)
-            object-key (str (:sub (:userinfo db)) "/" (get-in db (conj item-path :uuid)) "/" this-uuid "/" filename)
+            object-key (str (:cognito-identity-id db) "/" (get-in db (conj item-path :uuid)) "/" this-uuid "/" filename)
             s3-object-to-delete (get-in db item-path)
             params (clj->js {:Bucket bucket :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})
             changes {key-name object-key :filename filename :size (.-size js-file)}]
@@ -1384,7 +1399,7 @@
             key-name (s3-key-for-bucket bucket)
             copy-source (str bucket "/" (key-name source-object-map))
             this-uuid (generate-uuid)
-            object-key (str (:sub (:userinfo db)) "/" (get-in db (conj target-item-path :uuid)) "/" this-uuid "/" (:filename source-object-map))
+            object-key (str (:cognito-identity-id db) "/" (get-in db (conj target-item-path :uuid)) "/" this-uuid "/" (:filename source-object-map))
             params (clj->js {:Bucket bucket :Key object-key :CopySource copy-source})
             changes {key-name object-key}]
         (pprint (str "object-key: " object-key))
@@ -1416,7 +1431,7 @@
             images-path (conj target-item-path :images)
             images (get-in db images-path)
             new-uuid (generate-uuid)
-            object-key (str (:sub (:userinfo db)) "/" (get-in db (conj target-item-path :uuid))
+            object-key (str (:cognito-identity-id db) "/" (get-in db (conj target-item-path :uuid))
                             "/" new-uuid "/" (:filename source-object-map))
             params (clj->js {:Bucket bucket :Key object-key :CopySource copy-source})]
         (pprint (str "new object-key: " object-key))
