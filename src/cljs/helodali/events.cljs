@@ -736,7 +736,7 @@
                          (assoc :aws-s3 (js/AWS.S3. (clj->js aws-creds)))
                          (assoc :aws-creds aws-creds))]
       (pprint (str "IdentityId: " cognito-identity-id))
-      ;; Update the database but only update the openid table if the identity-id
+      ;; Update the database but only update the :openid table if the identity-id
       ;; has a value (i.e. don't nil out a non-empty value on the server).
       (if cognito-identity-id
         {:db db-changes :http-xhrio update-identity-req}

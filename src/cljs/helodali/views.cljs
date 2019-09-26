@@ -227,10 +227,6 @@
                      :Logins {"cognito-idp.us-east-1.amazonaws.com/us-east-1_0cJWyWe5Z" @id-token}}]
          (set! (.-region aws-config) "us-east-1")
          (set! (.-credentials aws-config) (js/AWS.CognitoIdentityCredentials. (clj->js logins)))
-         ;; This clearCachedId and recreation of credentials is a workaround still required as of 06012018
-         ;; and described here:https://github.com/aws/aws-sdk-js/issues/609.
-         ;(.clearCachedId (.-credentials aws-config))
-         ;(set! (.-credentials aws-config) (js/AWS.CognitoIdentityCredentials. (clj->js logins)))
          (.get (.-credentials aws-config) (clj->js (fn [err] (dispatch [:set-aws-credentials (.-credentials js/AWS.config)]))))))
 
      ;;
