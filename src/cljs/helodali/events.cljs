@@ -716,26 +716,31 @@
     (let [aws-creds {:accessKeyId (.-accessKeyId aws-creds-js)
                      :secretAccessKey (.-secretAccessKey aws-creds-js)
                      :sessionToken (.-sessionToken aws-creds-js)}
-          cognito-identity-id (.-identityId aws-creds-js)]
+          cognito-identity-id (.-identityId aws-creds-js)
+          update-identity-req {:method          :post
+                               :uri             "/update-identity-id"
+                               :params          {:access-token (:access-token db)
+                                                 :uref (get-in db [:profile :uuid])
+                                                 :sub (get-in db [:userinfo :sub])
+                                                 :identity-id cognito-identity-id}
+                               :headers         {:x-csrf-token (:csrf-token db)}
+                               :timeout         TIMEOUT
+                               :format          (ajax/transit-request-format {})
+                               :response-format (ajax/transit-response-format {:keywords? true})
+                               :on-success      [:noop]
+                               :on-failure      [:bad-result {} false]}
+          db-changes (-> db
+                         (assoc :cognito-identity-id cognito-identity-id)
+                         (assoc :refresh-aws-creds? false)
+                         (assoc :aws-creds-created-time (ct/now))
+                         (assoc :aws-s3 (js/AWS.S3. (clj->js aws-creds)))
+                         (assoc :aws-creds aws-creds))]
       (pprint (str "IdentityId: " cognito-identity-id))
-      {:db (-> db
-               (assoc :cognito-identity-id cognito-identity-id)
-               (assoc :refresh-aws-creds? false)
-               (assoc :aws-creds-created-time (ct/now))
-               (assoc :aws-s3 (js/AWS.S3. (clj->js aws-creds)))
-               (assoc :aws-creds aws-creds))
-       :http-xhrio {:method          :post
-                    :uri             "/update-identity-id"
-                    :params          {:access-token (:access-token db)
-                                      :uref (get-in db [:profile :uuid])
-                                      :sub (get-in db [:userinfo :sub])
-                                      :identity-id cognito-identity-id}
-                    :headers         {:x-csrf-token (:csrf-token db)}
-                    :timeout         TIMEOUT
-                    :format          (ajax/transit-request-format {})
-                    :response-format (ajax/transit-response-format {:keywords? true})
-                    :on-success      [:noop]
-                    :on-failure      [:bad-result {} false]}})))
+      ;; Update the database but only update the openid table if the identity-id
+      ;; has a value (i.e. don't nil out a non-empty value on the server).
+      (if cognito-identity-id
+        {:db db-changes :http-xhrio update-identity-req}
+        (:db db-changes)))))
 
 (reg-event-fx
   :logout
