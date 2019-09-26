@@ -200,8 +200,10 @@
      ;; Perform whatever dispatching is needed depending on current state
      ;;
      (when @do-cognito-logout?
-       (set! (.. js/window -location -href)
-             (str cognito-base-url "/logout?logout_uri=" origin "/&client_id=" cognito-client-id)))
+       (do
+         (.clearCachedId (.-credentials (.-config js/AWS)))
+         (set! (.. js/window -location -href)
+               (str cognito-base-url "/logout?logout_uri=" origin "/&client_id=" cognito-client-id))))
 
      (when (and (not @authenticated?) (not (empty? @access-token)) (not (empty? @csrf-token)))
        (dispatch [:validate-access-token]))
@@ -224,10 +226,6 @@
                      :RoleArn "arn:aws:iam::128225160927:role/Cognito_HelodaliIdentityPoolAuth_Role"
                      :Logins {"cognito-idp.us-east-1.amazonaws.com/us-east-1_0cJWyWe5Z" @id-token}}]
          (set! (.-region aws-config) "us-east-1")
-         (set! (.-credentials aws-config) (js/AWS.CognitoIdentityCredentials. (clj->js logins)))
-         ;; This clearCachedId and recreation of credentials is a workaround still required as of 06012018
-         ;; and described here:https://github.com/aws/aws-sdk-js/issues/609.
-         (.clearCachedId (.-credentials aws-config))
          (set! (.-credentials aws-config) (js/AWS.CognitoIdentityCredentials. (clj->js logins)))
          (.get (.-credentials aws-config) (clj->js (fn [err] (dispatch [:set-aws-credentials (.-credentials js/AWS.config)]))))))
 
