@@ -62,10 +62,13 @@ function processPrefix(record, callback) {
                 // Calculate the placement of the current tile in the ribbon
 
                 return acc.then(function(data) {
-                    return sharp(overlayResponse.Body).resize(OVERLAY_WIDTH, OVERLAY_HEIGHT).crop(sharp.strategy.entropy).toBuffer().then(function (overlay) {
+                    return sharp(overlayResponse.Body).resize({width: OVERLAY_WIDTH, 
+                                                               height: OVERLAY_HEIGHT, 
+                                                               position: sharp.strategy.entropy})
+                                                      .toBuffer().then(function (overlay) {
                         var left = OVERLAY_WIDTH * (currentIndex % IMAGES_PER_ROW);
                         var top = OVERLAY_HEIGHT * Math.trunc(currentIndex / IMAGES_PER_ROW);
-                        return sharp(data, options).overlayWith(overlay, {left: left, top: top}).raw().toBuffer();
+                        return sharp(data, options).composite([{input: overlay, left: left, top: top}]).raw().toBuffer();
                     }).catch((err) => {
                         console.log('Error adding image to ribbon: ' + err);
                       });
