@@ -2,16 +2,13 @@
   (:require [taoensso.faraday :as far]
             [clojure.string :as str]
             [clj-uuid :as uuid]
-            [clj-time.core :refer [now year days ago]]
-            [clj-time.format :refer [parse unparse formatters]]
+            [java-time :as jt]
             [helodali.types :as types]
             [clojure.java.io :as io]
-            [helodali.common :refer [log coerce-int coerce-decimal-string fix-date keywordize-vals]]
+            [helodali.common :refer [log coerce-int coerce-decimal-string keywordize-vals]]
             [clojure.pprint :refer [pprint]]
             [helodali.s3 :as s3])
-  (:import [java.time ZonedDateTime ZoneId]
-           (java.time.format DateTimeFormatter)
-           (com.amazonaws.services.dynamodbv2.model ConditionalCheckFailedException)))
+  (:import (com.amazonaws.services.dynamodbv2.model ConditionalCheckFailedException)))
 
 ;; These environment variables are only necessary when running the app locally
 ;; or outside AWS. Within AWS, we assign an IAM role to the ElasticBeanstalk
@@ -26,6 +23,9 @@
 
 ;; Batch size when calling batch-write-item to delete items from a table
 (def delete-batch-size 25)
+
+;; Session expiration time (time to cache access tokens in db): 12 days
+(def session-expiration-seconds (* 3600 24 12))
 
 (defn- coerce-item
   "This looks for specific cases where we need to convert string values back to keywords and numbers to ints"
@@ -176,7 +176,7 @@
 (defn- filter-out-empty
   [in]
   (cond
-    (map? in) (into {} (filter (fn [[k v]]
+    (map? in) (into {} (filter (fn [[_ v]]
                                 (if (or (nil? v) (and (string? v) (empty? v)) (and (coll? v) (empty? v)))
                                  false
                                  true)) in))
@@ -217,7 +217,7 @@
     (log "Performing change" change)
     (try
       (far/update-item co table primary-key-map change)
-      (catch ConditionalCheckFailedException e (do (pprint "Attempt to update a non-existing item.")
+      (catch ConditionalCheckFailedException _ (do (pprint "Attempt to update a non-existing item.")
                                                    {}))
       (catch Exception e (do (log "Unable to update item" e)
                              {}))))) ;; TODO: Need to respond with error to client.
@@ -271,7 +271,7 @@
       (log "No changes to apply for" changes)
       (try
         (far/update-item co table primary-key-map db-changes)
-        (catch ConditionalCheckFailedException e (do (pprint "Attempt to update a non-existing item.")
+        (catch ConditionalCheckFailedException _ (do (pprint "Attempt to update a non-existing item.")
                                                      {}))
         (catch Exception e (do (log "Unable to apply updates to item" e)
                                {})))))) ;; TODO: Need to respond with error to client.
@@ -368,7 +368,7 @@
         dimensions-matched (re-find #"(?i)[^\d]*(\d+[\"\']?\s*[xXby]+\s*\d+[\"\']?\s*(inches|in|feet|ft|cm|meters|m)?)" caption)
         year (if year-matched
                (Integer/parseInt (str/trim (second year-matched)))
-               (year (now)))
+               (jt/as (jt/local-date) :year))
         item (cond-> {:uref uref
                       :uuid artwork-uuid
                       :created (:created media)
@@ -420,7 +420,7 @@
     (let [openid-item (far/get-item co :openid {:sub (:sub userinfo)})]
       (if (nil? (:uref openid-item))
         (let [uuid (str (uuid/v1))
-              created (unparse (formatters :date) (now))
+              created (jt/format "yyyy-MM-dd" (jt/zoned-date-time))
               ;; Use name from external IdP or username from Cognito native accounts
               name-or-username (or (:cognito:username userinfo) (:name userinfo))]
           (pprint (str "Creating user account for " (:sub userinfo)))
@@ -432,15 +432,18 @@
         (sync-userinfo userinfo openid-item)))))
 
 (defn cache-access-token
+  "Store the access, id, and refresh tokens in the :sessions table along with an expiration
+   time (expire-at) which instructs when DynamoDB should expunge the item."
   [session-uuid token-resp userinfo]
   (let [openid-item (far/get-item co :openid {:sub (:sub userinfo)})
         uref (:uref openid-item)]
     (when uref
-      (let [tn (ZonedDateTime/now (ZoneId/of "Z"))]
+      (let [tn (jt/with-zone (jt/zoned-date-time) "UTC")]
         (far/put-item co :sessions {:uuid     session-uuid :uref uref :token (:access_token token-resp)
                                     :refresh  (:refresh_token token-resp)
                                     :id-token (:id_token token-resp) :sub (:sub userinfo)
-                                    :ts (.format tn DateTimeFormatter/ISO_INSTANT)})
+                                    :expire-at (+ session-expiration-seconds (.getEpochSecond (.toInstant tn)))
+                                    :ts (jt/format tn)})
         uref))))
 
 (defn query-session

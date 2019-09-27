@@ -8,7 +8,6 @@
         re-frame {:mvn/version "0.10.6"}
         cljs-ajax {:mvn/version "0.8.0"}
         day8.re-frame/http-fx {:mvn/version "0.1.6"}
-        joda-time {:mvn/version "2.10.1"}
         amazonica {:mvn/version "0.3.134" :exclusions [com.amazonaws/aws-java-sdk com.amazonaws/amazon-kinesis-client]}
         com.amazonaws/aws-java-sdk-core {:mvn/version "1.11.452"}
         com.amazonaws/aws-java-sdk-dynamodb {:mvn/version "1.11.452"}
@@ -21,7 +20,7 @@
         org.clojure/core.async {:mvn/version "0.4.474"}
         danlentz/clj-uuid {:mvn/version "0.1.7"}
         com.lucasbradstreet/cljs-uuid-utils {:mvn/version "1.0.2"}
-        clj-time {:mvn/version "0.15.1"}
+        clojure.java-time/clojure.java-time {:mvn/version "0.3.2"}
         com.andrewmcveigh/cljs-time {:mvn/version "0.5.2"}
         re-com {:mvn/version "2.4.0"}
         compojure {:mvn/version "1.6.1"}
