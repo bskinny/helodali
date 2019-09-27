@@ -6,7 +6,6 @@
                  [re-frame "0.10.6"]
                  [cljs-ajax "0.8.0"]
                  [day8.re-frame/http-fx "0.1.6"]
-                 [joda-time "2.10.1"]
                  [amazonica "0.3.134" :exclusions [com.amazonaws/aws-java-sdk
                                                    com.amazonaws/amazon-kinesis-client]]
                  [com.amazonaws/aws-java-sdk-core "1.11.452"]
@@ -20,7 +19,7 @@
                  [org.clojure/core.async "0.4.474"]
                  [danlentz/clj-uuid "0.1.7"]
                  [com.lucasbradstreet/cljs-uuid-utils "1.0.2"]
-                 [clj-time "0.15.1"]
+                 [clojure.java-time "0.3.2"]
                  [com.andrewmcveigh/cljs-time "0.5.2"]
                  [re-com "2.4.0"]
                  [compojure "1.6.1"]

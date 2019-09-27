@@ -1,10 +1,11 @@
 (ns helodali.events
   (:require
     [ajax.core :as ajax]
-    [helodali.common :refer [coerce-int coerce-decimal empty-string-to-nil fix-date parse-date unparse-date unparse-datetime]]
+    [helodali.common :refer [coerce-int coerce-decimal empty-string-to-nil]]
     [helodali.spec :as hs] ;; Keep this here even though we refer to the namespace directly below
     [helodali.misc :refer [expired? generate-uuid find-element-by-key-value find-item-by-key-value
-                           remove-vector-element into-sorted-map trunc search-item-by-key-value]]
+                           remove-vector-element into-sorted-map trunc search-item-by-key-value
+                           fix-date parse-date unparse-date unparse-datetime]]
     [helodali.routes :refer [route]]
     [helodali.db :refer [s3-key-for-bucket]]
     [cljs-time.core :as ct]

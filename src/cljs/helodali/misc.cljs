@@ -30,6 +30,37 @@
       (let [dt (parse (formatters :date-time) ts)]
         (before? dt (now))))))
 
+(defn fix-date
+  "Called with a map or a vector of maps, such as an artwork's :purchases, converts a date valued kw to/from string
+   The type argument is a keyword of either :parse or :unparse."
+  [type kw v-or-m]
+  (let [parse-unparse (if (= type :parse)
+                        parse
+                        unparse)
+        fix-date-key-val #(if-let [kw-val (get % kw)]
+                            (assoc % kw (parse-unparse (formatters :date) kw-val))
+                            %)]
+    (if (map? v-or-m)
+      (fix-date-key-val v-or-m)
+      (mapv fix-date-key-val v-or-m))))
+
+(defn parse-date
+  "Called with timestamp and converted to clj(s) object"
+  [format-kw ts]
+  (if (not-empty ts)
+    (parse (formatters format-kw) ts)
+    nil))
+
+(defn unparse-date
+  "Called with cljs-time object, convert to string"
+  [d]
+  (unparse (formatters :date) d))
+
+(defn unparse-datetime
+  "Called with cljs-time object, convert to string"
+  [d]
+  (unparse (formatters :date-time) d))
+
 (defn find-element-by-key-value
   "Given a list of maps, return the index into the vector where the given key
    and value match. E.g. find the image with :uuid 1234"
