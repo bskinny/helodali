@@ -27,6 +27,9 @@
 ;; Batch size when calling batch-write-item to delete items from a table
 (def delete-batch-size 25)
 
+;; Session expiration time (time to cache access tokens in db): 12 days
+(def session-expiration-seconds (* 3600 24 12))
+
 (defn- coerce-item
   "This looks for specific cases where we need to convert string values back to keywords and numbers to ints"
   ;; TODO: this method of defining each integer attribute is far from ideal. We should instead determine
@@ -432,6 +435,8 @@
         (sync-userinfo userinfo openid-item)))))
 
 (defn cache-access-token
+  "Store the access, id, and refresh tokens in the :sessions table along with an expiration
+   time (expire-at) which instructs when DynamoDB should expunge the item."
   [session-uuid token-resp userinfo]
   (let [openid-item (far/get-item co :openid {:sub (:sub userinfo)})
         uref (:uref openid-item)]
@@ -440,6 +445,7 @@
         (far/put-item co :sessions {:uuid     session-uuid :uref uref :token (:access_token token-resp)
                                     :refresh  (:refresh_token token-resp)
                                     :id-token (:id_token token-resp) :sub (:sub userinfo)
+                                    :expire-at (+ session-expiration-seconds (.getEpochSecond (.toInstant tn)))
                                     :ts (.format tn DateTimeFormatter/ISO_INSTANT)})
         uref))))
 
