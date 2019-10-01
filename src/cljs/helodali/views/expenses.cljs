@@ -82,36 +82,31 @@
                                    [create-control]
                                    (if @editing [save-control] [view-control])))]))))
 
-(defn item-list-view
+(defn item-row
   "Display item properties in single line - no image display. The 'widths' map contains the display
    length of fields. We use this to size the associated column of data but
    additionally apply a maximum, e.g. 80ch for name, by truncating the strings over the max."
-  [widths id odd-row?]
+  [widths id]
   (let [uuid (subscribe [:item-key :expenses id :uuid])
-        bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
         date (subscribe [:item-key :expenses id :date])
         notes (subscribe [:item-key :expenses id :notes])
         expense-type (subscribe [:item-key :expenses id :expense-type])
         price (subscribe [:item-key :expenses id :price])]
     (fn []
-      [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
-        :children [[hyperlink :style {:width (str (get widths :date) "ch")} :label (safe-date-string @date)
-                       :on-click #(route-single-item :expenses @uuid)]
-                   [h-box :gap "0px" :align :center :justify :between
-                      :children [[label :width (str (:expense-type widths) "ch") :class "all-small-caps" :label (get expense-type-to-display-string @expense-type)]
-                                 [label :width (str (:notes widths) "ch") :label (trunc (safe-string @notes "") (:notes widths))]
-                                 [box :width (str (:price widths) "ch") :justify :end :class "all-small-caps" :child (price-format @price)]]]
-                   [gap :size "22px"]
-                   [h-box :gap "2px" :justify :center :align :center :style {:font-size "18px"}
-                      :children [[row-button :md-icon-name "zmdi zmdi-copy"
-                                   :mouse-over-row? true :tooltip "Copy this item"
-                                   :on-click #(dispatch [:copy-item :expenses id :notes])]
-                                 [row-button :md-icon-name "zmdi zmdi-delete"
-                                   :mouse-over-row? true :tooltip "Delete this item"
-                                   :on-click #(dispatch [:delete-item :expenses id])]]]]])))
+      [:tr  [:td [hyperlink :label (safe-date-string @date) :on-click #(route-single-item :expenses @uuid)]]
+            [:td [label :class "all-small-caps" :label (get expense-type-to-display-string @expense-type)]]
+            [:td [label :label (trunc (safe-string @notes "") (:notes widths))]]
+            [:td [box :justify :end :class "all-small-caps" :child (price-format @price)]]
+            [:td [h-box :gap "2px" :justify :center :align :center :style {:font-size "18px"}
+                    :children [[row-button :md-icon-name "zmdi zmdi-copy"
+                                 :mouse-over-row? true :tooltip "Copy this item"
+                                 :on-click #(dispatch [:copy-item :expenses id :notes])]
+                               [row-button :md-icon-name "zmdi zmdi-delete"
+                                 :mouse-over-row? true :tooltip "Delete this item"
+                                 :on-click #(dispatch [:delete-item :expenses id])]]]]])))
 
-(defn list-view
-  "Display list of items, one per line"
+(defn table-view
+  "Display table of expenses"
   []
   (let [sort-key (subscribe [:by-path [:sort-keys :expenses]])
         items (subscribe [:items-keys-sorted-by-key :expenses sort-by-key-then-created])
@@ -119,30 +114,32 @@
     (fn []
       (let [widths (r/atom {:date 12 :expense-type 20 :price 5
                             :notes (max 10 (+ 2 (max-string-length @notes 40)))})
-            header [h-box :align :center :justify :start :width "100%"
-                      :children [[hyperlink :class "uppercase" :style {:width (str (:date @widths) "ch")}
-                                  :label "Date" :tooltip "Sort by Date"
-                                  :on-click #(if (= (first @sort-key) :date)
-                                               (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
-                                               (dispatch [:set-local-item-val [:sort-keys :expenses] [:date true]]))]
-                                 [hyperlink :class "uppercase" :style {:width (str (:expense-type @widths) "ch")}
-                                  :label "Type" :tooltip "Sort by Type"
-                                  :on-click #(if (= (first @sort-key) :expense-type)
-                                               (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
-                                               (dispatch [:set-local-item-val [:sort-keys :expenses] [:expense-type true]]))]
-                                 ;; (trunc (safe-string @cn "(no name)") (get widths :name))
-                                 [hyperlink :class "uppercase" :style {:width (str (:notes @widths) "ch")}
-                                  :label "Notes" :tooltip "Sort by Notes"
-                                  :on-click #(if (= (first @sort-key) :notes)
-                                               (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
-                                               (dispatch [:set-local-item-val [:sort-keys :expenses] [:notes true]]))]
-                                 [hyperlink :class "uppercase" :style {:width (str (:price @widths) "ch")}
-                                  :label "Price" :tooltip "Sort by Price"
-                                  :on-click #(if (= (first @sort-key) :price)
-                                               (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
-                                               (dispatch [:set-local-item-val [:sort-keys :expenses] [:price true]]))]]]]
-        [v-box :gap "4px" :align :center :justify :start
-           :children (into [header] (mapv (fn [id bg] ^{:key (str id "-expenses")} [item-list-view @widths id bg]) @items (cycle [true false])))]))))
+            header [:thead
+                    [:tr
+                      [:th [hyperlink :class "uppercase"
+                            :label "Date" :tooltip "Sort by Date"
+                            :on-click #(if (= (first @sort-key) :date)
+                                         (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
+                                         (dispatch [:set-local-item-val [:sort-keys :expenses] [:date true]]))]]
+                      [:th [hyperlink :class "uppercase"
+                            :label "Type" :tooltip "Sort by Type"
+                            :on-click #(if (= (first @sort-key) :expense-type)
+                                         (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
+                                         (dispatch [:set-local-item-val [:sort-keys :expenses] [:expense-type true]]))]]
+                      ;; (trunc (safe-string @cn "(no name)") (get widths :name))
+                      [:th [hyperlink :class "uppercase"
+                            :label "Notes" :tooltip "Sort by Notes"
+                            :on-click #(if (= (first @sort-key) :notes)
+                                         (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
+                                         (dispatch [:set-local-item-val [:sort-keys :expenses] [:notes true]]))]]
+                      [:th [hyperlink :class "uppercase"
+                            :label "Price" :tooltip "Sort by Price"
+                            :on-click #(if (= (first @sort-key) :price)
+                                         (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
+                                         (dispatch [:set-local-item-val [:sort-keys :expenses] [:price true]]))]]]]]
+        [:table
+          header
+          (into [:tbody] (mapv (fn [id] ^{:key (str "expense-row-" id)} [item-row @widths id]) @items))]))))
 
 (defn view-selection
   "The row of view selection controls: list new-item"
@@ -181,7 +178,7 @@
       [v-box :gap "16px" :align :center :justify :center
          :children [[view-selection]
                     (condp = @display-type
-                      :list [list-view]
+                      :list [table-view]
                       :single-item [single-item-view]
                       :new-item [new-item-view]
                       [:span (str "Unexpected display-type of " @display-type)])]])))

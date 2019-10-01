@@ -143,41 +143,38 @@
                                                           [create-control]
                                                           (if @editing [save-control] [view-control])))]))))
 
-(defn item-list-view
+(defn item-row
   "Display item properties in single line - no image display. The 'widths' map contains the string
    length of the longest title, publication, etc. We use this to size the associated column of data but
    additionally apply a maximum, e.g. 80ch for title, by truncating the strings over the max."
-  [widths id odd-row?]
+  [widths id]
   (let [uuid (subscribe [:item-key :press id :uuid])
-        bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
         title (subscribe [:item-key :press id :title])
         publication (subscribe [:item-key :press id :publication])
         url (subscribe [:item-key :press id :url])
         publication-date (subscribe [:item-key :press id :publication-date])
         include-in-cv? (subscribe [:item-key :press id :include-in-cv])]
     (fn []
-      [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
-        :children [[hyperlink :style {:width (str (max 18 (get widths :title)) "ch")} :label (trunc (safe-string @title "(no title)") (get widths :title))
-                       :on-click #(route-single-item :press @uuid)]
-                   ;; Display the publication name as a link to the url if the publication name and url are present in the item.
-                   (if (and @publication @url)
-                     [re-com/hyperlink-href :style {:width (str (max 18 (:publication widths)) "ch")}
-                        :label  (trunc @publication (:publication widths)) :href (str (url-to-href @url)) :target "_blank"]
-                     [label :width (str (max 18 (:publication widths)) "ch") :label (trunc @publication (:publication widths))])
-                   [label :width "15ch" :label (safe-date-string @publication-date)]
-                   (if @include-in-cv?
-                     [box :width "16ch" :align :center :justify :center :child [md-icon-button :md-icon-name "zmdi zmdi-check mdc-text-green"]]
-                     [label :width "16ch" :label ""])
-                   [h-box :gap "2px" :justify :center :align :center :style {:font-size "18px"}
-                      :children [[row-button :md-icon-name "zmdi zmdi-copy"
-                                   :mouse-over-row? true :tooltip "Copy this item"
-                                   :on-click #(dispatch [:copy-item :press id :title])]
-                                 [row-button :md-icon-name "zmdi zmdi-delete"
-                                   :mouse-over-row? true :tooltip "Delete this item"
-                                   :on-click #(dispatch [:delete-item :press id])]]]]])))
+      [:tr  [:td [hyperlink :label (trunc (safe-string @title "(no title)") (get widths :title))
+                    :on-click #(route-single-item :press @uuid)]]
+            ;; Display the publication name as a link to the url if the publication name and url are present in the item.
+            (if (and @publication @url)
+              [:td [re-com/hyperlink-href :label  (trunc @publication (:publication widths)) :href (str (url-to-href @url)) :target "_blank"]]
+              [:td [label :label (trunc @publication (:publication widths))]])
+            [:td [label :label (safe-date-string @publication-date)]]
+            (if @include-in-cv?
+              [:td [box :width "16ch" :align :center :justify :center :child [md-icon-button :md-icon-name "zmdi zmdi-check mdc-text-green"]]]
+              [:td [label :label ""]])
+            [:td [h-box :gap "2px" :justify :center :align :center :style {:font-size "18px"}
+                    :children [[row-button :md-icon-name "zmdi zmdi-copy"
+                                 :mouse-over-row? true :tooltip "Copy this item"
+                                 :on-click #(dispatch [:copy-item :press id :title])]
+                               [row-button :md-icon-name "zmdi zmdi-delete"
+                                 :mouse-over-row? true :tooltip "Delete this item"
+                                 :on-click #(dispatch [:delete-item :press id])]]]]])))
 
-(defn list-view
-  "Display list of items, one per line"
+(defn table-view
+  "Display list of items, as a table"
   []
   (let [sort-key (subscribe [:by-path [:sort-keys :press]])
         items (subscribe [:items-keys-sorted-by-key :press sort-by-key-then-created])
@@ -186,29 +183,31 @@
     (fn []
       (let [widths (r/atom {:title (+ 13 (max-string-length @titles 80))
                             :publication (+ 4 (max-string-length @publications 40))})
-            header [h-box :align :center :justify :start :width "100%"
-                      :children [[hyperlink :class "uppercase" :style {:width (str (max 18 (:title @widths)) "ch")}
-                                    :label "Title" :tooltip "Sort by Title"
-                                    :on-click #(if (= (first @sort-key) :title)
-                                                 (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
-                                                 (dispatch [:set-local-item-val [:sort-keys :press] [:title true]]))]
-                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:publication @widths)) "ch")}
-                                    :label "Publication" :tooltip "Sort by Publication"
-                                    :on-click #(if (= (first @sort-key) :publication)
-                                                 (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
-                                                 (dispatch [:set-local-item-val [:sort-keys :press] [:publication true]]))]
-                                 [hyperlink :class "uppercase" :style {:width "15ch"}
-                                    :label "Date" :tooltip "Sort by Date"
-                                    :on-click #(if (= (first @sort-key) :publication-date)
-                                                 (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
-                                                 (dispatch [:set-local-item-val [:sort-keys :press] [:publication-date true]]))]
-                                 [hyperlink :class "uppercase" :style {:width "16ch"}
-                                    :label "Included in CV" :tooltip "Sort by Included in CV?"
-                                    :on-click #(if (= (first @sort-key) :include-in-cv)
-                                                 (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
-                                                 (dispatch [:set-local-item-val [:sort-keys :press] [:include-in-cv true]]))]]]]
-        [v-box :gap "4px" :align :center :justify :start
-           :children (into [header] (map (fn [id bg] ^{:key (str id "-" (:title @widths))} [item-list-view @widths id bg]) @items (cycle [true false])))]))))
+            header [:thead
+                     [:tr
+                       [:th [hyperlink :class "uppercase"
+                               :label "Title" :tooltip "Sort by Title"
+                               :on-click #(if (= (first @sort-key) :title)
+                                            (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
+                                            (dispatch [:set-local-item-val [:sort-keys :press] [:title true]]))]]
+                       [:th [hyperlink :class "uppercase"
+                               :label "Publication" :tooltip "Sort by Publication"
+                               :on-click #(if (= (first @sort-key) :publication)
+                                            (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
+                                            (dispatch [:set-local-item-val [:sort-keys :press] [:publication true]]))]]
+                       [:th [hyperlink :class "uppercase"
+                               :label "Date" :tooltip "Sort by Date"
+                               :on-click #(if (= (first @sort-key) :publication-date)
+                                            (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
+                                            (dispatch [:set-local-item-val [:sort-keys :press] [:publication-date true]]))]]
+                       [:th [hyperlink :class "uppercase"
+                               :label "Included in CV" :tooltip "Sort by Included in CV?"
+                               :on-click #(if (= (first @sort-key) :include-in-cv)
+                                            (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
+                                            (dispatch [:set-local-item-val [:sort-keys :press] [:include-in-cv true]]))]]]]]
+        [:table
+          header
+          (into [:tbody] (map (fn [id] ^{:key (str "press-row-" id)} [item-row @widths id]) @items))]))))
 
 (defn view-selection
   "The row of view selection controls: list new-item"
@@ -247,7 +246,7 @@
       [v-box :gap "16px" :align :center :justify :center
          :children [[view-selection]
                     (condp = @display-type
-                      :list [list-view]
+                      :list [table-view]
                       :single-item [single-item-view]
                       :new-item [new-item-view]
                       [:span (str "Unexpected display-type of " @display-type)])]])))
