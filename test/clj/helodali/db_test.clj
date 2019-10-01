@@ -8,14 +8,11 @@
             [helodali.db :as db]
             [clojure.data :refer [diff]]))
 
-;; We expect a local dynamodb installation
+;; We expect a local dynamodb installation instaide a docker container, see scripts/run-test.sh
 (def co
-  {:access-key (or (System/getenv "AWS_ACCESS_KEY")
-                   (System/getProperty "AWS_ACCESS_KEY"))
-   :secret-key (or (System/getenv "AWS_SECRET_KEY")
-                   (System/getProperty "AWS_SECRET_KEY"))
-   :endpoint   (or (System/getenv "AWS_DYNAMODB_ENDPOINT")
-                   (System/getProperty "AWS_DYNAMODB_ENDPOINT"))})
+  {:access-key "12345678901234567890"
+   :secret-key "1234567890123456789012345678901234567890"
+   :endpoint "http://localhost:8000"})
 
 ;; The uuid of a test user
 (def uref "48844840-5d26-11e9-9d54-5a9ae62eab53")

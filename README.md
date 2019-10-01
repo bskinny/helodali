@@ -65,7 +65,7 @@ multiple AWS Lambda functions: public-page-generator, ribbon-maker, and contact-
 
 ### Local Development
 
-The application can be run locally though it points to AWS for database and cognito. 
+The application can be run locally though it points to AWS for dynamodb and cognito. 
 Define the following environment variables before proceeding (the INSTAGRAM values are optional):
 
 ```
