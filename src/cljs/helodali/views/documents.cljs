@@ -152,13 +152,12 @@
             ; :children (into [lhs] (conj (if @editing edit view) (if @editing [save-control] [view-control])))
             :children (into [lhs] [rhs])])))))
 
-(defn item-list-view
+(defn item-row
   "Display item properties in single line. The 'widths' map contains the string
    length of the longest document name. We use this to size the associated column of data but
    additionally apply a maximum, e.g. 80ch for name, by truncating the strings over the max."
-  [widths id odd-row?]
+  [widths id]
   (let [uuid (subscribe [:item-key :documents id :uuid])
-        bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
         title (subscribe [:item-key :documents id :title])
         filename (subscribe [:item-key :documents id :filename])
         size (subscribe [:item-key :documents id :size])
@@ -166,23 +165,22 @@
         last-modified (subscribe [:item-key :documents id :last-modified])]
     (fn []
       (let [lm (or @last-modified @created)]
-        [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
-          :children [[hyperlink :style {:width (str (max 14 (:title widths)) "ch")} :label (trunc (safe-string @title "(no title)") (:title widths))
-                         :on-click #(route-single-item :documents @uuid)]
-                     [label :width (str (max 14 (:filename widths)) "ch") :label (safe-string @filename "(no file attached)")]
-                     [label :width "15ch" :label (safe-date-string @created)]
-                     [label :width "15ch" :label (safe-date-string lm)]
-                     [label :width "8ch" :label (str (quot @size 1024) " KB")]
-                     [h-box :gap "2px" :justify :center :align :center :style {:font-size "18px"}
-                         :children [[row-button :md-icon-name "zmdi zmdi-copy"
-                                       :mouse-over-row? true :tooltip "Copy this item"
-                                       :on-click #(dispatch [:copy-item :documents id :title])]
-                                    [row-button :md-icon-name "zmdi zmdi-delete"
-                                       :mouse-over-row? true :tooltip "Delete this item"
-                                       :on-click #(dispatch [:delete-document-item :documents id])]]]]]))))
+        [:tr  [:td [hyperlink :label (trunc (safe-string @title "(no title)") (:title widths))
+                      :on-click #(route-single-item :documents @uuid)]]
+              [:td [label :label (safe-string @filename "(no file attached)")]]
+              [:td [label :label (safe-date-string @created)]]
+              [:td [label :label (safe-date-string lm)]]
+              [:td [label :label (str (quot @size 1024) " KB")]]
+              [:td [h-box :gap "2px" :justify :center :align :center :style {:font-size "18px"}
+                       :children [[row-button :md-icon-name "zmdi zmdi-copy"
+                                     :mouse-over-row? true :tooltip "Copy this item"
+                                     :on-click #(dispatch [:copy-item :documents id :title])]
+                                  [row-button :md-icon-name "zmdi zmdi-delete"
+                                     :mouse-over-row? true :tooltip "Delete this item"
+                                     :on-click #(dispatch [:delete-document-item :documents id])]]]]]))))
 
-(defn list-view
-  "Display list of items, one per line"
+(defn table-view
+  "Display list of documents"
   []
   (let [sort-key (subscribe [:by-path [:sort-keys :documents]])
         items (subscribe [:items-keys-sorted-by-key :documents sort-by-key-then-created])
@@ -191,29 +189,31 @@
     (fn []
       (let [widths (r/atom {:filename (+ 8 (max-string-length @filenames 80))
                             :title (+ 13 (max-string-length @titles 80))}) ;; 13 => leave space for "(no title)"
-            header [h-box :align :center :justify :start :width "100%"
-                      :children [[hyperlink :class "uppercase" :style {:width (str (max 14 (:title @widths)) "ch")} :label "Title"
-                                    :tooltip "Sort by Title" :on-click #(if (= (first @sort-key) :title)
-                                                                          (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
-                                                                          (dispatch [:set-local-item-val [:sort-keys :documents] [:title true]]))]
-                                 [hyperlink :class "uppercase" :style {:width (str (max 14 (:filename @widths)) "ch")} :label "Filename"
-                                    :tooltip "Sort by Filename" :on-click #(if (= (first @sort-key) :filename)
-                                                                              (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
-                                                                              (dispatch [:set-local-item-val [:sort-keys :documents] [:filename true]]))]
-                                 [hyperlink :class "uppercase" :style {:width "15ch"} :label "Created"
-                                     :tooltip "Sort by Date Created" :on-click #(if (= (first @sort-key) :created)
-                                                                                  (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
-                                                                                  (dispatch [:set-local-item-val [:sort-keys :documents] [:created false]]))]
-                                 [hyperlink :class "uppercase" :style {:width "15ch"} :label "Modified"
-                                     :tooltip "Sort by Date Last Modified" :on-click #(if (= (first @sort-key) :last-modified)
-                                                                                        (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
-                                                                                        (dispatch [:set-local-item-val [:sort-keys :documents] [:last-modified true]]))]
-                                 [hyperlink :class "uppercase" :style {:width "8ch"} :label "Size"
-                                    :tooltip "Sort by Size" :on-click #(if (= (first @sort-key) :size)
+            header [:thead
+                     [:tr
+                       [:th [hyperlink :class "uppercase" :label "Title"
+                               :tooltip "Sort by Title" :on-click #(if (= (first @sort-key) :title)
+                                                                     (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
+                                                                     (dispatch [:set-local-item-val [:sort-keys :documents] [:title true]]))]]
+                       [:th [hyperlink :class "uppercase" :label "Filename"
+                               :tooltip "Sort by Filename" :on-click #(if (= (first @sort-key) :filename)
                                                                          (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
-                                                                         (dispatch [:set-local-item-val [:sort-keys :documents] [:size false]]))]]]]
-        [v-box :gap "4px" :align :center :justify :start
-           :children (into [header] (mapv (fn [id bg] ^{:key (str id "-" (:title @widths))} [item-list-view @widths id bg]) @items (cycle [true false])))]))))
+                                                                         (dispatch [:set-local-item-val [:sort-keys :documents] [:filename true]]))]]
+                       [:th [hyperlink :class "uppercase" :label "Created"
+                                :tooltip "Sort by Date Created" :on-click #(if (= (first @sort-key) :created)
+                                                                             (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
+                                                                             (dispatch [:set-local-item-val [:sort-keys :documents] [:created false]]))]]
+                       [:th [hyperlink :class "uppercase" :label "Modified"
+                                :tooltip "Sort by Date Last Modified" :on-click #(if (= (first @sort-key) :last-modified)
+                                                                                   (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
+                                                                                   (dispatch [:set-local-item-val [:sort-keys :documents] [:last-modified true]]))]]
+                       [:th [hyperlink :class "uppercase" :label "Size"
+                               :tooltip "Sort by Size" :on-click #(if (= (first @sort-key) :size)
+                                                                    (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
+                                                                    (dispatch [:set-local-item-val [:sort-keys :documents] [:size false]]))]]]]]
+        [:table
+          header
+          (into [:tbody] (mapv (fn [id] ^{:key (str "document-row-" id)} [item-row @widths id]) @items))]))))
 
 (defn view-selection
   "The row of view selection controls: list new-item"
@@ -253,7 +253,7 @@
       [v-box :gap "16px" :align :center :justify :center
          :children [[view-selection]
                     (condp = @display-type
-                      :list [list-view]
+                      :list [table-view]
                       :single-item [single-item-view]
                       :new-item [new-item-view]
                       [:span (str "Unexpected display-type of " @display-type)])]])))

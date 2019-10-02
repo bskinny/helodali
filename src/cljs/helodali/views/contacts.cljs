@@ -127,16 +127,15 @@
                                  (when (not @editing)
                                    [[referred-artwork-list-view (partial contact-referenced-in-artwork? @uuid)]]))]))))
 
-(defn item-list-view
+(defn item-row
   "Display item properties in single line - no image display. The 'widths' map contains the string
    length of the longest name, email, etc. We use this to size the associated column of data but
    additionally apply a maximum, e.g. 80ch for name, by truncating the strings over the max.
 
    Some columns are not displayed if there is no data available. E.g. if 'condition' is not defined
    for any contacts"
-  [widths id odd-row?]
+  [widths id]
   (let [uuid (subscribe [:item-key :contacts id :uuid])
-        bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
         cn (subscribe [:item-key :contacts id :name])
         email (subscribe [:item-key :contacts id :email])
         phone (subscribe [:item-key :contacts id :phone])
@@ -144,24 +143,23 @@
         url (subscribe [:item-key :contacts id :url])
         instagram (subscribe [:item-key :contacts id :instagram])]
     (fn []
-      [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
-        :children [[hyperlink :style {:width (str (max 18 (get widths :name)) "ch")} :label (trunc (safe-string @cn "(no name)") (get widths :name))
-                       :on-click #(route-single-item :contacts @uuid)]
-                   [label :width "12ch" :class "all-small-caps" :label (clojure.string/replace (name @role) #"-" " ")]
-                   [label :width (str (max 18 (:email widths)) "ch") :label (trunc @email (:email widths))]
-                   [label :width "15ch" :label @phone]
-                   [re-com/hyperlink-href :style {:width (str (max 18 (get widths :url)) "ch")}
-                               :label (trunc (str @url) (:url widths)) :href (str (url-to-href @url)) :target "_blank"]
-                   [label :width "18ch" :label (str @instagram)]
-                   [h-box :gap "2px" :justify :center :align :center :style {:font-size "18px"}
-                      :children [[row-button :md-icon-name "zmdi zmdi-copy"
-                                   :mouse-over-row? true :tooltip "Copy this item"
-                                   :on-click #(dispatch [:copy-item :contacts id :name])]
-                                 [row-button :md-icon-name "zmdi zmdi-delete"
-                                   :mouse-over-row? true :tooltip "Delete this item"
-                                   :on-click #(dispatch [:delete-item :contacts id])]]]]])))
+      [:tr  [:td [hyperlink :label (trunc (safe-string @cn "(no name)") (get widths :name))
+                    :on-click #(route-single-item :contacts @uuid)]]
+            [:td [label :class "all-small-caps" :label (clojure.string/replace (name @role) #"-" " ")]]
+            [:td [label :label (trunc @email (:email widths))]]
+            [:td [label :label @phone]]
+            [:td [re-com/hyperlink-href
+                             :label (trunc (str @url) (:url widths)) :href (str (url-to-href @url)) :target "_blank"]]
+            [:td [label :label (str @instagram)]]
+            [:td [h-box :gap "2px" :justify :center :align :center :style {:font-size "18px"}
+                    :children [[row-button :md-icon-name "zmdi zmdi-copy"
+                                 :mouse-over-row? true :tooltip "Copy this item"
+                                 :on-click #(dispatch [:copy-item :contacts id :name])]
+                               [row-button :md-icon-name "zmdi zmdi-delete"
+                                 :mouse-over-row? true :tooltip "Delete this item"
+                                 :on-click #(dispatch [:delete-item :contacts id])]]]]])))
 
-(defn list-view
+(defn table-view
   "Display list of items, one per line"
   []
   (let [sort-key (subscribe [:by-path [:sort-keys :contacts]])
@@ -173,39 +171,41 @@
       (let [widths (r/atom {:name (+ 2 (max-string-length @names 80))
                             :email (+ 2 (max-string-length @emails 40))
                             :url (+ 2 (max-string-length @urls 40))})
-            header [h-box :align :center :justify :start :width "100%"
-                      :children [[hyperlink :class "uppercase" :style {:width (str (max 18 (:name @widths)) "ch")}
-                                     :label "Contact" :tooltip "Sort by Title"
-                                     :on-click #(if (= (first @sort-key) :name)
-                                                  (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
-                                                  (dispatch [:set-local-item-val [:sort-keys :contacts] [:name true]]))]
-                                 [hyperlink :class "uppercase" :style {:width "12ch"}
-                                     :label "role" :tooltip "Sort by Role"
-                                     :on-click #(if (= (first @sort-key) :role)
-                                                  (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
-                                                  (dispatch [:set-local-item-val [:sort-keys :contacts] [:role true]]))]
-                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:email @widths)) "ch")}
-                                     :label "email" :tooltip "Sort by Email"
-                                     :on-click #(if (= (first @sort-key) :email)
-                                                  (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
-                                                  (dispatch [:set-local-item-val [:sort-keys :contacts] [:email true]]))]
-                                 [hyperlink :class "uppercase" :style {:width "15ch"}
-                                     :label "phone" :tooltip "Sort by Phone"
-                                     :on-click #(if (= (first @sort-key) :phone)
-                                                  (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
-                                                  (dispatch [:set-local-item-val [:sort-keys :contacts] [:phone true]]))]
-                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:url @widths)) "ch")}
-                                     :label "url" :tooltip "Sort by URL"
-                                     :on-click #(if (= (first @sort-key) :url)
-                                                  (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
-                                                  (dispatch [:set-local-item-val [:sort-keys :contacts] [:url true]]))]
-                                 [hyperlink :class "uppercase" :style {:width "18ch"}
-                                     :label "instagram" :tooltip "Sort by Instagram Name"
-                                     :on-click #(if (= (first @sort-key) :instagram)
-                                                  (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
-                                                  (dispatch [:set-local-item-val [:sort-keys :contacts] [:instagram true]]))]]]]
-        [v-box :gap "4px" :align :center :justify :start
-           :children (into [header] (mapv (fn [id bg] ^{:key (str id "-" (:name @widths))} [item-list-view @widths id bg]) @items (cycle [true false])))]))))
+            header [:thead
+                     [:tr
+                       [:th [hyperlink :class "uppercase"
+                                :label "Contact" :tooltip "Sort by Title"
+                                :on-click #(if (= (first @sort-key) :name)
+                                             (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
+                                             (dispatch [:set-local-item-val [:sort-keys :contacts] [:name true]]))]]
+                       [:th [hyperlink :class "uppercase"
+                                :label "role" :tooltip "Sort by Role"
+                                :on-click #(if (= (first @sort-key) :role)
+                                             (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
+                                             (dispatch [:set-local-item-val [:sort-keys :contacts] [:role true]]))]]
+                       [:th [hyperlink :class "uppercase"
+                                :label "email" :tooltip "Sort by Email"
+                                :on-click #(if (= (first @sort-key) :email)
+                                             (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
+                                             (dispatch [:set-local-item-val [:sort-keys :contacts] [:email true]]))]]
+                       [:th [hyperlink :class "uppercase"
+                                :label "phone" :tooltip "Sort by Phone"
+                                :on-click #(if (= (first @sort-key) :phone)
+                                             (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
+                                             (dispatch [:set-local-item-val [:sort-keys :contacts] [:phone true]]))]]
+                       [:th [hyperlink :class "uppercase"
+                                :label "url" :tooltip "Sort by URL"
+                                :on-click #(if (= (first @sort-key) :url)
+                                             (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
+                                             (dispatch [:set-local-item-val [:sort-keys :contacts] [:url true]]))]]
+                       [:th [hyperlink :class "uppercase"
+                                :label "instagram" :tooltip "Sort by Instagram Name"
+                                :on-click #(if (= (first @sort-key) :instagram)
+                                             (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
+                                             (dispatch [:set-local-item-val [:sort-keys :contacts] [:instagram true]]))]]]]]
+        [:table
+          header
+          (into [:tbody] (mapv (fn [id] ^{:key (str "contact-row-" id)} [item-row @widths id]) @items))]))))
 
 (defn view-selection
   "The row of view selection controls: list new-item"
@@ -244,7 +244,7 @@
       [v-box :gap "16px" :align :center :justify :center
          :children [[view-selection]
                     (condp = @display-type
-                      :list [list-view]
+                      :list [table-view]
                       :single-item [single-item-view]
                       :new-item [new-item-view]
                       [:span (str "Unexpected display-type of " @display-type)])]])))

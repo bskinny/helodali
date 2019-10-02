@@ -169,16 +169,12 @@
                                  (when (not @editing)
                                    [[referred-artwork-list-view (partial exhibition-referenced-in-artwork? @uuid)]]))]))))
 
-(defn item-list-view
+(defn table-row
   "Display item properties in single line - no image display. The 'widths' map contains the string
    length of the longest name, location, etc. We use this to size the associated column of data but
-   additionally apply a maximum, e.g. 80ch for name, by truncating the strings over the max.
-
-   Some columns are not displayed if there is no data available. E.g. if 'condition' is not defined
-   for any exhibitions"
-  [widths id odd-row?]
+   additionally apply a maximum, e.g. 80ch for name, by truncating the strings over the max."
+  [widths id]
   (let [uuid (subscribe [:item-key :exhibitions id :uuid])
-        bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
         cn (subscribe [:item-key :exhibitions id :name])
         location (subscribe [:item-key :exhibitions id :location])
         begin-date (subscribe [:item-key :exhibitions id :begin-date])
@@ -186,29 +182,28 @@
         include-in-cv? (subscribe [:item-key :exhibitions id :include-in-cv])
         kind (subscribe [:item-key :exhibitions id :kind])]
     (fn []
-      [h-box :align :center :justify :start :style {:background bg-color} :width "100%"
-        :children [[hyperlink :style {:width (str (max 18 (get widths :name)) "ch")} :label (trunc (safe-string @cn "(no name)") (get widths :name))
-                       :on-click #(route-single-item :exhibitions @uuid)]
-                   [label :width "8ch" :class "all-small-caps" :label (clojure.string/replace (name @kind) #"-" " ")]
-                   [label :width (str (max 18 (:location widths)) "ch") :label (trunc @location (:location widths))]
-                   [label :width "12ch" :label (safe-date-string @begin-date)]
-                   [label :width "12ch" :label (safe-date-string @end-date)]
-                   ; In case we want to display url in the future
-                   ;[re-com/hyperlink-href :style {:width (str (max 18 (get widths :url)) "ch")}
-                   ;             :label (trunc (str @url) (:url widths)) :href (str (url-to-href @url)) :target "_blank"]
-                   (if @include-in-cv?
-                     [box :width "16ch" :align :center :justify :center :child [md-icon-button :md-icon-name "zmdi zmdi-check mdc-text-green"]]
-                     [label :width "16ch" :label ""])
-                   [h-box :gap "2px" :justify :center :align :center :style {:font-size "18px"}
-                      :children [[row-button :md-icon-name "zmdi zmdi-copy"
-                                   :mouse-over-row? true :tooltip "Copy this item"
-                                   :on-click #(dispatch [:copy-item :exhibitions id :name])]
-                                 [row-button :md-icon-name "zmdi zmdi-delete"
-                                   :mouse-over-row? true :tooltip "Delete this item"
-                                   :on-click #(dispatch [:delete-item :exhibitions id])]]]]])))
+      [:tr
+        [:td [hyperlink :label (trunc (safe-string @cn "(no name)") (get widths :name))
+               :on-click #(route-single-item :exhibitions @uuid)]]
+        [:td [label :class "all-small-caps" :label (clojure.string/replace (name @kind) #"-" " ")]]
+        [:td [label :label (trunc @location (:location widths))]]
+        [:td [label :label (safe-date-string @begin-date)]]
+        [:td [label :label (safe-date-string @end-date)]]
+            ; In case we want to display url in the future
+            ;[re-com/hyperlink-href
+            ;             :label (trunc (str @url) (:url widths)) :href (str (url-to-href @url)) :target "_blank"]
+        [:td (if @include-in-cv?
+                [box :width "16ch" :align :center :justify :center :child [md-icon-button :md-icon-name "zmdi zmdi-check mdc-text-green"]]
+                [label :width "16ch" :label ""])]
+        [:td [h-box :gap "2px" :justify :center :align :center :style {:font-size "18px"}
+                :children [[row-button :md-icon-name "zmdi zmdi-copy"
+                             :mouse-over-row? true :tooltip "Copy this item"
+                             :on-click #(dispatch [:copy-item :exhibitions id :name])]
+                           [row-button :md-icon-name "zmdi zmdi-delete"
+                             :mouse-over-row? true :tooltip "Delete this item"
+                             :on-click #(dispatch [:delete-item :exhibitions id])]]]]])))
 
-(defn list-view
-  "Display list of items, one per line"
+(defn table-view
   []
   (let [sort-key (subscribe [:by-path [:sort-keys :exhibitions]])
         ids (subscribe [:items-keys-sorted-by-key :exhibitions sort-by-key-then-created])
@@ -219,45 +214,41 @@
       (let [widths (r/atom {:name (+ 2 (max-string-length @names 40))
                             :location (+ 2 (max-string-length @locations 40))
                             :url (+ 2 (max-string-length @urls 40))})
-            header [h-box :align :center :justify :start :width "100%"
-                      :children [[hyperlink :class "uppercase" :style {:width (str (max 18 (:name @widths)) "ch")}
-                                    :label "Exhibition" :tooltip "Sort by Exhibition"
-                                    :on-click #(if (= (first @sort-key) :name)
-                                                 (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
-                                                 (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:name true]]))]
-                                 [hyperlink :class "uppercase" :style {:width "8ch"}
-                                    :label "Kind" :tooltip "Sort by Kind"
-                                    :on-click #(if (= (first @sort-key) :kind)
-                                                 (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
-                                                 (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:kind true]]))]
-                                 [hyperlink :class "uppercase" :style {:width (str (max 18 (:location @widths)) "ch")}
-                                    :label "Location" :tooltip "Sort by Location"
-                                    :on-click #(if (= (first @sort-key) :location)
-                                                 (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
-                                                 (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:location true]]))]
-                                 [hyperlink :class "uppercase" :style {:width "12ch"}
-                                    :label "Begin" :tooltip "Sort by Begin Date"
-                                    :on-click #(if (= (first @sort-key) :begin-date)
-                                                 (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
-                                                 (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:begin-date true]]))]
-                                 [hyperlink :class "uppercase" :style {:width "12ch"}
-                                    :label "End" :tooltip "Sort by End Date"
-                                    :on-click #(if (= (first @sort-key) :end-date)
-                                                 (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
-                                                 (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:end-date true]]))]
-                                 ;[hyperlink :class "uppercase" :style {:width (str (max 18 (:url @widths)) "ch")}
-                                 ;   :label "url" :tooltip "Sort by URL"
-                                 ;   :on-click #(if (= (first @sort-key) :url)
-                                 ;                (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
-                                 ;                (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:url true]]))]
-                                 [hyperlink :class "uppercase" :style {:width "16ch"}
-                                  :label "Included in CV" :tooltip "Sort by Included in CV?"
-                                  :on-click #(if (= (first @sort-key) :include-in-cv)
-                                               (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
-                                               (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:include-in-cv true]]))]]]]
-        [v-box :gap "4px" :align :center :justify :start
-           :children (into [header]
-                           (mapv (fn [id bg] ^{:key (str id "-" (:name @widths))} [item-list-view @widths id bg]) @ids (cycle [true false])))]))))
+            header [:thead
+                     [:tr
+                        [:th [hyperlink :class "uppercase"
+                              :label "Exhibition" :tooltip "Sort by Exhibition"
+                              :on-click #(if (= (first @sort-key) :name)
+                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
+                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:name true]]))]]
+                        [:th [hyperlink :class "uppercase"
+                               :label "Kind" :tooltip "Sort by Kind"
+                               :on-click #(if (= (first @sort-key) :kind)
+                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
+                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:kind true]]))]]
+                        [:th [hyperlink :class "uppercase"
+                               :label "Location" :tooltip "Sort by Location"
+                               :on-click #(if (= (first @sort-key) :location)
+                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
+                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:location true]]))]]
+                        [:th [hyperlink :class "uppercase"
+                              :label "Begin" :tooltip "Sort by Begin Date"
+                              :on-click #(if (= (first @sort-key) :begin-date)
+                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
+                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:begin-date true]]))]]
+                        [:th [hyperlink :class "uppercase"
+                               :label "End" :tooltip "Sort by End Date"
+                               :on-click #(if (= (first @sort-key) :end-date)
+                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
+                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:end-date true]]))]]
+                        [:th [hyperlink :class "uppercase"
+                              :label "Included in CV" :tooltip "Sort by Included in CV?"
+                              :on-click #(if (= (first @sort-key) :include-in-cv)
+                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
+                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:include-in-cv true]]))]]]]]
+        [:table
+          header
+          (into [:tbody] (mapv (fn [id] ^{:key (str "exhibition-row-" id)} [table-row @widths id]) @ids))]))))
 
 (defn view-selection
   "The row of view selection controls: list new-item"
@@ -296,7 +287,7 @@
       [v-box :gap "16px" :align :center :justify :center
          :children [[view-selection]
                     (condp = @display-type
-                      :list [list-view]
+                      :list [table-view]
                       :single-item [single-item-view]
                       :new-item [new-item-view]
                       [:span (str "Unexpected display-type of " @display-type)])]])))

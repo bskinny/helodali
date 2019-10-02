@@ -403,8 +403,6 @@
   "Update our openid item in the database if the given userinfo map disagrees. Note the conversion of :email_verified
    to :email-verified."
   [userinfo openid-item]
-  (pprint (str "sync-userinfo: userinfo is " userinfo))
-  (pprint (str "sync-userinfo: openid-item is " openid-item))
   (let [sub (:sub openid-item)
         changes (cond-> {}
                         (not= (:email openid-item) (:email userinfo)) (assoc :email (:email userinfo))
