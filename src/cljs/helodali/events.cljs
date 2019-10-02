@@ -59,7 +59,7 @@
                (let [db (get-in context [:coeffects :db])
                      expired? (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1)))]
                  (if expired?
-                   (update-in context [:effects :db :refresh-aws-creds?] true)
+                   (assoc-in context [:effects :db :refresh-aws-creds?] true)
                    context)))))
 
 ;; This interceptor is run after an event handler has finished and validates app-db against spec
