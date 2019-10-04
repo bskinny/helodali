@@ -4,7 +4,7 @@
             [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [slingshot.slingshot :refer [throw+ try+]]
-            [helodali.db :refer [get-account query-by-uref update-user-table]])
+            [helodali.db :refer [get-item-by-uref query-by-uref update-user-table]])
   (:import (javax.crypto Mac)
            (javax.crypto.spec SecretKeySpec)))
 
@@ -94,7 +94,7 @@
   "Pull media from Instagram and populate the :instagram portion of the client's app-db. If
    max-id is not nil, the app is loading more media."
   [uref max-id]
-  (let [account (get-account uref)]
+  (let [account (get-item-by-uref :accounts uref)]
     (if (and account (:instagram-access-token account))
       {:instagram-media (get-recent-media uref max-id (:instagram-access-token account))}
       {})))

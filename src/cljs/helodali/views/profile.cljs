@@ -118,7 +118,9 @@
                             :children [[label :width "20ch" :class "uppercase light-grey" :label "Lectures & Talks"]
                                        [v-box :gap "8px" :align :start :justify :start
                                           :children (into [] (mapv (fn [idx lecture-and-talk bg] ^{:key (str "lecture-and-talk-" idx)} [display-year-and-label-view lecture-and-talk bg])
-                                                                   (range (count @lectures-and-talks)) @lectures-and-talks (cycle [true false])))]]])]
+                                                                   (range (count @lectures-and-talks)) @lectures-and-talks (cycle [true false])))]]])
+                  [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
+                            :children [[button :label "Generate CV" :class "btn-info" :on-click #(dispatch [:generate-cv])]]]]
                    ;; TODO: Add collections
             edit [[h-box :gap "8px" :align :center :justify :between
                     :children [[:span.uppercase.bold "Name"]

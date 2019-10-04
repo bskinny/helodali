@@ -73,10 +73,11 @@
           [openid-item {}]
           [openid-item (coerce-item :profile profile)])))))
 
-(defn get-account
-  "Get the user's account item."
-  [uuid]
-  (far/get-item co :accounts {:uuid uuid}))
+(defn get-item-by-uref
+  "Get the item in table by uref (user's uuid). This works for tables such as
+   :accounts, :profiles, and :pages"
+  [table uuid]
+  (far/get-item co table {:uuid uuid}))
 
 (defn query-by-uref
   "Query on items and clean results"
@@ -128,7 +129,7 @@
     {}
     (let [[openid-item profile] (get-profile-by-sub sub)
           uref (:uuid profile)
-          account (get-account uref)]
+          account (get-item-by-uref :accounts uref)]
       ;; openid-item contains :sub, :uref, :name, and :email keys.
       {:artwork (query-by-uref :artwork uref)
        :documents (query-by-uref :documents uref)

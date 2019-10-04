@@ -16,7 +16,7 @@
         commons-codec {:mvn/version "1.11"}
         org.apache.httpcomponents/httpclient {:mvn/version "4.5.6"}
         ring {:mvn/version "1.7.1"}
-        clj-pdf {:mvn/version "2.2.33"}
+        clj-pdf {:mvn/version "2.4.0"}
         org.clojure/core.async {:mvn/version "0.4.474"}
         danlentz/clj-uuid {:mvn/version "0.1.7"}
         com.lucasbradstreet/cljs-uuid-utils {:mvn/version "1.0.2"}
