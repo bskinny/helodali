@@ -134,7 +134,7 @@
                          :opt-un [::notes ::expense-type]))
 
 ;; Exhibitions
-(s/def ::kind #{:solo :group :duo :other})
+(s/def ::kind #{:solo :group :duo :selected :other})
 (s/def ::begin-date ::date)
 (s/def ::end-date (s/nilable ::date))
 ;; TODO: Do we need reception broken out or can that be left as 'notes'?
