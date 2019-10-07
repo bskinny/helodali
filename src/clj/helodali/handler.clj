@@ -49,10 +49,10 @@
   (let [session (db/query-session uref access-token)]
     ;; If the session is not available, force a login
     (if (empty? session)
-      (force-login req)
+      (force-login req "No matching session found in the database")
       (let [verify-response (cognito/verify-token session)]
         (if (:force-login verify-response)
-          (force-login req)
+          (force-login req "Token verification failed")
           (response (merge (process-fx) verify-response)))))))
 
 (defn- process-blob-request
@@ -63,11 +63,11 @@
   (let [session (db/query-session uref access-token)]
     ;; If the session is not available, force a login
     (if (empty? session)
-      (force-login req)
+      (force-login req "No matching session found in the database")
       (let [verify-response (cognito/verify-token session)]
         ;; If token verification failed or a refresh occurred, then force a login,
         (if (or (:force-login verify-response) (:access-token verify-response))
-          (force-login req)
+          (force-login req "Token verification failed or a refresh occurred")
           ;; We expect process-fx to create the response
           (process-fx))))))
 
@@ -232,14 +232,6 @@
                   ;; Token is valid or has been refreshed, in the former case the response will be a
                   ;; empty map, the latter will contain the tokens.
                   (response (merge verify-response {:refresh-access-token? false}))))))))))
-                  ;; Fetch the session again as the tokens might have been refreshed
-                  ;(let [session (db/query-session uref (get verify-response :access-token access-token))]
-                  ;  (if (empty? session)
-                      ;; Refresh did not work
-                      ;(force-login req "Unable to ")
-                      ;; Token is valid or has been refreshed, in the former case the response will be a
-                      ;; empty map, the latter will contain the tokens.
-                      ;(response (merge verify-response {:refresh-access-token? false})))))))))))
 
   (GET "/check-session" req
     (log "Handle /check-session with req" req)
@@ -261,13 +253,6 @@
                   (let [session (db/query-session uref (get verify-response :access-token (:token current-session)))]
                     (login-response req sub session uref))
                   (login-response req sub verify-response uref)))))))))
-                ;; Fetch the session again as the tokens might have been refreshed
-                ;(let [session (db/query-session uref (get verify-response :access-token (:token current-session)))]))))))))
-                ;  (if (empty? session)
-                   ;; Refresh did not work
-                   ;(force-login req)
-                   ;; Token is valid
-                   ;(login-response req sub session uref)))))))))
 
   ;; Redirected from Cognito server-side token request
   (GET "/login" [code :as req]
