@@ -107,6 +107,12 @@
                                        [v-box :gap "8px" :align :start :justify :start
                                           :children (into [] (mapv (fn [idx awards-and-grant bg] ^{:key (str "awards-and-grant-" idx)} [display-year-and-label-view awards-and-grant bg])
                                                                    (range (count @awards-and-grants)) @awards-and-grants (cycle [true false])))]]])
+                  (when (or (not (empty? @collections)))
+                    [h-box :gap "12px" :align :start :justify :start :padding "8px 0px"
+                     :children [[label :width "20ch" :class "uppercase light-grey" :label "Collections"]
+                                [v-box :gap "8px" :align :start :justify :start
+                                           :children (into [] (mapv (fn [idx collection bg] ^{:key (str "collection-" idx)} [display-year-and-label-view collection bg])
+                                                                   (range (count @collections)) @collections (cycle [true false])))]]])
                   (when (or (not (empty? @residencies)))
                     [h-box :gap "12px" :align :start :justify :start :padding "8px 0px"
                             :children [[label :width "20ch" :class "uppercase light-grey" :label "Residencies"]
@@ -121,7 +127,6 @@
                                                                    (range (count @lectures-and-talks)) @lectures-and-talks (cycle [true false])))]]])
                   [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
                             :children [[button :label "Generate CV" :class "btn-info" :on-click #(dispatch [:generate-cv])]]]]
-                   ;; TODO: Add collections
             edit [[h-box :gap "8px" :align :center :justify :between
                     :children [[:span.uppercase.bold "Name"]
                                [input-text :model (str @cn) :placeholder "" :width "320px" :style {:border "none"}
@@ -168,6 +173,15 @@
                                    [v-box :gap "16px" :align :start :justify :start :align-self :stretch
                                       :children (into [] (mapv (fn [idx bg] ^{:key (str "award-or-grant-" idx)} [display-year-and-label-edit "Award or Grant" [:profile :awards-and-grants] idx bg])
                                                                (range (count @awards-and-grants)) (cycle [true false])))])]]
+                  [v-box :gap "6px" :align :start :justify :start :align-self :stretch
+                      :children [[h-box :gap "6px" :align :center :justify :start
+                                   :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Add Collection"
+                                                 :on-click #(dispatch [:create-local-vector-element [:profile :collections] (helodali.db/default-year-val-map)])]
+                                              [:span "Collections"]]]
+                                 (when (not (empty? @collections))
+                                   [v-box :gap "16px" :align :start :justify :start :align-self :stretch
+                                         :children (into [] (mapv (fn [idx bg] ^{:key (str "collection-" idx)} [display-year-and-label-edit "Collection" [:profile :collections] idx bg])
+                                                                  (range (count @collections)) (cycle [true false])))])]]
                   [v-box :gap "6px" :align :start :justify :start :align-self :stretch
                       :children [[h-box :gap "6px" :align :center :justify :start
                                    :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Residencies"
