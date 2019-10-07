@@ -4,6 +4,9 @@
             #?(:clj  [clj-uuid :as uuid]
                :cljs [cljs-uuid-utils.core :as uuid])))
 
+;; A comparator to 'sort' for reverse order
+(def reverse-compare #(compare %2 %1))
+
 (defn coerce-int
   "Given map and set of keys, coerce the values associated with keys to int
    E.g. {:year 2014N} => {:year 2014}"

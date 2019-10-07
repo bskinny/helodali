@@ -4,6 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [clj-jwt.core :refer [str->jwt]]
             [helodali.db :as db]
+            [helodali.cv :as cv]
             [helodali.s3 :as s3]
             [helodali.common :refer [log]]
             [helodali.instagram :refer [refresh-instagram process-instagram-auth]]
@@ -12,35 +13,63 @@
             ;[ring.logger :as logger]
             ;[ring.logger.protocols :as logger.protocols]
             [ring.logger.tools-logging :refer [make-tools-logging-logger]]
-            [ring.util.response :refer [content-type header response resource-response file-response redirect]]
+            [ring.util.response :refer [content-type header response resource-response file-response status redirect]]
             [ring.middleware.reload :refer [wrap-reload]]
             [ring.middleware.defaults :refer :all]
             [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]
             [ring.middleware.multipart-params :refer [wrap-multipart-params]]
             [ring.middleware.format-params :refer [wrap-restful-params]]
             [ring.middleware.format-response :refer [wrap-restful-response]]
-            [slingshot.slingshot :refer [throw+ try+]]))
+            [slingshot.slingshot :refer [throw+ try+]]
+            [ring.util.response :as response]))
 
-;; The response to the application which will trigger the login flow
+
 (defn- force-login
-  [request]
-  (let [session-cookie (-> (:session request)
-                           (dissoc :uuid)
-                           (dissoc :sub)
-                           (dissoc :set-display-type))]
-    (-> (response {:authenticated? false :access-token nil :id-token nil :initialized? false})
-        (assoc :session (vary-meta session-cookie assoc :recreate true)))))
+  "Trigger the Login flow by disassociating the user's uuid from the session and emptying out
+   the cient's access/id tokens. The 'reason' argument is just for logging."
+  ([request]
+   (force-login request nil))
+  ([request reason]
+   (when reason (prn (str "Forcing login due to: " reason)))
+   (let [session-cookie (-> (:session request)
+                            (dissoc :uuid)
+                            (dissoc :sub)
+                            (dissoc :set-display-type))]
+     (-> (response {:authenticated? false :access-token nil :id-token nil :initialized? false})
+         (assoc :session (vary-meta session-cookie assoc :recreate true))))))
 
 (defn- process-request
+  "Given the user's uuid (uref), access-token provided by the web app, and finally
+   the function to be performed (process-fx), confirm the validity of the uref/access-token
+   combination and invoke function. If the access-token is expired, a refresh is attempted
+   with the new tokens (access and id) being returned in addition to the process-fx result.
+   Because of this, we expect process-fx to return a map which can be merged into and absorbed
+   by the web app."
   [req uref access-token process-fx]
   (let [session (db/query-session uref access-token)]
     ;; If the session is not available, force a login
     (if (empty? session)
-      (force-login req)
+      (force-login req "No matching session found in the database")
       (let [verify-response (cognito/verify-token session)]
         (if (:force-login verify-response)
-          (force-login req)
+          (force-login req "Token verification failed")
           (response (merge (process-fx) verify-response)))))))
+
+(defn- process-blob-request
+  "Similar to the above process-request except that we expect the process-fx function to return
+   binary data and hence we cannot tack on refreshed access/id tokens to the response. We can
+   still redirect to force-login."
+  [req uref access-token process-fx]
+  (let [session (db/query-session uref access-token)]
+    ;; If the session is not available, force a login
+    (if (empty? session)
+      (force-login req "No matching session found in the database")
+      (let [verify-response (cognito/verify-token session)]
+        ;; If token verification failed or a refresh occurred, then force a login,
+        (if (or (:force-login verify-response) (:access-token verify-response))
+          (force-login req "Token verification failed or a refresh occurred")
+          ;; We expect process-fx to create the response
+          (process-fx))))))
 
 (defn- login-response
   [req sub session uref]
@@ -50,6 +79,24 @@
                    set-display-type (assoc :display-type set-display-type))]
     (cond-> (response db)
             set-display-type (assoc :session (vary-meta (dissoc (:session req) :set-display-type) assoc :recreate true)))))
+
+(defn document-response [filename content-type bytes]
+  (with-open [in (java.io.ByteArrayInputStream. bytes)]
+   (-> (response/response in)
+       (response/header "Content-Disposition" (str "filename=" filename))
+       (response/header "Content-Length" (count bytes))
+       (response/content-type content-type))))
+
+(defn generate-cv
+  [uref]
+  (try
+    (let [out (java.io.ByteArrayOutputStream.)]
+      (cv/generate-cv out)
+      (document-response "cv.pdf" "application/pdf" (.toByteArray out)))
+    (catch Exception e
+      (pprint (str "Exception generating cv: " e))
+      (-> (response {})
+          (status 500)))))
 
 (defroutes routes
   (GET "/" []
@@ -113,6 +160,10 @@
     (pprint (str "refresh-image-data item-uuid/image-uuid: " item-uuid "/" image-uuid))
     (process-request req uref access-token #(db/refresh-image-data uref item-uuid image-uuid)))
 
+  (POST "/generate-cv" [access-token uref :as req]
+    (pprint (str "Handle /generate-cv with req: " req))
+    (process-blob-request req uref access-token #(generate-cv uref)))
+
   (POST "/delete-account" [access-token uref :as req]
     (pprint (str "Handle /delete-account with req: " req))
     (let [session (db/query-session uref access-token)
@@ -138,48 +189,49 @@
   ;; Validate the given tokens and replace the tokens with cognito/verify-token if
   ;; the access token is expired.
   (POST "/validate-token" [access-token id-token :as req]
-    (let [userinfo (-> id-token str->jwt :claims)]
-      (if (nil? userinfo)
-        (force-login req)
-        (let [[_ profile] (db/get-profile-by-sub (:sub userinfo))
-              uref (:uuid profile)
-              session (db/query-session uref access-token)]
-          (if (empty? session)
-            ;; No session found for access token, force authentication.
-            (force-login req)
-            (let [verify-response (cognito/verify-token session)]
-              (if (:force-login verify-response)
-                (force-login req)
-                ;; Fetch the session again as the tokens might have been refreshed
-                (let [session (db/query-session uref (get verify-response :access-token access-token))]
-                  (if (empty? session)
-                    ;; Refresh did not work
-                    (force-login req)
-                    ;; Token is valid
-                    (login-response req (:sub userinfo) session uref))))))))))
+    (log "Handle /validate-token with req" req)
+    (if (or (empty? access-token) (empty? id-token))
+      (force-login req "Access or id token is empty")
+      (let [userinfo (-> id-token str->jwt :claims)]
+        (if (nil? userinfo)
+          (force-login req "Userinfo claim in id-token is empty")
+          (let [[_ profile] (db/get-profile-by-sub (:sub userinfo))
+                uref (:uuid profile)
+                session (db/query-session uref access-token)]
+            (if (empty? session)
+              ;; No session found for access token, force authentication.
+              (force-login req "No matching session found in the database")
+              (let [verify-response (cognito/verify-token session)]
+                (if (:force-login verify-response)
+                  (force-login req)
+                  ;; Fetch the session again as the tokens might have been refreshed
+                  (let [session (db/query-session uref (get verify-response :access-token access-token))]
+                    (if (empty? session)
+                      ;; Refresh did not work
+                      (force-login req)
+                      ;; Token is valid
+                      (login-response req (:sub userinfo) session uref)))))))))))
 
   ;; Check for the need to refresh the access token and do so if necessary.
   (POST "/refresh-token" [access-token id-token :as req]
-    (let [userinfo (-> id-token str->jwt :claims)]
-      (if (nil? userinfo)
-        (force-login req)
-        (let [[_ profile] (db/get-profile-by-sub (:sub userinfo))
-              uref (:uuid profile)
-              session (db/query-session uref access-token)]
-          (if (empty? session)
-            ;; No session found for access token, force authentication.
-            (force-login req)
-            (let [verify-response (cognito/verify-token session)]
-              (if (:force-login verify-response)
-                (force-login req)
-                ;; Fetch the session again as the tokens might have been refreshed
-                (let [session (db/query-session uref (get verify-response :access-token access-token))]
-                  (if (empty? session)
-                    ;; Refresh did not work
-                    (force-login req)
-                    ;; Token is valid or has been refreshed, in the former case the response will be a
-                    ;; empty map, the latter will contain the tokens.
-                    (response (merge verify-response {:refresh-access-token? false})))))))))))
+    (log "Handle /refresh-token with req" req)
+    (if (or (empty? access-token) (empty? id-token))
+      (force-login req "Access or id token is empty")
+      (let [userinfo (-> id-token str->jwt :claims)]
+        (if (nil? userinfo)
+          (force-login req "Userinfo claim in id-token is empty")
+          (let [[_ profile] (db/get-profile-by-sub (:sub userinfo))
+                uref (:uuid profile)
+                session (db/query-session uref access-token)]
+            (if (empty? session)
+              ;; No session found for access token, force authentication.
+              (force-login req "No matching session found in the database")
+              (let [verify-response (cognito/verify-token session)]
+                (if (:force-login verify-response)
+                  (force-login req "Unable to verify token with Cognito")
+                  ;; Token is valid or has been refreshed, in the former case the response will be a
+                  ;; empty map, the latter will contain the tokens.
+                  (response (merge verify-response {:refresh-access-token? false}))))))))))
 
   (GET "/check-session" req
     (log "Handle /check-session with req" req)
@@ -191,17 +243,16 @@
               uref (:uuid profile)
               current-session (db/get-session session-uuid)]
           (if (empty? current-session)
-            (force-login req)
+            (force-login req "Unable to find session in database")
             (let [verify-response (cognito/verify-token current-session)]
               (if (:force-login verify-response)
-                (force-login req)
-                ;; Fetch the session again as the tokens might have been refreshed
-                (let [session (db/query-session uref (get verify-response :access-token (:token current-session)))]
-                  (if (empty? session)
-                    ;; Refresh did not work
-                    (force-login req)
-                    ;; Token is valid
-                    (login-response req sub session uref))))))))))
+                (force-login req "Unable to verify token with Cognito")
+                ;; If the verify-response is non-empty, then it contains refreshed tokens which we want to send back
+                ;; to the app as part of the app-db initialization.
+                (if (empty? verify-response)
+                  (let [session (db/query-session uref (get verify-response :access-token (:token current-session)))]
+                    (login-response req sub session uref))
+                  (login-response req sub verify-response uref)))))))))
 
   ;; Redirected from Cognito server-side token request
   (GET "/login" [code :as req]

@@ -1,6 +1,7 @@
 (ns helodali.events
   (:require
     [ajax.core :as ajax]
+    [ajax.protocols :refer [-body]]
     [helodali.common :refer [coerce-int coerce-decimal empty-string-to-nil]]
     [helodali.spec :as hs] ;; Keep this here even though we refer to the namespace directly below
     [helodali.misc :refer [expired? generate-uuid find-element-by-key-value find-item-by-key-value
@@ -59,7 +60,7 @@
                (let [db (get-in context [:coeffects :db])
                      expired? (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1)))]
                  (if expired?
-                   (update-in context [:effects :db :refresh-aws-creds?] true)
+                   (assoc-in context [:effects :db :refresh-aws-creds?] true)
                    context)))))
 
 ;; This interceptor is run after an event handler has finished and validates app-db against spec
@@ -460,7 +461,33 @@
           changes {:version (get-in new-db [:pages :version])
                    :processing (get-in new-db [:pages :processing])}]
       (merge (update-user-table-fx :pages [] changes false new-db)))))
-             ;{:dispatch-later}))))
+
+(reg-event-fx
+  :generate-cv
+  manual-check-spec
+  (fn [{:keys [db]} _]
+    {:http-xhrio {:method          :post
+                  :uri             "/generate-cv"
+                  :params          {:uref (:uuid (:profile db)) :access-token (:access-token db)}
+                  :headers         {:x-csrf-token (:csrf-token db)}
+                  :timeout         TIMEOUT
+                  :format          (ajax/transit-request-format {})
+                  :response-format {:content-type "application/pdf"
+                                    :type :blob
+                                    :description "PDF File"
+                                    :read -body}
+                  :on-success      [:present-pdf]
+                  :on-failure      [:bad-result {} false]}}))
+
+;; Open the pdf in a new browser window to allow for view or download
+(reg-event-db
+  :present-pdf
+  manual-check-spec
+  (fn [db [response]]
+    (let [file (js/Blob. (clj->js [response])
+                         (clj->js {:type "application/pdf"}))]
+      (.open js/window (.createObjectURL js/URL file) "_blank")
+      db)))
 
 ;; Switch to edit mode for given item. Stash the current app-db to undo changes
 ;; that are canceled. 'item-path' is a path to item such as [:press 2]

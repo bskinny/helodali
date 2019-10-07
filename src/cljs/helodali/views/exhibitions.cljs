@@ -14,6 +14,7 @@
 (def kind-options [{:id :solo :label "Solo"}
                    {:id :duo :label "Duo"}
                    {:id :group :label "Group"}
+                   {:id :selected :label "Selected"}
                    {:id :other :label "Other"}])
 
 (defn display-press-view
