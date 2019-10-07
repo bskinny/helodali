@@ -10,6 +10,14 @@
                                               input-text input-textarea single-dropdown selection-list
                                               button title checkbox]]))
 
+(defn- display-label-view
+  [val odd-row?]
+  (let [bg-color (if odd-row? "#F4F4F4" "#FCFCFC")]
+    [(fn []
+       [h-box :gap "6px" :justify :start :align :center :width "100%"
+         :style {:background bg-color :border-radius "4px"}
+         :children [[label :label (str val)]]])]))
+
 (defn- display-year-and-label-view
   [m odd-row?]
   (let [bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
@@ -20,6 +28,22 @@
          :style {:background bg-color :border-radius "4px"}
          :children [[label :label (str year)]
                     [label :label (str val)]]])]))
+
+(defn- display-label-edit
+  [label-string profile-path-to idx odd-row?]
+  (let [bg-color (if odd-row? "#F4F4F4" "#FCFCFC")
+        val-path (conj profile-path-to idx)
+        val (subscribe [:by-path val-path])]
+    (fn []
+      [v-box :gap "10px" :justify :start :align :start :padding "10px"
+       :style {:background bg-color :border "1px solid lightgray" :border-radius "4px"} :width "100%"
+       :children [[h-box :gap "6px" :align :center :justify :end :align-self :stretch
+                     :children [[button :label "Delete" :class "btn-default"
+                                        :on-click #(dispatch [:delete-local-vector-element profile-path-to idx])]]]
+                  [h-box :gap "8px" :align :center :justify :between
+                     :children [[:span.uppercase.bold label-string]
+                                [input-text :model (str @val) :placeholder "" :width "420px" :style {:border "none"}
+                                          :on-change #(dispatch [:set-local-item-val val-path %])]]]]])))
 
 (defn- display-year-and-label-edit
   [label-string profile-path-to idx odd-row?]
@@ -33,13 +57,13 @@
          :style {:background bg-color :border "1px solid lightgray" :border-radius "4px"} :width "100%"
          :children [[h-box :gap "6px" :align :center :justify :between :align-self :stretch
                        :children [[h-box :gap "6px" :align :center
-                                     :children [[:span.uppercase.light-grey "Year"]
+                                     :children [[:span.uppercase.bold "Year"]
                                                 [input-text :width "60px" :model (str @year) :style {:border "none"}
                                                       :on-change #(dispatch [:set-local-item-val year-path (int %)])]]]
                                   [button :label "Delete" :class "btn-default"
                                           :on-click #(dispatch [:delete-local-vector-element profile-path-to idx])]]]
                     [h-box :gap "8px" :align :center :justify :between
-                        :children [[:span.uppercase.light-grey label-string]
+                        :children [[:span.uppercase.bold label-string]
                                    [input-text :model (str @val) :placeholder "" :width "420px" :style {:border "none"}
                                       :on-change #(dispatch [:set-local-item-val val-path %])]]]]])))
 
@@ -111,7 +135,7 @@
                     [h-box :gap "12px" :align :start :justify :start :padding "8px 0px"
                      :children [[label :width "20ch" :class "uppercase light-grey" :label "Collections"]
                                 [v-box :gap "8px" :align :start :justify :start
-                                           :children (into [] (mapv (fn [idx collection bg] ^{:key (str "collection-" idx)} [display-year-and-label-view collection bg])
+                                           :children (into [] (mapv (fn [idx collection bg] ^{:key (str "collection-" idx)} [display-label-view collection bg])
                                                                    (range (count @collections)) @collections (cycle [true false])))]]])
                   (when (or (not (empty? @residencies)))
                     [h-box :gap "12px" :align :start :justify :start :padding "8px 0px"
@@ -176,11 +200,11 @@
                   [v-box :gap "6px" :align :start :justify :start :align-self :stretch
                       :children [[h-box :gap "6px" :align :center :justify :start
                                    :children [[md-icon-button :md-icon-name "zmdi-plus" :tooltip "Add Collection"
-                                                 :on-click #(dispatch [:create-local-vector-element [:profile :collections] (helodali.db/default-year-val-map)])]
+                                                 :on-click #(dispatch [:create-local-vector-element [:profile :collections] nil])]
                                               [:span "Collections"]]]
                                  (when (not (empty? @collections))
                                    [v-box :gap "16px" :align :start :justify :start :align-self :stretch
-                                         :children (into [] (mapv (fn [idx bg] ^{:key (str "collection-" idx)} [display-year-and-label-edit "Collection" [:profile :collections] idx bg])
+                                         :children (into [] (mapv (fn [idx bg] ^{:key (str "collection-" idx)} [display-label-edit "Collection" [:profile :collections] idx bg])
                                                                   (range (count @collections)) (cycle [true false])))])]]
                   [v-box :gap "6px" :align :start :justify :start :align-self :stretch
                       :children [[h-box :gap "6px" :align :center :justify :start
