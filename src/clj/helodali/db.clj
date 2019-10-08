@@ -110,7 +110,6 @@
   "Delete everything except for portions of the :accounts needed for later processes
    (e.g. cleanup of public-pages feature)."
   [uref sub]
-  ; TODO: Trigger account removal
   (let [query-opts {:proj-expr "#uref, #uuid"
                     :expr-attr-names {"#uref" "uref" "#uuid" "uuid"}}]
     (delete-items :artwork (far/query co :artwork {:uref [:eq uref]} query-opts))
@@ -121,6 +120,7 @@
     (delete-items :press (far/query co :press {:uref [:eq uref]} query-opts))
     (delete-item :profiles {:uuid uref})
     (delete-item :pages {:uuid uref})
+    (delete-item :accounts {:uuid uref})
     (delete-item :openid {:sub sub})))
 
 

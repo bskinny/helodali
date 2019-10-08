@@ -175,13 +175,13 @@
         (db/delete-item :sessions (select-keys session [:uuid]))
         ;; Delete all items in DynamoDB associated with the user
         (db/delete-user uref (:sub session))
+        ;; TODO: Confirm that the above deletion of the user's :pages item results in a site removal
         ;; Delete all s3 objects (removing helodali-raw-images will trigger the lambda function to
         ;; remove the associated helodali-images object)
         (when (not (empty? (:sub session)))
           ;; Making sure the prefix to s3/delete-objects is not nil
           (s3/delete-objects-by-prefix :helodali-raw-images (:sub session))
           (s3/delete-objects-by-prefix :helodali-documents (:sub session))))
-          ; TODO: Remove public pages
       (-> (response {})
         ;; Clear the user's information in the session cookie
         (assoc :session (vary-meta session-cookie assoc :recreate true)))))
