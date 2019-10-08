@@ -24,7 +24,7 @@
 ;; Batch size when calling batch-write-item to delete items from a table
 (def delete-batch-size 25)
 
-;; Session expiration time (time to cache access tokens in db): 24 hours
+;; Session table item expiration time (time to cache access tokens in db): 24 hours
 (def session-expiration-seconds (* 3600 24))
 
 (defn- coerce-item
