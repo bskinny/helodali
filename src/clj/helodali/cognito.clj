@@ -5,10 +5,8 @@
             [buddy.core.keys :as keys]
             [clj-jwt.core :refer [str->jwt verify]]
             [clojure.pprint :refer [pprint]]
-            [slingshot.slingshot :refer [throw+ try+]]
-            [clj-uuid :as uuid])
-  (:import (java.time.format DateTimeFormatter)
-           (java.time ZoneId ZonedDateTime)))
+            [slingshot.slingshot :refer [throw+ try+]])
+  (:import (java.time ZoneId ZonedDateTime)))
 
 (def client
   {:id (or (System/getenv "HD_COGNITO_CLIENT_ID")
@@ -84,8 +82,7 @@
   (pprint "Refreshing token")
   (let [params {:client_id (:id client)
                 :grant_type "refresh_token"
-                :refresh_token (:refresh session)}
-        tn (ZonedDateTime/now (ZoneId/of "Z"))]
+                :refresh_token (:refresh session)}]
     (try+
       (let [response (-> (http/post (str base-url "/oauth2/token")
                                     (merge options {:form-params params}))

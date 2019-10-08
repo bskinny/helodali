@@ -173,7 +173,7 @@
       ;; If the session is found, then delete the user
       (when (not (empty? session))
         (db/delete-item :sessions (select-keys session [:uuid]))
-        ;; Delete all items in Dynamo DB associated with the user
+        ;; Delete all items in DynamoDB associated with the user
         (db/delete-user uref (:sub session))
         ;; Delete all s3 objects (removing helodali-raw-images will trigger the lambda function to
         ;; remove the associated helodali-images object)
