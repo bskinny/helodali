@@ -24,8 +24,8 @@
 ;; Batch size when calling batch-write-item to delete items from a table
 (def delete-batch-size 25)
 
-;; Session expiration time (time to cache access tokens in db): 12 days
-(def session-expiration-seconds (* 3600 24 12))
+;; Session expiration time (time to cache access tokens in db): 24 hours
+(def session-expiration-seconds (* 3600 24))
 
 (defn- coerce-item
   "This looks for specific cases where we need to convert string values back to keywords and numbers to ints"
@@ -58,17 +58,22 @@
                  (assoc :residencies (mapv #(coerce-int % [:year]) (:residencies m))))
     m))
 
+(defn get-openid-by-sub
+  "Given an openid subject identifier (the 'sub' claim), resolve to an openid item
+   found in the :openid table."
+  [sub]
+  (far/get-item co :openid {:sub sub}))
+
 (defn get-profile-by-sub
   "Given an openid subject identifier (the 'sub' claim), resolve to a profile map
    by searching the openid table for the user's uuid and then getting the item
    from profiles. Return the openid item found and the profile map, an empty map
    if no profile is found."
   [sub]
-  (let [openid-item (far/get-item co :openid {:sub sub})
-        uref (:uref openid-item)]
-    (if (nil? uref)
+  (when-let [openid-item (get-openid-by-sub sub)]
+    (if (nil? (:uref openid-item))
       [openid-item {}]
-      (let [profile (far/get-item co :profiles {:uuid uref})]
+      (let [profile (far/get-item co :profiles {:uuid (:uref openid-item)})]
         (if (nil? profile)
           [openid-item {}]
           [openid-item (coerce-item :profile profile)])))))
@@ -432,18 +437,23 @@
 
 (defn cache-access-token
   "Store the access, id, and refresh tokens in the :sessions table along with an expiration
-   time (expire-at) which instructs when DynamoDB should expunge the item."
-  [session-uuid token-resp userinfo]
-  (let [openid-item (far/get-item co :openid {:sub (:sub userinfo)})
-        uref (:uref openid-item)]
-    (when uref
-      (let [tn (jt/with-zone (jt/zoned-date-time) "UTC")]
-        (far/put-item co :sessions {:uuid     session-uuid :uref uref :token (:access_token token-resp)
-                                    :refresh  (:refresh_token token-resp)
-                                    :id-token (:id_token token-resp) :sub (:sub userinfo)
-                                    :expire-at (+ session-expiration-seconds (.getEpochSecond (.toInstant tn)))
-                                    :ts (jt/format tn)})
-        uref))))
+   time (expire-at) which instructs when DynamoDB should expunge the item. Return the newly
+   created session's uuid.
+   NB: the tokens map is a response form an IdP containing keys with underscores: :access_token."
+  [tokens sub]
+  (when-let [openid-item (get-openid-by-sub sub)]
+    (let [uref (:uref openid-item)
+          session-uuid (str (uuid/v1))
+          tn (jt/with-zone (jt/zoned-date-time) "UTC")]
+      (far/put-item co :sessions {:uuid session-uuid
+                                  :uref uref
+                                  :token (:access_token tokens)
+                                  :refresh (:refresh_token tokens)
+                                  :id-token (:id_token tokens)
+                                  :sub sub
+                                  :expire-at (+ session-expiration-seconds (.getEpochSecond (.toInstant tn)))
+                                  :ts (jt/format tn)})
+      session-uuid)))
 
 (defn query-session
   "Check if the given uref and access-token are in agreement in the :sessions table,

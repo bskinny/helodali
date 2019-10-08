@@ -233,6 +233,9 @@
                   ;; empty map, the latter will contain the tokens.
                   (response (merge verify-response {:refresh-access-token? false}))))))))))
 
+  ;; Complete the /login process for the user. Assuming a previous successful /login has stashed
+  ;; a :sessions table :uuid value in the HTTP session, the :sessions item is retrieved and used
+  ;; to identity this user.
   (GET "/check-session" req
     (log "Handle /check-session with req" req)
     (let [sub (get-in req [:session :sub])
@@ -254,7 +257,10 @@
                     (login-response req sub session uref))
                   (login-response req sub verify-response uref)))))))))
 
-  ;; Redirected from Cognito server-side token request
+  ;; Redirected from Cognito server-side token request. The access token is requested from Cognito
+  ;; and cached in the database in the :sessions table. The :uuid of the newly created :sessions
+  ;; table item is stashed in the HTTP session under :uuid. This is then picked up by the next
+  ;; request to /check-session which complete the login process.
   (GET "/login" [code :as req]
     (log "Handle /login with req" req)
     (let [token-resp (cognito/get-token code)]
@@ -262,13 +268,12 @@
         {:message "Unable to get access token"}
         (let [userinfo (-> (:id_token token-resp) str->jwt :claims)]
           (db/create-user-if-necessary userinfo)
-          (let [session-uuid (str (uuid/v1))]
-            (db/cache-access-token session-uuid token-resp userinfo)
+          (let [session-uuid (db/cache-access-token token-resp (:sub userinfo))]
             (log (str "/login session " session-uuid " with userinfo from id_token") userinfo)
             (->
               (resource-response "index.html" {:root "public"})
               (content-type "text/html")
-              ;; Stash the user's uuid in the session
+              ;; Stash the user's sub and the database :sessions table uuid in the HTTP session
               (assoc-in [:session :sub] (:sub userinfo))
               (assoc-in [:session :uuid] session-uuid)))))))
 

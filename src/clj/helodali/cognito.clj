@@ -90,11 +90,9 @@
       (let [response (-> (http/post (str base-url "/oauth2/token")
                                     (merge options {:form-params params}))
                          (:body))]
-        (db/delete-item :sessions (select-keys session [:uuid]))
-        (db/put-items :sessions [{:uuid     (str (uuid/v1)) :uref (:uref session) :token (:access_token response)
-                                  :refresh  (:refresh session)
-                                  :id-token (:id_token response) :sub (:sub session)
-                                  :ts       (.format tn DateTimeFormatter/ISO_INSTANT)}])
+        ;; TODO: Should we delete the expired session explicitly or let DynamoDB expiration handle it?
+        ;(db/delete-item :sessions (select-keys session [:uuid]))
+        (db/cache-access-token response (:sub session))
         {:access-token (:access_token response)
          :id-token (:id_token response)
          :refresh-aws-creds? true})
