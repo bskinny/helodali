@@ -77,7 +77,8 @@
 
 (defn refresh-token
   "Passed a session which contains an expired token, use the refresh token to request
-   a new token and replace the session in the database."
+   a new token and create a new session in the database. The expired session will be
+   eventually expunged by the database."
   [session]
   (pprint "Refreshing token")
   (let [params {:client_id (:id client)
@@ -87,9 +88,7 @@
       (let [response (-> (http/post (str base-url "/oauth2/token")
                                     (merge options {:form-params params}))
                          (:body))]
-        ;; TODO: Should we delete the expired session explicitly or let DynamoDB expiration handle it?
-        ;(db/delete-item :sessions (select-keys session [:uuid]))
-        (db/cache-access-token response (:sub session))
+        (db/cache-access-token (merge response {:refresh_token (:refresh session)}) (:sub session))
         {:access-token (:access_token response)
          :id-token (:id_token response)
          :refresh-aws-creds? true})
