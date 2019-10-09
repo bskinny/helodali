@@ -283,7 +283,7 @@
                                   :children (into [] (mapv (fn [idx image bg] ^{:key (str "image-" idx)} [display-secondary-image id editing idx image bg]) (range 1 (count @images)) (rest @images) (cycle [true false])))])]]
             create-control [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
                               :children [[button :label "Create" :class "btn-default"
-                                           :on-click #(dispatch [:create-from-placeholder :artwork []])]
+                                           :on-click #(dispatch [:create-from-placeholder :artwork])]
                                          [button :label "Cancel" :class "btn-default"
                                            :on-click #(dispatch [:delete-item :artwork id])]]]
             save-control [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}
