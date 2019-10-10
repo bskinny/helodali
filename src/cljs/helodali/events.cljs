@@ -114,7 +114,7 @@
   [(inject-cofx :local-store-tokens)]
   (fn [{:keys [db local-store-tokens]} _]
     (enable-console-print!)
-    (merge (csrf-token-request [:update-db-from-result (fn [db] true)])
+    (merge (csrf-token-request [:update-db-from-result])
            {:db (-> helodali.db/default-db
                    (assoc :access-token (:access-token local-store-tokens))
                    (assoc :id-token (:id-token local-store-tokens)))})))
@@ -283,27 +283,37 @@
                                  {:k "helodali.id-token" :v (:id-token resp)}]
          :route-client {:route-name helodali.routes/home :args {}}}))))
 
-;; Update top-level app-db keys if supplied predicate evaluates true. The result can come from the server in the
-;; form [type val] with type points to a top-level key into app-db and val is the whole item replacement. The result
-;; can also be a map containing top-level keys which should be replaced in app-db. Note: For the former case, we
-;; must make one adjustment to the incoming table name, which is plural on the server and singular here in app-dn,
-;; e.g. :profiles -> :profile, :accounts -> :account. Note that :pages is a uref based table but the keyword is
-;; plural on both server and client.
+(defn- handle-app-db-updates
+  "Look in the provided response map for an :app-updates key and apply any top-level
+   app-db updates found in the associated map. E.g. :access-token, :id-token, etc."
+  [db result]
+  (if-let [keys-to-merge (:app-updates result)]
+    (merge db keys-to-merge)
+    db))
+
+(defn fix-table-names
+  "Change the map keys representing user table names when necessary. The :profiles
+   table on the server should be :profile here in the client app-db."
+  [result]
+  (cond-> result
+          (:profiles result) (assoc :profile (:profiles result))
+          (:accounts result) (assoc :account (:accounts result))))
+
+;; Update top-level app-db keys if supplied predicate evaluates true. The result will be a map containing top-level
+;; keys which should be replaced in app-db. Note: We must make one adjustment to the incoming table name, which is
+;; plural on the server and singular here in app-dn, e.g. :profiles -> :profile, :accounts -> :account.
+;; Note that :pages is a uref based table but the keyword is plural on both server and client.
 (reg-event-db
   :update-db-from-result
   manual-check-spec
-  (fn [db [predicate-fx result]]
-    (if (predicate-fx db)
-      (if (map? result)
-         (merge db result)
-         (let [[type item] result
-               ;; Fix table name if necessary.
-               type (cond-> = type
-                            :profiles :profile
-                            :accounts :account
-                            type)]
-           (assoc db type item)))
-      db)))
+  (fn [db [result]]
+    ;; It can be the case the server added an :app-updates key to the result for additional updates beyond what
+    ;; the client requested (e.g. updated access token). Apply that first.
+    (let [db (handle-app-db-updates db result)
+          result (-> result
+                     (dissoc :app-updates)
+                     (fix-table-names))]
+      (merge db result))))
 
 ;; Like above but without the predicate check and with a retry function to dispatch
 (reg-event-fx
@@ -379,7 +389,7 @@
                             :timeout         TIMEOUT
                             :format          (ajax/transit-request-format {})
                             :response-format (ajax/transit-response-format {:keywords? true})
-                            :on-success      [:update-db-from-result (fn [db] true)]
+                            :on-success      [:update-db-from-result]
                             :on-failure      [:bad-result {} retry-fx]}})))
 
 (defn- create-fx
@@ -398,7 +408,7 @@
                             :timeout         TIMEOUT
                             :format          (ajax/transit-request-format {})
                             :response-format (ajax/transit-response-format {:keywords? true})
-                            :on-success      [:update-db-from-result (fn [db] true)]
+                            :on-success      [:update-db-from-result]
                             :on-failure      [:bad-result {} retry-fx]}})))
 
 (defn- delete-fx
@@ -413,7 +423,7 @@
                             :timeout         TIMEOUT
                             :format          (ajax/transit-request-format {})
                             :response-format (ajax/transit-response-format {:keywords? true})
-                            :on-success      [:update-db-from-result (fn [db] true)]
+                            :on-success      [:update-db-from-result]
                             :on-failure      [:bad-result {} retry-fx]}})))
 
 ;; Update the app-db locally (i.e. do not propagate change to server)
@@ -617,7 +627,11 @@
   :update-items
   interceptors
   (fn [db [result]]
-    (let [apply-item-update (fn [type db change]
+    ;; Also handle any updates to the top-level db such as :access-token, etc. that are specified in
+    ;; the :app-updates key.
+    (let [db (handle-app-db-updates db result)
+          result (dissoc result :app-updates)
+          apply-item-update (fn [type db change]
                                ;; 'change' looks like [<uuid of item> [path-within-item value]]
                                ;; Find the item in the app-db, :instagram-media-ref do not have a
                                ;; a uuid key, instead a instagram-id.
@@ -682,7 +696,10 @@
   :update-instagram-media
   manual-check-spec
   (fn [db [append? result]]
-    (let [instagram-media (if (:instagram-media result)  ;; Convert the unix time :created to cljs-time objects
+    ;; Also handle any updates to the top-level db such as :access-token, etc. that are specified in
+    ;; the :app-updates key.
+    (let [db (handle-app-db-updates db result)
+          instagram-media (if (:instagram-media result)  ;; Convert the unix time :created to cljs-time objects
                             (mapv #(assoc % :created (from-long (get % :created))) (:instagram-media result)))]
       (if append?
         (assoc db :instagram-media (into-sorted-map (concat (vals (:instagram-media db)) instagram-media)))
@@ -734,7 +751,7 @@
                   :timeout         TIMEOUT
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
-                  :on-success      [:update-db-from-result (fn [db] true)]
+                  :on-success      [:update-db-from-result]
                   :on-failure      [:bad-result {:access-token nil :id-token nil} false]}}))
 
 (reg-event-fx
@@ -922,7 +939,7 @@
 (reg-event-fx
   :create-from-placeholder
   manual-check-spec
-  (fn [{:keys [db]} [type required-fields]]
+  (fn [{:keys [db]} [type]]
     (let [placeholder (get-in db [type 0])]
       (if (helodali.spec/invalid? type placeholder)
         {:db (add-message db :form-error "All required fields must have a value before changes can be saved.")}
@@ -940,8 +957,7 @@
 
 (defn- reflect-item-deletion
   [db type id]
-  (let [item (get-in db [type id])
-        new-db (update-in db [type] dissoc id)
+  (let [new-db (update-in db [type] dissoc id)
         mode (get db :display-type)]
         ;; If view mode is :new-item or :single-item, then switch to default view for type
     (if (or (= mode :new-item) (= mode :single-item))
@@ -1126,7 +1142,7 @@
     (if (and (= 403 (:status result)) retry-fx)
       ;; Refetch the csrf-token and retry the operation
       (merge (csrf-token-request [:update-csrf-token-and-retry retry-fx]))
-      ;; else update the message to alert the user of the trouble
+      ;; Else update the message to alert the user of the trouble
       ;; TODO: Need to back out change made to local app-db
       (let [db (merge db merge-this)]
         (if (string? result)
@@ -1163,15 +1179,21 @@
   :apply-item-refresh
   manual-check-spec
   (fn [{:keys [db]} [item-path satisfied-fn result]]
-    ;; If the 'result', which is a map, does not satisfy the given satisfied-fn, then we are still
-    ;; waiting on some type of processing and will try again after a delay.
-    (if (not (satisfied-fn result))
-      {:dispatch-later [{:ms 1000 :dispatch [:refresh-item item-path satisfied-fn]}]}
-      ;; else merge the map into the item
-      (let [fixed-resp (first (fix-response {(first item-path) [result]}))
-            val (-> (get-in db item-path)
-                    (merge fixed-resp))]
-        {:db (assoc-in db item-path val)}))))
+    ;; Handle the item update provided in the result map's :apply-item-refresh value. Also
+    ;; handle any updates to the top-level db such as :access-token, etc. that are specified in
+    ;; the :app-updates key.
+    (let [db (handle-app-db-updates db result)
+          updated-item (:apply-item-refresh result)]
+      ;; If the 'result', which is a map, does not satisfy the given satisfied-fn, then we are still
+      ;; waiting on some type of processing and will try again after a delay.
+      (if (not (satisfied-fn updated-item))
+        {:dispatch-later [{:ms 1000 :dispatch [:refresh-item item-path satisfied-fn]}]
+         :db db}
+        ;; else merge the map into the item
+        (let [fixed-resp (first (fix-response {(first item-path) [updated-item]}))
+              val (-> (get-in db item-path)
+                      (merge fixed-resp))]
+          {:db (assoc-in db item-path val)})))))
 
 ;; This event should be dispatched when an artwork has images being processed and hence
 ;; a fetch is required from DynamoDB. We dispatch continually, with a
@@ -1211,20 +1233,38 @@
   :apply-image-refresh
   manual-check-spec
   (fn [{:keys [db]} [path-to-image result]]
-    ;; If the 'result' map is empty, then we are still waiting on image processing and will
-    ;; try again after a delay. But make sure the item still exists in our app-db (in case it was deleted).
-    (if (and (empty? result) (get-in db [(first path-to-image) (second path-to-image)]))
-      {:dispatch-later [{:ms 1000 :dispatch [:refresh-image path-to-image]}]}
-      ;; else merge the map into the artwork and unset :processing
-      (let [image (-> (get-in db path-to-image)
-                     (merge result)
-                     (dissoc :signed-raw-url-expiration-time :signed-thumb-url-expiration-time :signed-image-url-expiration-time :signed-large-image-url-expiration-time)
-                     (coerce-int [:density :size :width :height])
-                     (dissoc :processing))]
-        {:db (-> db
-                (assoc-in path-to-image image))}))))
+    ;; Handle the image update provided in the result map's :apply-image-refresh value. Also
+    ;; handle any updates to the top-level db such as :access-token, etc. that are specified in
+    ;; the :app-updates key.
+    (let [db (handle-app-db-updates db result)
+          updated-image (:apply-image-refresh result)]
+      ;; If the :apply-image-refresh is empty, then we are still waiting on image processing and will
+      ;; try again after a delay. But make sure the item still exists in our app-db (in case it was deleted).
+      (if (and (empty? updated-image) (get-in db [(first path-to-image) (second path-to-image)]))
+        {:dispatch-later [{:ms 1000 :dispatch [:refresh-image path-to-image]}]
+         :db db}
+        ;; else merge the map into the artwork and unset :processing
+        (let [image (-> (get-in db path-to-image)
+                       (merge updated-image)
+                       (dissoc :signed-raw-url-expiration-time :signed-thumb-url-expiration-time :signed-image-url-expiration-time :signed-large-image-url-expiration-time)
+                       (coerce-int [:density :size :width :height])
+                       (dissoc :processing))]
+          {:db (-> db
+                  (assoc-in path-to-image image))})))))
 
-;; Get the signed URL to access designated S3 object. Define a 1 hour expiration.
+(reg-event-fx
+  :store-signed-url
+  manual-check-spec
+  (fn [{:keys [db]} [path-to-object-map url-key expiration-key expiration-time url]]
+    ;; Store the url returned from getSignedUrl
+    (let [s3 (:aws-s3 db)
+          new-db (-> db
+                    (assoc-in (conj path-to-object-map url-key) url)
+                    (assoc-in (conj path-to-object-map expiration-key) expiration-time))]
+      {:db new-db
+       :sync-to-local-storage [{:k "helodali.signed-urls"
+                                :v (current-signed-urls new-db)}]})))
+
 (reg-event-fx
   :get-signed-url
   (conj manual-check-spec check-aws-credentials)
@@ -1232,66 +1272,12 @@
     ;; If the AWS Credentials have expired, then delay the execution of this event
     (if (:refresh-aws-creds? db)
       {:dispatch-later [{:ms 400 :dispatch [:get-signed-url path-to-object-map bucket object-key url-key expiration-key]}]}
-      ;; Get the signed url
       (let [s3 (:aws-s3 db)
-            expiration-seconds (* 12 60 60) ;; 12 hours (must be within maximum defined for role in AWS IAM)
+            expiration-seconds (* 60 60 12) ;; 12 hours
             expiration-time (ct/plus (ct/now) (ct/seconds expiration-seconds))
-            params (clj->js {:Bucket bucket :Key object-key :Expires expiration-seconds})
-            url (js->clj (.getSignedUrl s3 "getObject" params))
-            new-db (-> db
-                      (assoc-in (conj path-to-object-map url-key) url)
-                      (assoc-in (conj path-to-object-map expiration-key) expiration-time))]
-        {:db new-db
-         :sync-to-local-storage [{:k "helodali.signed-urls"
-                                  :v (current-signed-urls new-db)}]}))))
-
-;; Execute s3 function s3f and on-success if successful, refresh token and retry otherwise
-; (reg-fx
-;   :s3-request
-;   (fn [{:keys [s3f on-success retry]}]
-;     (let [callback (fn [err data]
-;                       (if (nil? err)
-;                         (on-success)
-;                         (do
-;                           (.getSession ())
-;                           (retry))))
-;           op (condp = op-type
-;                       :put-object #(.putObject s3 params callback)
-;                       :copy-object #(.copyObject s3 params callback)
-;                       :delete-objects #(.deleteObjects s3 params callback)
-;                       (pprint (str "Error, s3-operation unknown op-type: " op-type)))]
-;       (op))))
-;
-; (reg-event-fx
-;   :store-signed-url
-;   manual-check-spec
-;   (fn [{:keys [db]} [path-to-object-map bucket object-key url-key expiration-key]]
-;     ;; Get the signed url
-;     (let [s3 (:aws-s3 db)
-;           expiration-seconds (* 60 60 24) ;; 24 hours
-;           expiration-time (ct/plus (ct/now) (ct/seconds expiration-seconds))
-;           params (clj->js {:Bucket bucket :Key object-key :Expires expiration-seconds})
-;           url (js->clj (.getSignedUrl s3 "getObject" params))
-;           new-db (-> db
-;                     (assoc-in (conj path-to-object-map url-key) url)
-;                     (assoc-in (conj path-to-object-map expiration-key) expiration-time))]
-;       (pprint (str "Retrieved signedUrl: " url))
-;       {:db new-db
-;        :sync-to-local-storage [{:k "helodali.signed-urls"
-;                                 :v (current-signed-urls new-db)}]})))
-;
-; (reg-event-fx
-;   :get-signed-url
-;   manual-check-spec
-;   (fn [{:keys [db]} [path-to-object-map bucket object-key url-key expiration-key]]
-;     ;; Get the signed url
-;     (let [s3 (:aws-s3 db)
-;           expiration-seconds (* 60 60 24) ;; 24 hours
-;           expiration-time (ct/plus (ct/now) (ct/seconds expiration-seconds))
-;           params (clj->js {:Bucket bucket :Key object-key :Expires expiration-seconds})
-;           s3f (partial (.getSignedUrl s3 "getObject" params))]
-;       {:s3-request {:s3f s3f :on-success #(dispatch [:store-signed-url path-to-object-map bucket object-key expiration-key])
-;                     :retry #(dispatch [:get-signed-url path-to-object-map bucket object-key expiration-key])}})))
+            params (clj->js {:Bucket bucket :Key object-key :Expires expiration-seconds})]
+        {:s3-operation {:op-type :get-signed-url :s3 (:aws-s3 db) :params params
+                        :on-success-dispatch [:store-signed-url path-to-object-map url-key expiration-key expiration-time]}}))))
 
 ;; Upload an image to the helodali-raw-images bucket. The s3 object key ("filename") is composed
 ;; as follows: sub/artwork-uuid/image-uuid/filename
@@ -1334,20 +1320,22 @@
                             "/" new-uuid "/" filename)
             params (clj->js {:Bucket "helodali-raw-images" :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})]
         {:s3-operation {:op-type :put-object :s3 (:aws-s3 db) :params params
-                        :on-success #(dispatch [:delete-s3-objects "helodali-raw-images" [image-to-delete]])}
+                        :on-success-dispatch [:delete-s3-objects "helodali-raw-images" [image-to-delete]]}
          :db (assoc-in db (conj images-path idx) {:uuid new-uuid :processing true})}))))
 
 ;; Perform an s3 operation, such as putObject or copyObject. The 'op-type' argument tells us what
-;; operation to perform.
+;; operation to perform. The on-success-dispatch argument is a vector which is passed to
+;; dispatch but first with the data from s3 function callback appended.
 (reg-fx
   :s3-operation
-  (fn [{:keys [op-type s3 params on-success]}]
+  (fn [{:keys [op-type s3 params on-success-dispatch]}]
     (let [callback (fn [err data]
                       (if (nil? err)
-                        (when on-success
-                          (on-success))
+                        (when on-success-dispatch
+                          (dispatch (conj on-success-dispatch data)))
                         (pprint (str "Err from s3-operation: " err)))) ;; TODO: dispatch error event?
           op (condp = op-type
+                      :get-signed-url #(.getSignedUrl s3 "getObject" params callback)
                       :put-object #(.putObject s3 params callback)
                       :copy-object #(.copyObject s3 params callback)
                       :delete-objects #(.deleteObjects s3 params callback)
@@ -1357,7 +1345,7 @@
 (reg-event-fx
   :on-s3-success
   interceptors
-  (fn [{:keys [db]} [item-path changes]]
+  (fn [{:keys [db]} [item-path changes & args]]
     (let [item (-> (get-in db item-path)
                   (merge changes)
                   (assoc :processing false))
@@ -1387,7 +1375,7 @@
             params (clj->js {:Bucket bucket :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})
             changes {key-name object-key :filename filename :size (.-size js-file)}]
         {:s3-operation {:op-type :put-object :s3 s3 :params params
-                        :on-success #(dispatch [:on-s3-success item-path changes])}
+                        :on-success-dispatch [:on-s3-success item-path changes]}
          :db (-> db
                (assoc-in (conj item-path :processing) true)
                (assoc-in (conj item-path :signed-raw-url) nil)
@@ -1412,7 +1400,7 @@
         (pprint (str "object-key: " object-key))
         (pprint (str "ContentType: " (.-type js-file)))
         {:s3-operation {:op-type :put-object :s3 s3 :params params
-                        :on-success #(dispatch [:on-s3-success item-path changes])}
+                        :on-success-dispatch [:on-s3-success item-path changes]}
          :db (-> db
                (assoc-in (conj item-path :processing) true)
                (assoc-in (conj item-path :signed-raw-url) nil)
@@ -1437,7 +1425,7 @@
             changes {key-name object-key}]
         (pprint (str "object-key: " object-key))
         {:s3-operation {:op-type :copy-object :s3 s3 :params params
-                        :on-success #(dispatch [:on-s3-success target-item-path changes])}
+                        :on-success-dispatch [:on-s3-success target-item-path changes]}
          :db (-> db
                (assoc-in (conj target-item-path :processing) true)
                (assoc-in (conj target-item-path :signed-raw-url) nil)
@@ -1460,7 +1448,8 @@
                          (pprint (str "Err from copyObject: " err))
                          (pprint "successful copyObject")))
             s3 (:aws-s3 db)
-            copy-source (str bucket "/" (:key source-object-map))
+            key-name (s3-key-for-bucket bucket)
+            copy-source (str bucket "/" (key-name source-object-map))
             images-path (conj target-item-path :images)
             images (get-in db images-path)
             new-uuid (generate-uuid)
@@ -1478,7 +1467,7 @@
 (reg-event-fx
   :delete-s3-objects
   (conj manual-check-spec check-aws-credentials)
-  (fn [{:keys [db]} [bucket objects]]
+  (fn [{:keys [db]} [bucket objects & args]]
     (if (empty? objects)
       {:db db} ;; nothing to do
       ;; If the AWS Credentials have expired, then delay the execution of this event

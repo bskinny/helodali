@@ -50,12 +50,12 @@
                   (coerce-decimal-string [:price]))
     :exhibitions (keywordize-vals m [:kind])
     :documents (coerce-int m [:size])
-    :profile (-> m
-                 (coerce-int [:birth-year])
-                 (assoc :degrees (mapv #(coerce-int % [:year]) (:degrees m)))
-                 (assoc :awards-and-grants (mapv #(coerce-int % [:year]) (:awards-and-grants m)))
-                 (assoc :lectures-and-talks (mapv #(coerce-int % [:year]) (:lectures-and-talks m)))
-                 (assoc :residencies (mapv #(coerce-int % [:year]) (:residencies m))))
+    :profiles (-> m
+                  (coerce-int [:birth-year])
+                  (assoc :degrees (mapv #(coerce-int % [:year]) (:degrees m)))
+                  (assoc :awards-and-grants (mapv #(coerce-int % [:year]) (:awards-and-grants m)))
+                  (assoc :lectures-and-talks (mapv #(coerce-int % [:year]) (:lectures-and-talks m)))
+                  (assoc :residencies (mapv #(coerce-int % [:year]) (:residencies m))))
     m))
 
 (defn get-openid-by-sub
@@ -76,7 +76,7 @@
       (let [profile (far/get-item co :profiles {:uuid (:uref openid-item)})]
         (if (nil? profile)
           [openid-item {}]
-          [openid-item (coerce-item :profile profile)])))))
+          [openid-item (coerce-item :profiles profile)])))))
 
 (defn get-item-by-uref
   "Get the item in table by uref (user's uuid). This works for tables such as
@@ -303,15 +303,15 @@
    See 'update-item' for the response format."
   [table uuid path val]
   (if (nil? path)
-    [table (coerce-item table (apply-attribute-changes table {:uuid uuid} val))]
-    [table (coerce-item table (apply-attribute-change table {:uuid uuid} path val))]))
+    {table (coerce-item table (apply-attribute-changes table {:uuid uuid} val))}
+    {table (coerce-item table (apply-attribute-change table {:uuid uuid} path val))}))
 
 (defn update-generic
-  "Update a table based on given key-map, single attribute change defined in path and val. See 'update-item' for the response format."
+  "Update a table based on given key-map, single attribute change defined in path and val.
+   See 'update-item' for the response format."
   [table key-map path val]
   (let [update-result (apply-attribute-change table key-map path val)]
-    (pprint (str "update-generic result: " update-result))
-    [table (coerce-item table update-result)]))
+    {table (coerce-item table update-result)}))
 
 (defn refresh-item-path
   "Fetch item from artwork, press, exhibitions, documents, expenses, or contacts table. The 'path'
@@ -328,14 +328,13 @@
     val))
 
 (defn refresh-image-data
-  "Fetch image map from artwork table the image given by item-uuid and image-uuid"
+  "Fetch image map from artwork table the image given by item-uuid and image-uuid."
   ;; TODO: think about optimizing the get-item call with projections
   [uref item-uuid image-uuid]
   (pprint (str "refresh-image-data uref/item-uuid/image-uuid: " uref "/" item-uuid "/" image-uuid))
   (let [item (coerce-item :artwork (far/get-item co :artwork {:uref uref :uuid item-uuid}))
         image (filter #(= image-uuid (:uuid %)) (:images item))]
-    ;(pprint (str "Refresh image data returning: " (first image)))
-    (first image)))
+    {:apply-image-refresh (first image)}))
 
 (defn create-item
   "Create a new item in given table. Drop any nil or #{} valued attributes, this
