@@ -61,7 +61,7 @@
                                        [:pre @notes]]])]
             create-control [h-box :gap "30px" :align :center
                               :children [[button :label "Create" :class "btn-default"
-                                           :on-click #(dispatch [:create-from-placeholder :documents []])]
+                                           :on-click #(dispatch [:create-from-placeholder :documents])]
                                          [button :label "Cancel" :class "btn-default"
                                            :on-click #(dispatch [:delete-item :documents id])]]]
             save-control [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}

@@ -54,7 +54,7 @@
             view-box [v-box :gap "10px" :align :start :justify :start :children view]
             create-control [h-box :gap "30px" :align :center
                               :children [[button :label "Create" :class "btn-default"
-                                           :on-click #(dispatch [:create-from-placeholder :expenses []])]
+                                           :on-click #(dispatch [:create-from-placeholder :expenses])]
                                          [button :label "Cancel" :class "btn-default"
                                            :on-click #(dispatch [:delete-item :expenses id])]]]
             save-control [h-box :gap "20px" :justify :center :align :center :margin "14px" :style {:font-size "18px"}

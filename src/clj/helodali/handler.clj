@@ -53,7 +53,7 @@
       (let [verify-response (cognito/verify-token session)]
         (if (:force-login verify-response)
           (force-login req "Token verification failed")
-          (response (merge (process-fx) verify-response)))))))
+          (response (merge (process-fx) {:app-updates verify-response})))))))
 
 (defn- process-blob-request
   "Similar to the above process-request except that we expect the process-fx function to return
@@ -137,7 +137,10 @@
     ;; This update of the identity-id should only be necessary after login and association with
     ;; an identity in the Cognito Identity Pool. Otherwise, DynamoDB does not create a write
     ;; for the case where there is no change in the attribute value.
-    (process-request req uref access-token #(db/update-generic :openid {:sub sub} [:identity-id] identity-id)))
+    (process-request req uref access-token #(do
+                                              (db/update-generic :openid {:sub sub} [:identity-id] identity-id)
+                                              ;; The client expects no data associated with the update of :openid table.
+                                              {})))
 
   (POST "/update-item" [uref uuid table path val access-token :as req]
     (pprint (str "update-item uref/uuid/table/path/val: " uref "/" uuid "/" table "/" path "/" val))
@@ -175,13 +178,13 @@
         (db/delete-item :sessions (select-keys session [:uuid]))
         ;; Delete all items in DynamoDB associated with the user
         (db/delete-user uref (:sub session))
+        ;; TODO: Confirm that the above deletion of the user's :pages item results in a site removal
         ;; Delete all s3 objects (removing helodali-raw-images will trigger the lambda function to
         ;; remove the associated helodali-images object)
         (when (not (empty? (:sub session)))
           ;; Making sure the prefix to s3/delete-objects is not nil
           (s3/delete-objects-by-prefix :helodali-raw-images (:sub session))
           (s3/delete-objects-by-prefix :helodali-documents (:sub session))))
-          ; TODO: Remove public pages
       (-> (response {})
         ;; Clear the user's information in the session cookie
         (assoc :session (vary-meta session-cookie assoc :recreate true)))))
