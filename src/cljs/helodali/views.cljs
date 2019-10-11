@@ -211,7 +211,7 @@
      (when (and (not @authenticated?) (empty? @access-token) (not (empty? @csrf-token)))
        (dispatch [:check-session]))
 
-     ;; Force the fetch of a access token refresh in the event the signed urls expire and we have not hit the
+     ;; Force the fetch of an access token, via refresh, in the event the signed urls expire and we have not hit the
      ;; (helodali) server for a pass through verify-token.
      (when @refresh-access-token?
        (dispatch [:refresh-access-token]))
@@ -236,13 +236,30 @@
        @sit-and-spin (show-spinner)
 
        (and (not @authenticated?) (empty? @access-token) (not= @view :static-page))
-       ;; Display login widget front and center
-       [v-box :gap "20px" :width "100%" :height "100%" :margin "0" :class "login-page"
-              :align :center :justify :between
-          :children [[h-box :size "0 0 auto" :width "100%" :align :center :justify :around :class "header"
-                        :children [(our-title @view)  (login-button)]]
-                     [gap :size "1px"]
-                     [footer]]]
+       ;; Display public home page
+       [v-box :gap "20px" :width "100%" :height "100%" :margin "0"
+         :children [[v-box :gap "20px" :width "100%" :height "100%" :margin "0" :class "login-page"
+                           :align :center :justify :between
+                       :children [[h-box :size "0 0 auto" :width "100%" :align :center :justify :around :class "header"
+                                     :children [(our-title @view)  (login-button)]]
+                                  ;[gap :size "1px"]
+                                  [v-box :align-self :end :margin "0px 40px 0px 0px"
+                                    :children [[:span.hero-text.hero-color "Think Make Repeat"]
+                                               [:span.hero-text-smaller.hero-color "Think Make Repeat"]
+                                               [:span.hero-text-smallest.hero-color "Think Make Repeat"]
+                                               [:span.hero-text-smallester.hero-color "Dog in the Park"]
+                                               [:span.hero-text-smallestest.hero-color "Must go Bark"]]]
+                                  [footer]]]
+                    [v-box :gap "20px" :width "100%" :height "100%" :margin "0"
+                           :align :center :justify :between
+                      :children [[gap "1px"]
+                                 [v-box :gap "1px" :width "100%" :height "100%" :margin "0" :align :center :justify :center
+                                   :children [[:p.hero-text-smallestest [:span.all-small-caps.hero-text-smallester "Store"] " any size image or file"]
+                                              [:p.hero-text-smallestest [:span.all-small-caps.hero-text-smallester "Organize"] " your artwork into exhibitions"]
+                                              [:p.hero-text-smallestest [:span.all-small-caps.hero-text-smallester "Track"] " your sales and expenses"]
+                                              [:p.hero-text-smallestest [:span.all-small-caps.hero-text-smallester "Import"] " posts from Instagram"]
+                                              [:p.hero-text-smallestest [:span.all-small-caps.hero-text-smallester "Generate"] " your CV"]]]
+                                 [gap "1px"]]]]]
 
        (and (not @authenticated?) (empty? @access-token) (= @view :static-page))
        ;; Display static html with login header
