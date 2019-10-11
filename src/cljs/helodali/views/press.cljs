@@ -181,33 +181,38 @@
         titles (subscribe [:items-vals :press :title])
         publications (subscribe [:items-vals :press :publication])]
     (fn []
-      (let [widths (r/atom {:title (+ 13 (max-string-length @titles 80))
-                            :publication (+ 4 (max-string-length @publications 40))})
-            header [:thead
-                     [:tr
-                       [:th [hyperlink :class "uppercase"
-                               :label "Title" :tooltip "Sort by Title"
-                               :on-click #(if (= (first @sort-key) :title)
-                                            (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
-                                            (dispatch [:set-local-item-val [:sort-keys :press] [:title true]]))]]
-                       [:th [hyperlink :class "uppercase"
-                               :label "Publication" :tooltip "Sort by Publication"
-                               :on-click #(if (= (first @sort-key) :publication)
-                                            (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
-                                            (dispatch [:set-local-item-val [:sort-keys :press] [:publication true]]))]]
-                       [:th [hyperlink :class "uppercase"
-                               :label "Date" :tooltip "Sort by Date"
-                               :on-click #(if (= (first @sort-key) :publication-date)
-                                            (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
-                                            (dispatch [:set-local-item-val [:sort-keys :press] [:publication-date true]]))]]
-                       [:th [hyperlink :class "uppercase"
-                               :label "Included in CV" :tooltip "Sort by Included in CV?"
-                               :on-click #(if (= (first @sort-key) :include-in-cv)
-                                            (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
-                                            (dispatch [:set-local-item-val [:sort-keys :press] [:include-in-cv true]]))]]]]]
-        [:table
-          header
-          (into [:tbody] (map (fn [id] ^{:key (str "press-row-" id)} [item-row @widths id]) @items))]))))
+      (if (not-empty @items)
+        (let [widths (r/atom {:title (+ 13 (max-string-length @titles 80))
+                              :publication (+ 4 (max-string-length @publications 40))})
+              header [:thead
+                       [:tr
+                         [:th [hyperlink :class "uppercase"
+                                 :label "Title" :tooltip "Sort by Title"
+                                 :on-click #(if (= (first @sort-key) :title)
+                                              (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
+                                              (dispatch [:set-local-item-val [:sort-keys :press] [:title true]]))]]
+                         [:th [hyperlink :class "uppercase"
+                                 :label "Publication" :tooltip "Sort by Publication"
+                                 :on-click #(if (= (first @sort-key) :publication)
+                                              (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
+                                              (dispatch [:set-local-item-val [:sort-keys :press] [:publication true]]))]]
+                         [:th [hyperlink :class "uppercase"
+                                 :label "Date" :tooltip "Sort by Date"
+                                 :on-click #(if (= (first @sort-key) :publication-date)
+                                              (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
+                                              (dispatch [:set-local-item-val [:sort-keys :press] [:publication-date true]]))]]
+                         [:th [hyperlink :class "uppercase"
+                                 :label "Included in CV" :tooltip "Sort by Included in CV?"
+                                 :on-click #(if (= (first @sort-key) :include-in-cv)
+                                              (dispatch [:set-local-item-val [:sort-keys :press 1] (not (second @sort-key))])
+                                              (dispatch [:set-local-item-val [:sort-keys :press] [:include-in-cv true]]))]]]]]
+          [:table
+            header
+            (into [:tbody] (map (fn [id] ^{:key (str "press-row-" id)} [item-row @widths id]) @items))])
+        [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
+         :children [[:p "Create your first press item with "]
+                    [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
+                     :on-click #(route-new-item :press)]]]))))
 
 (defn view-selection
   "The row of view selection controls: list new-item"

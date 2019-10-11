@@ -293,7 +293,7 @@
                                           :on-click #(dispatch [:cancel-edit-item [:artwork id]])]]]
             edit [[v-box :gap "4px" :align :baseline :justify :start
                      :children [[h-box :gap "4px" :align :center
-                                   :children [[:span.uppercase.light-grey "title"]
+                                   :children [[:span.uppercase.bold "title"]
                                               [input-text :model (str @title) :placeholder "Title of piece" :width "330px" :style {:border "none"}
                                                  :on-change #(dispatch [:set-local-item-val [:artwork id :title] %])]]]
                                 [:span.uppercase.light-grey "description"]
@@ -302,7 +302,7 @@
                   [v-box :gap "4px" :align :start :justify :around
                     :children [[h-box :gap "10px" :align :center :justify :start
                                  :children [[h-box :gap "4px" :align :center
-                                              :children [[:span.uppercase.light-grey "year"]
+                                              :children [[:span.uppercase.bold "year"]
                                                          [input-text :width "60px" :model (str @year) :placeholder "2016" :style {:border "none"}
                                                              :attr {:max-length 4} :validation-regex #"^\d*$" ;; validation: only numbers allowed
                                                              :on-change #(dispatch [:set-local-item-val [:artwork id :year] (js/Number %)])]]]
@@ -352,7 +352,9 @@
                                   :children (into [] (mapv (fn [idx bg] ^{:key (str "exhibition-" idx)} [display-exhibition-history-edit id idx bg])
                                                            (range (count @exhibition-history)) (cycle [true false])))])]]]
         [v-box :gap "8px" :align :start :justify :start :margin "20px" ;:style {:border "dashed 1px #ddd"}
-           :children [[h-box :gap "10px"  :align :start :justify :start
+           :children [(when (= @display-type :new-item)
+                        [box :align-self :center :margin "0px 10px" :child [:span.all-small-caps "an image can be uploaded after creating the item"]])
+                      [h-box :gap "10px"  :align :start :justify :start
                          :children (if (and @editing single-item) edit view)]
                       (when single-item
                         (if @editing edit-extended view-extended))

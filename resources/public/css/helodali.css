@@ -22,6 +22,27 @@ pre {
   padding: 28px;
 }
 
+.hero-color {
+    color:rgb(119, 71, 0);
+}
+.hero-text {
+  font-size: calc(35.5px + 3.888vw);
+}
+.hero-text-smaller {
+  font-size: calc(15.5px + 3.888vw);
+}
+.hero-text-smallest {
+  font-size: 3.888vw;
+}
+.hero-text-smallester {
+  font-size: 2.888vw;
+  margin-left: 8px;
+}
+.hero-text-smallestest {
+  font-size: 1.888vw;
+  margin-left: 8px;
+}
+
 .red {
  color: rgb(256,0,0);
 }

@@ -187,33 +187,38 @@
         filenames (subscribe [:items-vals :documents :filename])
         titles (subscribe [:items-vals :documents :title])]
     (fn []
-      (let [widths (r/atom {:filename (+ 8 (max-string-length @filenames 80))
-                            :title (+ 13 (max-string-length @titles 80))}) ;; 13 => leave space for "(no title)"
-            header [:thead
-                     [:tr
-                       [:th [hyperlink :class "uppercase" :label "Title"
-                               :tooltip "Sort by Title" :on-click #(if (= (first @sort-key) :title)
-                                                                     (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
-                                                                     (dispatch [:set-local-item-val [:sort-keys :documents] [:title true]]))]]
-                       [:th [hyperlink :class "uppercase" :label "Filename"
-                               :tooltip "Sort by Filename" :on-click #(if (= (first @sort-key) :filename)
-                                                                         (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
-                                                                         (dispatch [:set-local-item-val [:sort-keys :documents] [:filename true]]))]]
-                       [:th [hyperlink :class "uppercase" :label "Created"
-                                :tooltip "Sort by Date Created" :on-click #(if (= (first @sort-key) :created)
-                                                                             (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
-                                                                             (dispatch [:set-local-item-val [:sort-keys :documents] [:created false]]))]]
-                       [:th [hyperlink :class "uppercase" :label "Modified"
-                                :tooltip "Sort by Date Last Modified" :on-click #(if (= (first @sort-key) :last-modified)
-                                                                                   (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
-                                                                                   (dispatch [:set-local-item-val [:sort-keys :documents] [:last-modified true]]))]]
-                       [:th [hyperlink :class "uppercase" :label "Size"
-                               :tooltip "Sort by Size" :on-click #(if (= (first @sort-key) :size)
-                                                                    (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
-                                                                    (dispatch [:set-local-item-val [:sort-keys :documents] [:size false]]))]]]]]
-        [:table
-          header
-          (into [:tbody] (mapv (fn [id] ^{:key (str "document-row-" id)} [item-row @widths id]) @items))]))))
+      (if (not-empty @items)
+        (let [widths (r/atom {:filename (+ 8 (max-string-length @filenames 80))
+                              :title (+ 13 (max-string-length @titles 80))}) ;; 13 => leave space for "(no title)"
+              header [:thead
+                       [:tr
+                         [:th [hyperlink :class "uppercase" :label "Title"
+                                 :tooltip "Sort by Title" :on-click #(if (= (first @sort-key) :title)
+                                                                       (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
+                                                                       (dispatch [:set-local-item-val [:sort-keys :documents] [:title true]]))]]
+                         [:th [hyperlink :class "uppercase" :label "Filename"
+                                 :tooltip "Sort by Filename" :on-click #(if (= (first @sort-key) :filename)
+                                                                           (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
+                                                                           (dispatch [:set-local-item-val [:sort-keys :documents] [:filename true]]))]]
+                         [:th [hyperlink :class "uppercase" :label "Created"
+                                  :tooltip "Sort by Date Created" :on-click #(if (= (first @sort-key) :created)
+                                                                               (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
+                                                                               (dispatch [:set-local-item-val [:sort-keys :documents] [:created false]]))]]
+                         [:th [hyperlink :class "uppercase" :label "Modified"
+                                  :tooltip "Sort by Date Last Modified" :on-click #(if (= (first @sort-key) :last-modified)
+                                                                                     (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
+                                                                                     (dispatch [:set-local-item-val [:sort-keys :documents] [:last-modified true]]))]]
+                         [:th [hyperlink :class "uppercase" :label "Size"
+                                 :tooltip "Sort by Size" :on-click #(if (= (first @sort-key) :size)
+                                                                      (dispatch [:set-local-item-val [:sort-keys :documents 1] (not (second @sort-key))])
+                                                                      (dispatch [:set-local-item-val [:sort-keys :documents] [:size false]]))]]]]]
+          [:table
+            header
+            (into [:tbody] (mapv (fn [id] ^{:key (str "document-row-" id)} [item-row @widths id]) @items))])
+        [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
+         :children [[:p "Create your first document with "]
+                    [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
+                     :on-click #(route-new-item :documents)]]]))))
 
 (defn view-selection
   "The row of view selection controls: list new-item"

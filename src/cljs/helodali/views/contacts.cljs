@@ -168,44 +168,49 @@
         emails (subscribe [:items-vals :contacts :email])
         urls (subscribe [:items-vals :contacts :url])]
     (fn []
-      (let [widths (r/atom {:name (+ 2 (max-string-length @names 80))
-                            :email (+ 2 (max-string-length @emails 40))
-                            :url (+ 2 (max-string-length @urls 40))})
-            header [:thead
-                     [:tr
-                       [:th [hyperlink :class "uppercase"
-                                :label "Contact" :tooltip "Sort by Title"
-                                :on-click #(if (= (first @sort-key) :name)
-                                             (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
-                                             (dispatch [:set-local-item-val [:sort-keys :contacts] [:name true]]))]]
-                       [:th [hyperlink :class "uppercase"
-                                :label "role" :tooltip "Sort by Role"
-                                :on-click #(if (= (first @sort-key) :role)
-                                             (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
-                                             (dispatch [:set-local-item-val [:sort-keys :contacts] [:role true]]))]]
-                       [:th [hyperlink :class "uppercase"
-                                :label "email" :tooltip "Sort by Email"
-                                :on-click #(if (= (first @sort-key) :email)
-                                             (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
-                                             (dispatch [:set-local-item-val [:sort-keys :contacts] [:email true]]))]]
-                       [:th [hyperlink :class "uppercase"
-                                :label "phone" :tooltip "Sort by Phone"
-                                :on-click #(if (= (first @sort-key) :phone)
-                                             (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
-                                             (dispatch [:set-local-item-val [:sort-keys :contacts] [:phone true]]))]]
-                       [:th [hyperlink :class "uppercase"
-                                :label "url" :tooltip "Sort by URL"
-                                :on-click #(if (= (first @sort-key) :url)
-                                             (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
-                                             (dispatch [:set-local-item-val [:sort-keys :contacts] [:url true]]))]]
-                       [:th [hyperlink :class "uppercase"
-                                :label "instagram" :tooltip "Sort by Instagram Name"
-                                :on-click #(if (= (first @sort-key) :instagram)
-                                             (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
-                                             (dispatch [:set-local-item-val [:sort-keys :contacts] [:instagram true]]))]]]]]
-        [:table
-          header
-          (into [:tbody] (mapv (fn [id] ^{:key (str "contact-row-" id)} [item-row @widths id]) @items))]))))
+      (if (not-empty @items)
+        (let [widths (r/atom {:name (+ 2 (max-string-length @names 80))
+                              :email (+ 2 (max-string-length @emails 40))
+                              :url (+ 2 (max-string-length @urls 40))})
+              header [:thead
+                       [:tr
+                         [:th [hyperlink :class "uppercase"
+                                  :label "Contact" :tooltip "Sort by Title"
+                                  :on-click #(if (= (first @sort-key) :name)
+                                               (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
+                                               (dispatch [:set-local-item-val [:sort-keys :contacts] [:name true]]))]]
+                         [:th [hyperlink :class "uppercase"
+                                  :label "role" :tooltip "Sort by Role"
+                                  :on-click #(if (= (first @sort-key) :role)
+                                               (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
+                                               (dispatch [:set-local-item-val [:sort-keys :contacts] [:role true]]))]]
+                         [:th [hyperlink :class "uppercase"
+                                  :label "email" :tooltip "Sort by Email"
+                                  :on-click #(if (= (first @sort-key) :email)
+                                               (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
+                                               (dispatch [:set-local-item-val [:sort-keys :contacts] [:email true]]))]]
+                         [:th [hyperlink :class "uppercase"
+                                  :label "phone" :tooltip "Sort by Phone"
+                                  :on-click #(if (= (first @sort-key) :phone)
+                                               (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
+                                               (dispatch [:set-local-item-val [:sort-keys :contacts] [:phone true]]))]]
+                         [:th [hyperlink :class "uppercase"
+                                  :label "url" :tooltip "Sort by URL"
+                                  :on-click #(if (= (first @sort-key) :url)
+                                               (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
+                                               (dispatch [:set-local-item-val [:sort-keys :contacts] [:url true]]))]]
+                         [:th [hyperlink :class "uppercase"
+                                  :label "instagram" :tooltip "Sort by Instagram Name"
+                                  :on-click #(if (= (first @sort-key) :instagram)
+                                               (dispatch [:set-local-item-val [:sort-keys :contacts 1] (not (second @sort-key))])
+                                               (dispatch [:set-local-item-val [:sort-keys :contacts] [:instagram true]]))]]]]]
+          [:table
+            header
+            (into [:tbody] (mapv (fn [id] ^{:key (str "contact-row-" id)} [item-row @widths id]) @items))])
+        [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
+         :children [[:p "Create your first contact with "]
+                    [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
+                                      :on-click #(route-new-item :contacts)]]]))))
 
 (defn view-selection
   "The row of view selection controls: list new-item"
