@@ -212,44 +212,49 @@
         locations (subscribe [:items-vals :exhibitions :location])
         urls (subscribe [:items-vals :exhibitions :url])]
     (fn []
-      (let [widths (r/atom {:name (+ 2 (max-string-length @names 40))
-                            :location (+ 2 (max-string-length @locations 40))
-                            :url (+ 2 (max-string-length @urls 40))})
-            header [:thead
-                     [:tr
-                        [:th [hyperlink :class "uppercase"
-                              :label "Exhibition" :tooltip "Sort by Exhibition"
-                              :on-click #(if (= (first @sort-key) :name)
-                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
-                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:name true]]))]]
-                        [:th [hyperlink :class "uppercase"
-                               :label "Kind" :tooltip "Sort by Kind"
-                               :on-click #(if (= (first @sort-key) :kind)
-                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
-                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:kind true]]))]]
-                        [:th [hyperlink :class "uppercase"
-                               :label "Location" :tooltip "Sort by Location"
-                               :on-click #(if (= (first @sort-key) :location)
-                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
-                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:location true]]))]]
-                        [:th [hyperlink :class "uppercase"
-                              :label "Begin" :tooltip "Sort by Begin Date"
-                              :on-click #(if (= (first @sort-key) :begin-date)
-                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
-                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:begin-date true]]))]]
-                        [:th [hyperlink :class "uppercase"
-                               :label "End" :tooltip "Sort by End Date"
-                               :on-click #(if (= (first @sort-key) :end-date)
-                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
-                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:end-date true]]))]]
-                        [:th [hyperlink :class "uppercase"
-                              :label "Included in CV" :tooltip "Sort by Included in CV?"
-                              :on-click #(if (= (first @sort-key) :include-in-cv)
-                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
-                                           (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:include-in-cv true]]))]]]]]
-        [:table
-          header
-          (into [:tbody] (mapv (fn [id] ^{:key (str "exhibition-row-" id)} [table-row @widths id]) @ids))]))))
+      (if (not-empty @ids)
+        (let [widths (r/atom {:name (+ 2 (max-string-length @names 40))
+                              :location (+ 2 (max-string-length @locations 40))
+                              :url (+ 2 (max-string-length @urls 40))})
+              header [:thead
+                       [:tr
+                          [:th [hyperlink :class "uppercase"
+                                :label "Exhibition" :tooltip "Sort by Exhibition"
+                                :on-click #(if (= (first @sort-key) :name)
+                                             (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
+                                             (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:name true]]))]]
+                          [:th [hyperlink :class "uppercase"
+                                 :label "Kind" :tooltip "Sort by Kind"
+                                 :on-click #(if (= (first @sort-key) :kind)
+                                             (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
+                                             (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:kind true]]))]]
+                          [:th [hyperlink :class "uppercase"
+                                 :label "Location" :tooltip "Sort by Location"
+                                 :on-click #(if (= (first @sort-key) :location)
+                                             (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
+                                             (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:location true]]))]]
+                          [:th [hyperlink :class "uppercase"
+                                :label "Begin" :tooltip "Sort by Begin Date"
+                                :on-click #(if (= (first @sort-key) :begin-date)
+                                             (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
+                                             (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:begin-date true]]))]]
+                          [:th [hyperlink :class "uppercase"
+                                 :label "End" :tooltip "Sort by End Date"
+                                 :on-click #(if (= (first @sort-key) :end-date)
+                                             (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
+                                             (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:end-date true]]))]]
+                          [:th [hyperlink :class "uppercase"
+                                :label "Included in CV" :tooltip "Sort by Included in CV?"
+                                :on-click #(if (= (first @sort-key) :include-in-cv)
+                                             (dispatch [:set-local-item-val [:sort-keys :exhibitions 1] (not (second @sort-key))])
+                                             (dispatch [:set-local-item-val [:sort-keys :exhibitions] [:include-in-cv true]]))]]]]]
+          [:table
+            header
+            (into [:tbody] (mapv (fn [id] ^{:key (str "exhibition-row-" id)} [table-row @widths id]) @ids))])
+        [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
+         :children [[:p "Create your first exhibition with "]
+                    [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
+                     :on-click #(route-new-item :exhibitions)]]]))))
 
 (defn view-selection
   "The row of view selection controls: list new-item"

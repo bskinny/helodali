@@ -112,34 +112,39 @@
         items (subscribe [:items-keys-sorted-by-key :expenses sort-by-key-then-created])
         notes (subscribe [:items-vals :expenses :notes])]
     (fn []
-      (let [widths (r/atom {:date 12 :expense-type 20 :price 5
-                            :notes (max 10 (+ 2 (max-string-length @notes 40)))})
-            header [:thead
-                    [:tr
-                      [:th [hyperlink :class "uppercase"
-                            :label "Date" :tooltip "Sort by Date"
-                            :on-click #(if (= (first @sort-key) :date)
-                                         (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
-                                         (dispatch [:set-local-item-val [:sort-keys :expenses] [:date true]]))]]
-                      [:th [hyperlink :class "uppercase"
-                            :label "Type" :tooltip "Sort by Type"
-                            :on-click #(if (= (first @sort-key) :expense-type)
-                                         (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
-                                         (dispatch [:set-local-item-val [:sort-keys :expenses] [:expense-type true]]))]]
-                      ;; (trunc (safe-string @cn "(no name)") (get widths :name))
-                      [:th [hyperlink :class "uppercase"
-                            :label "Notes" :tooltip "Sort by Notes"
-                            :on-click #(if (= (first @sort-key) :notes)
-                                         (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
-                                         (dispatch [:set-local-item-val [:sort-keys :expenses] [:notes true]]))]]
-                      [:th [hyperlink :class "uppercase"
-                            :label "Price" :tooltip "Sort by Price"
-                            :on-click #(if (= (first @sort-key) :price)
-                                         (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
-                                         (dispatch [:set-local-item-val [:sort-keys :expenses] [:price true]]))]]]]]
-        [:table
-          header
-          (into [:tbody] (mapv (fn [id] ^{:key (str "expense-row-" id)} [item-row @widths id]) @items))]))))
+      (if (not-empty @items)
+        (let [widths (r/atom {:date 12 :expense-type 20 :price 5
+                              :notes (max 10 (+ 2 (max-string-length @notes 40)))})
+              header [:thead
+                      [:tr
+                        [:th [hyperlink :class "uppercase"
+                              :label "Date" :tooltip "Sort by Date"
+                              :on-click #(if (= (first @sort-key) :date)
+                                           (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
+                                           (dispatch [:set-local-item-val [:sort-keys :expenses] [:date true]]))]]
+                        [:th [hyperlink :class "uppercase"
+                              :label "Type" :tooltip "Sort by Type"
+                              :on-click #(if (= (first @sort-key) :expense-type)
+                                           (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
+                                           (dispatch [:set-local-item-val [:sort-keys :expenses] [:expense-type true]]))]]
+                        ;; (trunc (safe-string @cn "(no name)") (get widths :name))
+                        [:th [hyperlink :class "uppercase"
+                              :label "Notes" :tooltip "Sort by Notes"
+                              :on-click #(if (= (first @sort-key) :notes)
+                                           (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
+                                           (dispatch [:set-local-item-val [:sort-keys :expenses] [:notes true]]))]]
+                        [:th [hyperlink :class "uppercase"
+                              :label "Price" :tooltip "Sort by Price"
+                              :on-click #(if (= (first @sort-key) :price)
+                                           (dispatch [:set-local-item-val [:sort-keys :expenses 1] (not (second @sort-key))])
+                                           (dispatch [:set-local-item-val [:sort-keys :expenses] [:price true]]))]]]]]
+          [:table
+            header
+            (into [:tbody] (mapv (fn [id] ^{:key (str "expense-row-" id)} [item-row @widths id]) @items))])
+        [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
+         :children [[:p "Create your first expense with "]
+                    [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
+                     :on-click #(route-new-item :expenses)]]]))))
 
 (defn view-selection
   "The row of view selection controls: list new-item"

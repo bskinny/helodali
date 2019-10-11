@@ -51,48 +51,51 @@
   (let [sort-key (subscribe [:by-path [:sort-keys :purchases]])
         items (subscribe [:search-purchases identity])]
     (fn []
-      (let [widths {:buyer 24 :agent 22 :dealer 22 :title 30}
-            header [:thead
-                     [:tr
-                       [:th [hyperlink :class "uppercase"
-                               :label "Date" :tooltip "Sort by Date"
-                               :on-click #(if (= (first @sort-key) :date)
-                                            (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
-                                            (dispatch [:set-local-item-val [:sort-keys :purchases] [:date true]]))]]
-                       [:th [hyperlink :class "uppercase"
-                               :label "Title" :tooltip "Sort by Title"
-                               :on-click #(if (= (first @sort-key) :title)
-                                            (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
-                                            (dispatch [:set-local-item-val [:sort-keys :purchases] [:title true]]))]]
-                       [:th [hyperlink :class "uppercase"
-                               :label "Buyer" :tooltip "Sort by Buyer"
-                               :on-click #(if (= (first @sort-key) :buyer-name)
-                                            (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
-                                            (dispatch [:set-local-item-val [:sort-keys :purchases] [:buyer-name true]]))]]
-                       [:th [hyperlink :class "uppercase"
-                               :label "Agent" :tooltip "Sort by Agent"
-                               :on-click #(if (= (first @sort-key) :agent-name)
-                                            (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
-                                            (dispatch [:set-local-item-val [:sort-keys :purchases] [:agent-name true]]))]]
-                       [:th [hyperlink :class "uppercase"
-                               :label "Dealer" :tooltip "Sort by Dealer"
-                               :on-click #(if (= (first @sort-key) :dealer-name)
-                                            (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
-                                            (dispatch [:set-local-item-val [:sort-keys :purchases] [:dealer-name true]]))]]
-                       [:th [hyperlink :class "uppercase"
-                               :label "Price" :tooltip "Sort by Price"
-                               :on-click #(if (= (first @sort-key) :price)
-                                            (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
-                                            (dispatch [:set-local-item-val [:sort-keys :purchases] [:price true]]))]]
-                       [:th [hyperlink :class "uppercase"
-                              :label "Comm %" :tooltip "Sort by Commission Percent"
-                              :on-click #(if (= (first @sort-key) :total-commission-percent)
-                                           (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
-                                           (dispatch [:set-local-item-val [:sort-keys :purchases] [:total-commission-percent true]]))]]]]]
-        [:table
-          header
-          (into [:tbody] (mapv (fn [idx item] ^{:key (str idx "-purchase-" (:uuid item))} [item-row widths item])
-                               (range (count @items)) @items))]))))
+      (if (not-empty @items)
+        (let [widths {:buyer 24 :agent 22 :dealer 22 :title 30}
+              header [:thead
+                       [:tr
+                         [:th [hyperlink :class "uppercase"
+                                 :label "Date" :tooltip "Sort by Date"
+                                 :on-click #(if (= (first @sort-key) :date)
+                                              (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
+                                              (dispatch [:set-local-item-val [:sort-keys :purchases] [:date true]]))]]
+                         [:th [hyperlink :class "uppercase"
+                                 :label "Title" :tooltip "Sort by Title"
+                                 :on-click #(if (= (first @sort-key) :title)
+                                              (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
+                                              (dispatch [:set-local-item-val [:sort-keys :purchases] [:title true]]))]]
+                         [:th [hyperlink :class "uppercase"
+                                 :label "Buyer" :tooltip "Sort by Buyer"
+                                 :on-click #(if (= (first @sort-key) :buyer-name)
+                                              (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
+                                              (dispatch [:set-local-item-val [:sort-keys :purchases] [:buyer-name true]]))]]
+                         [:th [hyperlink :class "uppercase"
+                                 :label "Agent" :tooltip "Sort by Agent"
+                                 :on-click #(if (= (first @sort-key) :agent-name)
+                                              (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
+                                              (dispatch [:set-local-item-val [:sort-keys :purchases] [:agent-name true]]))]]
+                         [:th [hyperlink :class "uppercase"
+                                 :label "Dealer" :tooltip "Sort by Dealer"
+                                 :on-click #(if (= (first @sort-key) :dealer-name)
+                                              (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
+                                              (dispatch [:set-local-item-val [:sort-keys :purchases] [:dealer-name true]]))]]
+                         [:th [hyperlink :class "uppercase"
+                                 :label "Price" :tooltip "Sort by Price"
+                                 :on-click #(if (= (first @sort-key) :price)
+                                              (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
+                                              (dispatch [:set-local-item-val [:sort-keys :purchases] [:price true]]))]]
+                         [:th [hyperlink :class "uppercase"
+                                :label "Comm %" :tooltip "Sort by Commission Percent"
+                                :on-click #(if (= (first @sort-key) :total-commission-percent)
+                                             (dispatch [:set-local-item-val [:sort-keys :purchases 1] (not (second @sort-key))])
+                                             (dispatch [:set-local-item-val [:sort-keys :purchases] [:total-commission-percent true]]))]]]]]
+          [:table
+            header
+            (into [:tbody] (mapv (fn [idx item] ^{:key (str idx "-purchase-" (:uuid item))} [item-row widths item])
+                                 (range (count @items)) @items))])
+        [box :margin "40px" :align-self :center
+           :child [:p "There are no artwork items with purchase records, create a purchase record on an artwork item."]]))))
 
 (defn view-selection
   "Purchases view does not have any selection controls"
