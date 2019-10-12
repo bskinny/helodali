@@ -244,11 +244,7 @@
                                      :children [(our-title @view)  (login-button)]]
                                   ;[gap :size "1px"]
                                   [v-box :align-self :end :margin "0px 40px 0px 0px"
-                                    :children [[:span.hero-text.hero-color "Think Make Repeat"]
-                                               [:span.hero-text-smaller.hero-color "Think Make Repeat"]
-                                               [:span.hero-text-smallest.hero-color "Think Make Repeat"]
-                                               [:span.hero-text-smallester.hero-color "Dog in the Park"]
-                                               [:span.hero-text-smallestest.hero-color "Must go Bark"]]]
+                                    :children [[:span.hero-text.hero-color "Think Make Repeat"]]]
                                   [footer]]]
                     [v-box :gap "20px" :width "100%" :height "100%" :margin "0"
                            :align :center :justify :between

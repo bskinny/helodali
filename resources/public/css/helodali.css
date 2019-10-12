@@ -43,6 +43,15 @@ pre {
   margin-left: 8px;
 }
 
+.landing-screenshot {
+  padding: 20px;
+  display: none;
+}
+
+.show-screenshot:hover + div + .landing-screenshot {
+  display: block;
+}
+
 .red {
  color: rgb(256,0,0);
 }
