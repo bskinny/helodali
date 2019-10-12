@@ -98,7 +98,7 @@
               (when (not-empty (:collections profile))
                 [[:phrase "COLLECTIONS"]
                  [:spacer]
-                 (into [:list {:symbol ""}] (map #(year-val-formatter %) (:collections profile)))
+                 (into [:list {:symbol ""}] (map (fn [s] [:chunk s]) (:collections profile)))
                  [:spacer]])])))
 
 (defn generate-cv

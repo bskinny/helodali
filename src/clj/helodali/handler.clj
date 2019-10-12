@@ -91,7 +91,7 @@
   [uref]
   (try
     (let [out (java.io.ByteArrayOutputStream.)]
-      (cv/generate-cv out)
+      (cv/generate-cv uref out)
       (document-response "cv.pdf" "application/pdf" (.toByteArray out)))
     (catch Exception e
       (pprint (str "Exception generating cv: " e))
