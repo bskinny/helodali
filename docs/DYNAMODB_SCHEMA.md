@@ -391,7 +391,6 @@ secondary index for searching by `access-token` value.
         ],
         "GlobalSecondaryIndexes": [
             {
-                "IndexSizeBytes": 11035,
                 "IndexName": "uref-token-index",
                 "Projection": {
                     "ProjectionType": "ALL"
@@ -423,6 +422,17 @@ secondary index for searching by `access-token` value.
                 "AttributeName": "uuid"
             }
         ]
+    }
+}
+```
+
+The __sessions__ table also contains a time-to-live attribute. Below is 
+the `aws dynamodb describe-time-to-live` command output.
+```json
+{
+    "TimeToLiveDescription": {
+        "AttributeName": "expire-at",
+        "TimeToLiveStatus": "ENABLED"
     }
 }
 ```
