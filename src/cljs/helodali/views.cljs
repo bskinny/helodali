@@ -244,14 +244,15 @@
                                      :children [(our-title @view)  (login-button)]]
                                   ;[gap :size "1px"]
                                   [v-box :align-self :end :margin "0px 40px 0px 0px"
-                                    :children [[:span.hero-text.hero-color "Think Make Repeat"]]]
+                                    :children [[:span.hero-text.hero-color "Think Make Repeat"]
+                                               [:span.hero-text-smallester.hero-color "And Stay Organized"]]]
                                   [footer]]]
                     [v-box :gap "20px" :width "100%" :height "100%" :margin "0"
                            :align :center :justify :between
                       :children [[gap "1px"]
                                  [v-box :gap "1px" :width "100%" :height "100%" :margin "0" :align :center :justify :center
-                                   :children [[:p.hero-text-smallestest [:span.all-small-caps.hero-text-smallester "Store"] " any size image or file"]
-                                              [:p.hero-text-smallestest [:span.all-small-caps.hero-text-smallester "Organize"] " your artwork into exhibitions"]
+                                   :children [[:p.hero-text-smallestest [:span.all-small-caps.hero-text-smallester "Build"] " your artwork database"]
+                                              [:p.hero-text-smallestest [:span.all-small-caps.hero-text-smallester "Arrange"] " the work into exhibitions"]
                                               [:p.hero-text-smallestest [:span.all-small-caps.hero-text-smallester "Track"] " your sales and expenses"]
                                               [:p.hero-text-smallestest [:span.all-small-caps.hero-text-smallester "Import"] " posts from Instagram"]
                                               [:p.hero-text-smallestest [:span.all-small-caps.hero-text-smallester "Generate"] " your CV"]]]
