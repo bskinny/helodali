@@ -14,6 +14,15 @@
   (let [ks (set ks)]
     (into {} (map (fn [[k, v]] (if (contains? ks k) [k, (int v)] [k, v])) m))))
 
+(defn coerce-long
+  "Given map and set of keys, coerce the values associated with keys to int
+   E.g. {:year 2014N} => {:year 2014}"
+  [m ks]
+  (let [ks (set ks)
+        f #?(:clj long
+             :cljs int)]
+    (into {} (map (fn [[k, v]] (if (contains? ks k) [k, (f v)] [k, v])) m))))
+
 (defn coerce-decimal
   "Given map and set of keys, coerce the values associated with keys to decimal
    E.g. {:price 100.99N} => {:price \"100.99\"}"

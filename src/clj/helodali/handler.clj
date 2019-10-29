@@ -263,7 +263,7 @@
   ;; Redirected from Cognito server-side token request. The access token is requested from Cognito
   ;; and cached in the database in the :sessions table. The :uuid of the newly created :sessions
   ;; table item is stashed in the HTTP session under :uuid. This is then picked up by the next
-  ;; request to /check-session which complete the login process.
+  ;; request to /check-session which completes the login process.
   (GET "/login" [code :as req]
     (log "Handle /login with req" req)
     (let [token-resp (cognito/get-token code)]
