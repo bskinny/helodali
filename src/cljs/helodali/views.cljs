@@ -213,13 +213,13 @@
 
      ;; Force the fetch of an access token, via refresh, in the event the signed urls expire and we have not hit the
      ;; (helodali) server for a pass through verify-token.
-     (when @refresh-access-token?
-       (dispatch [:refresh-access-token]))
+     ;(when @refresh-access-token?
+     ;  (dispatch [:refresh-access-token]))
 
      ;; Fetch AWS Credentials if first time in or if needing a refresh after credential expiration
      (when (or (and @authenticated? @initialized? (empty? @aws-creds) (not (empty? @id-token)))
-               @refresh-aws-creds?
-               (and @aws-creds-created-time (ct/after? (ct/now) (ct/plus @aws-creds-created-time (ct/hours 1)))))
+               @refresh-aws-creds?)
+               ;(and @aws-creds-created-time (ct/after? (ct/now) (ct/plus @aws-creds-created-time (ct/hours 1)))))
        ;; Fetch the AWS credentials from Cognito and initialize AWS services like S3
        (let [aws-config (.-config js/AWS)
              logins {:IdentityPoolId "us-east-1:c5e15cf1-df1d-48df-85ba-f67d1ff45016"

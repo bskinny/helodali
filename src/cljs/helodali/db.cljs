@@ -195,6 +195,8 @@
    :cognito-identity-id nil
    :aws-creds nil
    :access-token nil
+   :refresh-access-token? false
+   :access-token-exp nil
    :id-token nil
    :do-cognito-logout? false
    :aws-s3 nil; ;; Accesses multiple S3 buckets

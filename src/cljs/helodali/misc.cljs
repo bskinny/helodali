@@ -2,6 +2,7 @@
    (:require [cljs-uuid-utils.core :as uuid]
              [clojure.pprint :refer [pprint]]
              [cljs-time.core :refer [before? after? now]]
+             [cljs-time.coerce :as coerce]
              [cljs-time.format :refer [parse unparse formatters]]))
 
 (defn compute-bg-color
@@ -29,6 +30,10 @@
       (before? ts (now))
       (let [dt (parse (formatters :date-time) ts)]
         (before? dt (now))))))
+
+(defn epoch-to-datetime
+  [^long epoch]
+  (coerce/from-long epoch))
 
 (defn fix-date
   "Called with a map or a vector of maps, such as an artwork's :purchases, converts a date valued kw to/from string

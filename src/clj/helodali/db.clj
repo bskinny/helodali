@@ -5,7 +5,7 @@
             [java-time :as jt]
             [helodali.types :as types]
             [clojure.java.io :as io]
-            [helodali.common :refer [log coerce-int coerce-decimal-string keywordize-vals]]
+            [helodali.common :refer [log coerce-int coerce-long coerce-decimal-string keywordize-vals]]
             [clojure.pprint :refer [pprint]]
             [helodali.s3 :as s3])
   (:import (com.amazonaws.services.dynamodbv2.model ConditionalCheckFailedException)))
@@ -24,8 +24,8 @@
 ;; Batch size when calling batch-write-item to delete items from a table
 (def delete-batch-size 25)
 
-;; Session table item expiration time (time to cache access tokens in db): 24 hours
-(def session-expiration-seconds (* 3600 24))
+;; Session table item expiration time (time to cache access tokens in db): 72 hours
+(def session-expiration-seconds (* 3600 72))
 
 (defn- coerce-item
   "This looks for specific cases where we need to convert string values back to keywords and numbers to ints"
@@ -48,6 +48,8 @@
     :expenses (-> m
                   (keywordize-vals [:expense-type])
                   (coerce-decimal-string [:price]))
+    :sessions (-> m
+                  (coerce-long [:access-token-exp :access-token-iat]))
     :exhibitions (keywordize-vals m [:kind])
     :documents (coerce-int m [:size])
     :profiles (-> m
@@ -146,6 +148,7 @@
        :authenticated? true
        :initialized? true
        :access-token (:token session)
+       :access-token-exp (:access-token-exp session)
        :id-token (:id-token session)
        :pages (far/get-item co :pages {:uuid uref})
        :account (-> account
@@ -436,8 +439,13 @@
 
 (defn cache-access-token
   "Store the access, id, and refresh tokens in the :sessions table along with an expiration
-   time (expire-at) which instructs when DynamoDB should expunge the item. Return the newly
-   created session's uuid.
+   time (expire-at) which instructs when DynamoDB should expunge the item. Note the difference
+   between the DynamoDB item expiration (expire-at) and the access_token expiration, the latter
+   should be sooner than the former of course. The access_token expiration is defined in the
+   token and as already been pulled out and placed in the incoming tokens map in :access-token-exp.
+
+   Return the newly created session's uuid.
+
    NB: the tokens map is a response form an IdP containing keys with underscores: :access_token."
   [tokens sub]
   (when-let [openid-item (get-openid-by-sub sub)]
@@ -447,6 +455,8 @@
       (far/put-item co :sessions {:uuid session-uuid
                                   :uref uref
                                   :token (:access_token tokens)
+                                  :access-token-exp (:access-token-exp tokens)
+                                  :access-token-iat (:access-token-iat tokens)
                                   :refresh (:refresh_token tokens)
                                   :id-token (:id_token tokens)
                                   :sub sub
@@ -462,9 +472,10 @@
     {}
     (let [sessions (far/query co :sessions {:uref [:eq uref] :token [:eq access-token]}
                               {:index "uref-token-index" :limit 1})]
-      ;; The projection will include :uuid, :uref, :token, :sub, :ts, and :refresh
+      ;; The projection will include :uuid, :uref, :token, :sub, :ts, :refresh,
+      ;; :access-token-exp, and :access-token-iat
       (if sessions
-        (first sessions)
+        (coerce-item :sessions (first sessions))
         {}))))
 
 (defn get-session
@@ -472,7 +483,7 @@
   [uuid]
   (let [session (far/get-item co :sessions {:uuid uuid})]
     (if session
-      session
+      (coerce-item :sessions session)
       {})))
 
 ;;

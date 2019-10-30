@@ -211,6 +211,8 @@
 (s/def ::refresh-aws-creds? boolean?)
 (s/def ::do-cognito-logout? boolean?)
 (s/def ::access-token (s/nilable string?))
+(s/def ::refresh-access-token? boolean?)
+(s/def ::access-token-exp (s/nilable #(instance? goog.date.Date %)))
 (s/def ::cognito-identity-id (s/nilable string?))
 (s/def ::id-token (s/nilable string?))
 (s/def ::userinfo (s/nilable (s/keys :opt-un [::sub]))) ;; From Cognito, no need to spec the complete contents of this map
@@ -232,8 +234,8 @@
 (s/def ::ui-defaults (s/nilable (s/keys :req-un [::artwork-defaults])))
 (s/def ::messages (s/keys))  ;; The keys for ::messages are mostly random
 (s/def ::db (s/keys :req-un [::view ::display-type ::single-item-uuid ::artwork ::contacts ::exhibitions ::ui-defaults
-                             ::press ::profile ::authenticated? ::initialized? ::access-token ::id-token ::cognito-identity-id
-                             ::userinfo ::search-pattern ::documents ::aws-creds ::refresh-aws-creds? ::account]
+                             ::press ::profile ::authenticated? ::initialized? ::access-token ::refresh-access-token? ::access-token-exp ::id-token
+                             ::cognito-identity-id ::userinfo ::search-pattern ::documents ::aws-creds ::refresh-aws-creds? ::account]
                     :opt-un [::messages ::instagram-media ::do-cognito-logout? ::pages]))
 
 (defn spec-for-type

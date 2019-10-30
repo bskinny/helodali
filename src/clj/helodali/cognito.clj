@@ -53,8 +53,15 @@
   []
   (reset! jwks (get-jwks)))
 
+(defn get-access-token-claims
+  "Given access-token as a string, return :claims map."
+  [token]
+  (:claims (str->jwt token)))
+
 (defn get-token
-  "Passed an authorization code, request the access, id and refresh tokens from Cognito"
+  "Passed an authorization code, request the access, id and refresh tokens from Cognito.
+   Return a map keyed with {:access_token :id_token :refresh_token :access-token-exp :access-token-iat}.
+   In order to get the access-token-exp we need to crack open the token."
   [code]
   (let [params {:client_id (:id client)
                 :redirect_uri (:redirect-uri client)
@@ -66,8 +73,12 @@
                        (:body))
                    (catch Object _
                      (pprint (str (:throwable &throw-context) " unexpected error"))
-                     (throw+)))]
-     response))
+                     (throw+)))
+        at-claims (get-access-token-claims (:access_token response))]
+     ;; Keys to the access_token :claims map are:
+     ;; {:sub :iss :exp :username :scope :cognito:groups :token_use :auth_time :jti :client_id :version :iat}
+     ;; The :exp and :iat keys are epoch valued (based on GMT), e.g. 1571666821.
+     (merge response {:access-token-exp (:exp at-claims) :access-token-iat (:iat at-claims)})))
 
 (defn remove-session-and-force-login
   [session msg]
@@ -87,8 +98,13 @@
     (try+
       (let [response (-> (http/post (str base-url "/oauth2/token")
                                     (merge options {:form-params params}))
-                         (:body))]
-        (db/cache-access-token (merge response {:refresh_token (:refresh session)}) (:sub session))
+                         (:body))
+            at-claims (get-access-token-claims (:access_token response))]
+        (db/cache-access-token (merge response
+                                      {:refresh_token (:refresh session)
+                                       :access-token-exp (:exp at-claims)
+                                       :access-token-iat (:iat at-claims)})
+                               (:sub session))
         {:access-token (:access_token response)
          :id-token (:id_token response)
          :refresh-aws-creds? true})

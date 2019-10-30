@@ -6,11 +6,11 @@
     [helodali.spec :as hs] ;; Keep this here even though we refer to the namespace directly below
     [helodali.misc :refer [expired? generate-uuid find-element-by-key-value find-item-by-key-value
                            remove-vector-element into-sorted-map trunc search-item-by-key-value
-                           fix-date parse-date unparse-date unparse-datetime]]
+                           fix-date parse-date unparse-date unparse-datetime epoch-to-datetime]]
     [helodali.routes :refer [route]]
     [helodali.db :refer [s3-key-for-bucket]]
     [cljs-time.core :as ct]
-    [cljs-time.coerce :refer [from-long]]
+    [cljs-time.coerce :refer [to-long from-long]]
     [cljs.reader]
     [cljs.pprint :refer [pprint]]
     [reagent.core :as r]
@@ -24,6 +24,9 @@
 
 ;; A request timeout of 10 seconds
 (def TIMEOUT 10000)
+
+;; 12 hour expiration for signed urls
+(def signed-url-expiration (* 60 60 12))
 
 (defn next-id
   "Assumes map is a sorted-map"
@@ -51,17 +54,22 @@
     (when-not (s/valid? a-spec db)
       (throw (ex-info (str "spec check failed: " (s/explain-str a-spec db)) {})))))
 
-;; An interceptor which looks for expired AWS credentials and sets the app-db key :refresh-aws-creds? appropriately
-;; When :refresh-aws-creds? is true, the main-panel will react to it and start a refresh process.
+;; An interceptor which looks for expired AWS credentials and performs the necessary updates.
+;; If the access token is also expired, we must refresh form server followed by an update
+;; of AWS identity credentials. If just the AWS identity credentials are expired, set the app-db key
+;; :refresh-aws-creds? to true. When :refresh-aws-creds? is true, the main-panel will react to it
+;; and start a refresh process.
 (def check-aws-credentials
   (re-frame.core/->interceptor
     :id      :check-aws-credentials
     :before  (fn [context]
                (let [db (get-in context [:coeffects :db])
-                     expired? (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1)))]
-                 (if expired?
-                   (assoc-in context [:effects :db :refresh-aws-creds?] true)
-                   context)))))
+                     now (ct/now)
+                     token-expired? (ct/after? now (:access-token-exp db))
+                     aws-expired? (ct/after? now (ct/plus (:aws-creds-created-time db) (ct/hours 12)))]
+                 (cond-> context
+                         token-expired? (assoc-in [:effects :db :refresh-access-token??] true)
+                         aws-expired? (assoc-in [:effects :db :refresh-aws-creds?] true))))))
 
 ;; This interceptor is run after an event handler has finished and validates app-db against spec
 (def check-spec-interceptor (after (partial check-and-throw :helodali.spec/db)))
@@ -74,6 +82,8 @@
 ;; Some effects handlers check spec themselves before submitting requests to the server
 (def manual-check-spec [(when ^boolean js/goog.DEBUG debug)
                         trim-v])
+
+(def prep-for-aws-request (conj manual-check-spec check-aws-credentials))
 
 (defn- add-message
   "Add a message to :messages (stack of warnings in the UI). If id is nil, generate
@@ -117,6 +127,7 @@
     (merge (csrf-token-request [:update-db-from-result])
            {:db (-> helodali.db/default-db
                    (assoc :access-token (:access-token local-store-tokens))
+                   (assoc :access-token-exp (:access-token-exp local-store-tokens))
                    (assoc :id-token (:id-token local-store-tokens)))})))
 
 (reg-cofx
@@ -130,6 +141,7 @@
         (.removeItem js/localStorage "helodali.access-token");
         (assoc cofx :local-store-tokens
                {:access-token (.getItem js/localStorage "helodali.access-token")
+                :access-token-exp (from-long (int (.getItem js/localStorage "helodali.access-token-exp")))
                 :id-token (.getItem js/localStorage "helodali.id-token")})))))
 
 (defn- current-signed-urls
@@ -223,6 +235,7 @@
   (let [fixer (partial fix-date :parse)
         has (partial contains? resp)]
     (cond-> resp
+        (has :access-token-exp) (assoc :access-token-exp (from-long (* 1000 (:access-token-exp resp))))
         (has :artwork) (assoc :artwork (->> (:artwork resp)
                                             (fixer :created)
                                             (map #(assoc % :instagram-media-ref (and (:instagram-media-ref %)
@@ -272,23 +285,31 @@
                        (assoc :account (:account resp))
                        (assoc :userinfo (:userinfo resp))
                        (assoc :access-token (:access-token resp))
+                       (assoc :access-token-exp (:access-token-exp resp))
                        (assoc :id-token (:id-token resp))
                        (assoc :authenticated? (:authenticated? resp))
                        (assoc :initialized? (:initialized? resp))
                        (assoc :display-type (if (:display-type resp) (:display-type resp) (:display-type db))) ;; Set display-type if it is present in the response
                        (assoc :instagram-media (and (:instagram-media resp) (into-sorted-map (:instagram-media resp))))
-                       (assoc :initialized? true))]
+                       (assoc :initialized? true)
+                       ;; The resp may contain a map of top-level app-db key/vals to merge into our initial db, found in the :merge-this key of the resp.
+                       ;; If the merge-this map is non-empty it most likely contains :view and :display-type keys to route the app to the Instagram view.
+                       (merge (:merge-this resp)))]
         {:db app-db
          :sync-to-local-storage [{:k "helodali.access-token" :v (:access-token resp)}
+                                 {:k "helodali.access-token-exp" :v (str (to-long (:access-token-exp resp)))}
                                  {:k "helodali.id-token" :v (:id-token resp)}]
-         :route-client {:route-name helodali.routes/home :args {}}}))))
+         ;; Route the app to either the home page or a specific view if one has been assigned from the above db initialization.
+         :route-client (if (and (:view app-db) (:display-type app-db))
+                         {:route-name helodali.routes/view-display :args {:type (name (:view app-db)) :display (name (:display-type app-db))}}
+                         {:route-name helodali.routes/home :args {}})}))))
 
 (defn- handle-app-db-updates
   "Look in the provided response map for an :app-updates key and apply any top-level
    app-db updates found in the associated map. E.g. :access-token, :id-token, etc."
   [db result]
-  (if-let [keys-to-merge (:app-updates result)]
-    (merge db keys-to-merge)
+  (if-let [to-merge (:app-updates result)]
+    (merge db (fix-response to-merge))
     db))
 
 (defn fix-table-names
@@ -722,7 +743,7 @@
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
                   :on-success      [:initialize-db-from-result]
-                  :on-failure      [:bad-result {:access-token nil :id-token nil} false]}}))
+                  :on-failure      [:bad-result {:access-token nil :access-token-exp nil :id-token nil} false]}}))
 
 ;; GET /check-session and initialize db if a valid access token is refreshed on the server
 (reg-event-fx
@@ -752,7 +773,7 @@
                   :format          (ajax/transit-request-format {})
                   :response-format (ajax/transit-response-format {:keywords? true})
                   :on-success      [:update-db-from-result]
-                  :on-failure      [:bad-result {:access-token nil :id-token nil} false]}}))
+                  :on-failure      [:bad-result {:access-token nil :access-token-exp nil :id-token nil} false]}}))
 
 (reg-event-fx
   :set-aws-credentials
@@ -802,6 +823,7 @@
                   :on-success      [:complete-logout]
                   :on-failure      [:bad-result {} #(dispatch [:logout])]}
      :sync-to-local-storage [{:k "helodali.access-token" :v nil}
+                             {:k "helodali.access-token-exp" :v nil}
                              {:k "helodali.id-token" :v nil}]}))
 
 (reg-event-fx
@@ -819,6 +841,7 @@
                   :on-success      [:complete-logout]
                   :on-failure      [:bad-result {} #(dispatch [:delete-account])]}
      :sync-to-local-storage [{:k "helodali.access-token" :v nil}
+                             {:k "helodali.access-token-exp" :v nil}
                              {:k "helodali.id-token" :v nil}
                              {:k "helodali.signed-urls" :v nil}]}))
 
@@ -835,17 +858,17 @@
      :route-client {:route-name helodali.routes/home :args {}}}))
 
 
-(reg-event-fx
-  :authenticated
-  manual-check-spec
-  (fn [{:keys [db]} [authenticated? access-token id-token]]
-    ; (pprint (str "Event :authenticated with params: authenticated?=" authenticated? ", access-token=" access-token ", id-token=" id-token))
-    {:db (-> db
-           (assoc :authenticated? authenticated?)
-           (assoc :id-token id-token)
-           (assoc :access-token access-token))
-     :sync-to-local-storage [{:k "helodali.access-token" :v access-token}
-                             {:k "helodali.id-token" :v id-token}]}))
+;(reg-event-fx
+;  :authenticated
+;  manual-check-spec
+;  (fn [{:keys [db]} [authenticated? access-token id-token]]
+;    ; (pprint (str "Event :authenticated with params: authenticated?=" authenticated? ", access-token=" access-token ", id-token=" id-token))
+;    {:db (-> db
+;           (assoc :authenticated? authenticated?)
+;           (assoc :id-token id-token)
+;           (assoc :access-token access-token))
+;     :sync-to-local-storage [{:k "helodali.access-token" :v access-token}
+;                             {:k "helodali.id-token" :v id-token}]}))
 
 (reg-event-fx
   :copy-item
@@ -883,17 +906,12 @@
                          (assoc new-items id (assoc item kw value)))]
       (assoc db type (reduce-kv apply-change (sorted-map) (get db type))))))
 
-;; Change view. If 'display' is :default, look up the default view for the item type. Take this opportunity
-;; to inspect the age of the aws credentials and force a refresh if necessary.
+;; Change view. If 'display' is :default, look up the default view for the item type.
 (reg-event-db
   :change-view
   (fn [db [_ type display]]
-    (let [display-type (if (= display :default) (helodali.db/default-view-for-type type) display)
-          refresh-access-token? (if (:aws-creds-created-time db)
-                                  (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1)))
-                                  false)]
+    (let [display-type (if (= display :default) (helodali.db/default-view-for-type type) display)]
       (-> db
-        (assoc :refresh-access-token? refresh-access-token?)
         (assoc :display-type display-type)
         (assoc :view type)))))
 
@@ -1267,17 +1285,19 @@
 
 (reg-event-fx
   :get-signed-url
-  (conj manual-check-spec check-aws-credentials)
+  prep-for-aws-request
   (fn [{:keys [db]} [path-to-object-map bucket object-key url-key expiration-key]]
     ;; If the AWS Credentials have expired, then delay the execution of this event
-    (if (:refresh-aws-creds? db)
-      {:dispatch-later [{:ms 400 :dispatch [:get-signed-url path-to-object-map bucket object-key url-key expiration-key]}]}
-      (let [s3 (:aws-s3 db)
-            expiration-seconds (* 60 60 12) ;; 12 hours
-            expiration-time (ct/plus (ct/now) (ct/seconds expiration-seconds))
-            params (clj->js {:Bucket bucket :Key object-key :Expires expiration-seconds})]
-        {:s3-operation {:op-type :get-signed-url :s3 (:aws-s3 db) :params params
-                        :on-success-dispatch [:store-signed-url path-to-object-map url-key expiration-key expiration-time]}}))))
+    (if (and (:refresh-access-token? db) (:refresh-aws-creds? db))
+      {:dispatch-n (list [:refresh-access-token] [:get-signed-url path-to-object-map bucket object-key url-key expiration-key])}
+      (if (:refresh-aws-creds? db)
+        {:dispatch-later [{:ms 400 :dispatch [:get-signed-url path-to-object-map bucket object-key url-key expiration-key]}]}
+        (let [s3 (:aws-s3 db)
+              expiration-seconds signed-url-expiration
+              expiration-time (ct/plus (ct/now) (ct/seconds expiration-seconds))
+              params (clj->js {:Bucket bucket :Key object-key :Expires expiration-seconds})]
+          {:s3-operation {:op-type :get-signed-url :s3 (:aws-s3 db) :params params
+                          :on-success-dispatch [:store-signed-url path-to-object-map url-key expiration-key expiration-time]}})))))
 
 ;; Upload an image to the helodali-raw-images bucket. The s3 object key ("filename") is composed
 ;; as follows: sub/artwork-uuid/image-uuid/filename
@@ -1287,41 +1307,45 @@
 ;;       filename is the basename of the file selected by the user
 (reg-event-fx
   :add-image
-  (conj manual-check-spec check-aws-credentials)
+  prep-for-aws-request
   (fn [{:keys [db]} [item-path js-file]]
     ;; If the AWS Credentials have expired, then delay the execution of this event
-    (if (:refresh-aws-creds? db)
-      {:dispatch-later [{:ms 400 :dispatch [:add-image item-path js-file]}]}
-      (let [filename (.-name js-file)
-            uuid (generate-uuid)
-            object-key (str (:cognito-identity-id db) "/" (get-in db (conj item-path :uuid))
-                            "/" uuid "/" filename)
-            params (clj->js {:Bucket "helodali-raw-images" :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})
-            images-path (conj item-path :images)
-            images (get-in db images-path)]
-        {:s3-operation {:op-type :put-object :s3 (:aws-s3 db) :params params}
-         :db (assoc-in db images-path (conj images {:uuid uuid :processing true}))}))))
+    (if (and (:refresh-access-token? db) (:refresh-aws-creds? db))
+      {:dispatch-n (list [:refresh-access-token] [:add-image item-path js-file])}
+      (if (:refresh-aws-creds? db)
+        {:dispatch-later [{:ms 400 :dispatch [:add-image item-path js-file]}]}
+        (let [filename (.-name js-file)
+              uuid (generate-uuid)
+              object-key (str (:cognito-identity-id db) "/" (get-in db (conj item-path :uuid))
+                              "/" uuid "/" filename)
+              params (clj->js {:Bucket "helodali-raw-images" :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})
+              images-path (conj item-path :images)
+              images (get-in db images-path)]
+          {:s3-operation {:op-type :put-object :s3 (:aws-s3 db) :params params}
+           :db (assoc-in db images-path (conj images {:uuid uuid :processing true}))})))))
 
 ;; Similar to add-image but replace the existing image
 (reg-event-fx
   :replace-image
-  (conj manual-check-spec check-aws-credentials)
+  prep-for-aws-request
   (fn [{:keys [db]} [item-path image-uuid js-file]]
     ;; If the AWS Credentials have expired, then delay the execution of this event
-    (if (:refresh-aws-creds? db)
-      {:dispatch-later [{:ms 400 :dispatch [:replace-image item-path image-uuid js-file]}]}
-      (let [filename (.-name js-file)
-            images-path (conj item-path :images)
-            images (get-in db images-path)
-            idx (find-element-by-key-value images :uuid image-uuid)
-            new-uuid (generate-uuid)
-            image-to-delete (get images idx)
-            object-key (str (:cognito-identity-id db) "/" (get-in db (conj item-path :uuid))
-                            "/" new-uuid "/" filename)
-            params (clj->js {:Bucket "helodali-raw-images" :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})]
-        {:s3-operation {:op-type :put-object :s3 (:aws-s3 db) :params params
-                        :on-success-dispatch [:delete-s3-objects "helodali-raw-images" [image-to-delete]]}
-         :db (assoc-in db (conj images-path idx) {:uuid new-uuid :processing true})}))))
+    (if (and (:refresh-access-token? db) (:refresh-aws-creds? db))
+      {:dispatch-n (list [:refresh-access-token] [:replace-image item-path image-uuid js-file])}
+      (if (:refresh-aws-creds? db)
+        {:dispatch-later [{:ms 400 :dispatch [:replace-image item-path image-uuid js-file]}]}
+        (let [filename (.-name js-file)
+              images-path (conj item-path :images)
+              images (get-in db images-path)
+              idx (find-element-by-key-value images :uuid image-uuid)
+              new-uuid (generate-uuid)
+              image-to-delete (get images idx)
+              object-key (str (:cognito-identity-id db) "/" (get-in db (conj item-path :uuid))
+                              "/" new-uuid "/" filename)
+              params (clj->js {:Bucket "helodali-raw-images" :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})]
+          {:s3-operation {:op-type :put-object :s3 (:aws-s3 db) :params params
+                          :on-success-dispatch [:delete-s3-objects "helodali-raw-images" [image-to-delete]]}
+           :db (assoc-in db (conj images-path idx) {:uuid new-uuid :processing true})})))))
 
 ;; Perform an s3 operation, such as putObject or copyObject. The 'op-type' argument tells us what
 ;; operation to perform. The on-success-dispatch argument is a vector which is passed to
@@ -1362,74 +1386,80 @@
 ;; the database (as opposed to Lambda being triggered).
 (reg-event-fx
   :add-s3-object
-  (conj manual-check-spec check-aws-credentials)
+  prep-for-aws-request
   (fn [{:keys [db]} [bucket item-path js-file]]
     ;; If the AWS Credentials have expired, then delay the execution of this event
-    (if (:refresh-aws-creds? db)
-      {:dispatch-later [{:ms 400 :dispatch [:add-s3-object bucket item-path js-file]}]}
-      (let [filename (.-name js-file)
-            s3 (:aws-s3 db)
-            key-name (s3-key-for-bucket bucket)
-            this-uuid (generate-uuid)
-            object-key (str (:cognito-identity-id db) "/" (get-in db (conj item-path :uuid)) "/" this-uuid "/" filename)
-            params (clj->js {:Bucket bucket :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})
-            changes {key-name object-key :filename filename :size (.-size js-file)}]
-        {:s3-operation {:op-type :put-object :s3 s3 :params params
-                        :on-success-dispatch [:on-s3-success item-path changes]}
-         :db (-> db
-               (assoc-in (conj item-path :processing) true)
-               (assoc-in (conj item-path :signed-raw-url) nil)
-               (assoc-in (conj item-path :signed-raw-url-expiration-time) nil))}))))
+    (if (and (:refresh-access-token? db) (:refresh-aws-creds? db))
+      {:dispatch-n (list [:refresh-access-token] [:add-s3-object bucket item-path js-file])}
+      (if (:refresh-aws-creds? db)
+        {:dispatch-later [{:ms 400 :dispatch [:add-s3-object bucket item-path js-file]}]}
+        (let [filename (.-name js-file)
+              s3 (:aws-s3 db)
+              key-name (s3-key-for-bucket bucket)
+              this-uuid (generate-uuid)
+              object-key (str (:cognito-identity-id db) "/" (get-in db (conj item-path :uuid)) "/" this-uuid "/" filename)
+              params (clj->js {:Bucket bucket :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})
+              changes {key-name object-key :filename filename :size (.-size js-file)}]
+          {:s3-operation {:op-type :put-object :s3 s3 :params params
+                          :on-success-dispatch [:on-s3-success item-path changes]}
+           :db (-> db
+                 (assoc-in (conj item-path :processing) true)
+                 (assoc-in (conj item-path :signed-raw-url) nil)
+                 (assoc-in (conj item-path :signed-raw-url-expiration-time) nil))})))))
 
 ;; Similar to add-s3-object but replace the existing object - delete the existing and add the new with a unique object-key
 (reg-event-fx
   :replace-s3-object
-  (conj manual-check-spec check-aws-credentials)
+  prep-for-aws-request
   (fn [{:keys [db]} [bucket item-path js-file]]
     ;; If the AWS Credentials have expired, then delay the execution of this event
-    (if (:refresh-aws-creds? db)
-      {:dispatch-later [{:ms 400 :dispatch [:replace-s3-object bucket item-path js-file]}]}
-      (let [filename (.-name js-file)
-            s3 (:aws-s3 db)
-            key-name (s3-key-for-bucket bucket)
-            this-uuid (generate-uuid)
-            object-key (str (:cognito-identity-id db) "/" (get-in db (conj item-path :uuid)) "/" this-uuid "/" filename)
-            s3-object-to-delete (get-in db item-path)
-            params (clj->js {:Bucket bucket :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})
-            changes {key-name object-key :filename filename :size (.-size js-file)}]
-        (pprint (str "object-key: " object-key))
-        (pprint (str "ContentType: " (.-type js-file)))
-        {:s3-operation {:op-type :put-object :s3 s3 :params params
-                        :on-success-dispatch [:on-s3-success item-path changes]}
-         :db (-> db
-               (assoc-in (conj item-path :processing) true)
-               (assoc-in (conj item-path :signed-raw-url) nil)
-               (assoc-in (conj item-path :signed-raw-url-expiration-time) nil))
-         :dispatch [:delete-s3-objects bucket [s3-object-to-delete]]}))))
+    (if (and (:refresh-access-token? db) (:refresh-aws-creds? db))
+      {:dispatch-n (list [:refresh-access-token] [:replace-s3-object bucket item-path js-file])}
+      (if (:refresh-aws-creds? db)
+        {:dispatch-later [{:ms 400 :dispatch [:replace-s3-object bucket item-path js-file]}]}
+        (let [filename (.-name js-file)
+              s3 (:aws-s3 db)
+              key-name (s3-key-for-bucket bucket)
+              this-uuid (generate-uuid)
+              object-key (str (:cognito-identity-id db) "/" (get-in db (conj item-path :uuid)) "/" this-uuid "/" filename)
+              s3-object-to-delete (get-in db item-path)
+              params (clj->js {:Bucket bucket :Key object-key :ContentType (.-type js-file) :Body js-file :ACL "private"})
+              changes {key-name object-key :filename filename :size (.-size js-file)}]
+          (pprint (str "object-key: " object-key))
+          (pprint (str "ContentType: " (.-type js-file)))
+          {:s3-operation {:op-type :put-object :s3 s3 :params params
+                          :on-success-dispatch [:on-s3-success item-path changes]}
+           :db (-> db
+                 (assoc-in (conj item-path :processing) true)
+                 (assoc-in (conj item-path :signed-raw-url) nil)
+                 (assoc-in (conj item-path :signed-raw-url-expiration-time) nil))
+           :dispatch [:delete-s3-objects bucket [s3-object-to-delete]]})))))
 
 ;; Copy object within same bucket and update database when done.
 ;; Construct new object key from new item's uuid and generate-uuid.
 (reg-event-fx
   :copy-s3-object
-  (conj manual-check-spec check-aws-credentials)
+  prep-for-aws-request
   (fn [{:keys [db]} [bucket source-object-map target-item-path]]
     ;; If the AWS Credentials have expired, then delay the execution of this event
-    (if (:refresh-aws-creds? db)
-      {:dispatch-later [{:ms 400 :dispatch [:copy-s3-object bucket source-object-map target-item-path]}]}
-      (let [s3 (:aws-s3 db)
-            key-name (s3-key-for-bucket bucket)
-            copy-source (str bucket "/" (key-name source-object-map))
-            this-uuid (generate-uuid)
-            object-key (str (:cognito-identity-id db) "/" (get-in db (conj target-item-path :uuid)) "/" this-uuid "/" (:filename source-object-map))
-            params (clj->js {:Bucket bucket :Key object-key :CopySource copy-source})
-            changes {key-name object-key}]
-        (pprint (str "object-key: " object-key))
-        {:s3-operation {:op-type :copy-object :s3 s3 :params params
-                        :on-success-dispatch [:on-s3-success target-item-path changes]}
-         :db (-> db
-               (assoc-in (conj target-item-path :processing) true)
-               (assoc-in (conj target-item-path :signed-raw-url) nil)
-               (assoc-in (conj target-item-path :signed-raw-url-expiration-time) nil))}))))
+    (if (and (:refresh-access-token? db) (:refresh-aws-creds? db))
+      {:dispatch-n (list [:refresh-access-token] [:copy-s3-object bucket source-object-map target-item-path])}
+      (if (:refresh-aws-creds? db)
+        {:dispatch-later [{:ms 400 :dispatch [:copy-s3-object bucket source-object-map target-item-path]}]}
+        (let [s3 (:aws-s3 db)
+              key-name (s3-key-for-bucket bucket)
+              copy-source (str bucket "/" (key-name source-object-map))
+              this-uuid (generate-uuid)
+              object-key (str (:cognito-identity-id db) "/" (get-in db (conj target-item-path :uuid)) "/" this-uuid "/" (:filename source-object-map))
+              params (clj->js {:Bucket bucket :Key object-key :CopySource copy-source})
+              changes {key-name object-key}]
+          (pprint (str "object-key: " object-key))
+          {:s3-operation {:op-type :copy-object :s3 s3 :params params
+                          :on-success-dispatch [:on-s3-success target-item-path changes]}
+           :db (-> db
+                 (assoc-in (conj target-item-path :processing) true)
+                 (assoc-in (conj target-item-path :signed-raw-url) nil)
+                 (assoc-in (conj target-item-path :signed-raw-url-expiration-time) nil))})))))
 
 
 ;; Copy given image. Differs from the above by not needing to update the database (in this case, Lambda
@@ -1438,52 +1468,56 @@
 ;; the target image map with just :uuid and :processing=true and is appended to images vector.
 (reg-event-fx
   :copy-s3-within-bucket
-  (conj manual-check-spec check-aws-credentials)
+  prep-for-aws-request
   (fn [{:keys [db]} [bucket source-object-map target-item-path]]
     ;; If the AWS Credentials have expired, then delay the execution of this event
-    (if (:refresh-aws-creds? db)
-      {:dispatch-later [{:ms 400 :dispatch [:copy-s3-within-bucket bucket source-object-map target-item-path]}]}
-      (let [callback (fn [err data]
-                       (if (not (nil? err))
-                         (pprint (str "Err from copyObject: " err))
-                         (pprint "successful copyObject")))
-            s3 (:aws-s3 db)
-            key-name (s3-key-for-bucket bucket)
-            copy-source (str bucket "/" (key-name source-object-map))
-            images-path (conj target-item-path :images)
-            images (get-in db images-path)
-            new-uuid (generate-uuid)
-            object-key (str (:cognito-identity-id db) "/" (get-in db (conj target-item-path :uuid))
-                            "/" new-uuid "/" (:filename source-object-map))
-            params (clj->js {:Bucket bucket :Key object-key :CopySource copy-source})]
-        (pprint (str "new object-key: " object-key))
-        (pprint (str "Copy Source: " copy-source))
-        (.copyObject s3 params callback)
-        {:db (assoc-in db images-path (conj images {:uuid new-uuid :processing true}))}))))
+    (if (and (:refresh-access-token? db) (:refresh-aws-creds? db))
+      {:dispatch-n (list [:refresh-access-token] [:copy-s3-within-bucket bucket source-object-map target-item-path])}
+      (if (:refresh-aws-creds? db)
+        {:dispatch-later [{:ms 400 :dispatch [:copy-s3-within-bucket bucket source-object-map target-item-path]}]}
+        (let [callback (fn [err data]
+                         (if (not (nil? err))
+                           (pprint (str "Err from copyObject: " err))
+                           (pprint "successful copyObject")))
+              s3 (:aws-s3 db)
+              key-name (s3-key-for-bucket bucket)
+              copy-source (str bucket "/" (key-name source-object-map))
+              images-path (conj target-item-path :images)
+              images (get-in db images-path)
+              new-uuid (generate-uuid)
+              object-key (str (:cognito-identity-id db) "/" (get-in db (conj target-item-path :uuid))
+                              "/" new-uuid "/" (:filename source-object-map))
+              params (clj->js {:Bucket bucket :Key object-key :CopySource copy-source})]
+          (pprint (str "new object-key: " object-key))
+          (pprint (str "Copy Source: " copy-source))
+          (.copyObject s3 params callback)
+          {:db (assoc-in db images-path (conj images {:uuid new-uuid :processing true}))})))))
 
 ;; Delete all objects defined in vector argument for given S3 bucket. Each object is a map
 ;; with a key defining the S3 objectKey value. Note: If deleting from helodali-raw-images, we
 ;; should reference the :raw-key inside the image map.
 (reg-event-fx
   :delete-s3-objects
-  (conj manual-check-spec check-aws-credentials)
+  prep-for-aws-request
   (fn [{:keys [db]} [bucket objects & args]]
     (if (empty? objects)
       {:db db} ;; nothing to do
       ;; If the AWS Credentials have expired, then delay the execution of this event
-      (if (:refresh-aws-creds? db)
-        {:dispatch-later [{:ms 400 :dispatch [:delete-s3-objects bucket objects]}]}
-        (let [s3 (:aws-s3 db)
-              key-name (s3-key-for-bucket bucket)
-              callback (fn [err data]
-                         (if (not (nil? err))
-                           (pprint (str "Err from deleteObjects: " err))
-                           (pprint (str "successful deleteObjects" data))))
-              object-keys (mapv (fn [m] {:Key (get m key-name)}) objects)
-              params (clj->js {:Bucket bucket :Delete {:Objects object-keys
-                                                       :Quiet false}})
-              _ (js->clj (.deleteObjects s3 params callback))]
-          {:db db})))))
+      (if (and (:refresh-access-token? db) (:refresh-aws-creds? db))
+        {:dispatch-n (list [:refresh-access-token] [:delete-s3-objects bucket objects])}
+        (if (:refresh-aws-creds? db)
+          {:dispatch-later [{:ms 400 :dispatch [:delete-s3-objects bucket objects]}]}
+          (let [s3 (:aws-s3 db)
+                key-name (s3-key-for-bucket bucket)
+                callback (fn [err data]
+                           (if (not (nil? err))
+                             (pprint (str "Err from deleteObjects: " err))
+                             (pprint (str "successful deleteObjects" data))))
+                object-keys (mapv (fn [m] {:Key (get m key-name)}) objects)
+                params (clj->js {:Bucket bucket :Delete {:Objects object-keys
+                                                         :Quiet false}})
+                _ (js->clj (.deleteObjects s3 params callback))]
+            {:db db}))))))
 
 ;; If uploading to our ring handler, which is not planned.
 ; (reg-event-fx
