@@ -291,13 +291,18 @@
                        (assoc :initialized? (:initialized? resp))
                        (assoc :display-type (if (:display-type resp) (:display-type resp) (:display-type db))) ;; Set display-type if it is present in the response
                        (assoc :instagram-media (and (:instagram-media resp) (into-sorted-map (:instagram-media resp))))
-                       (assoc :initialized? true))]
-        (pprint (str "access-token-exp: " (:access-token-exp app-db)))
+                       (assoc :initialized? true)
+                       ;; The resp may contain a map of top-level app-db key/vals to merge into our initial db, found in the :merge-this key of the resp.
+                       ;; If the merge-this map is non-empty it most likely contains :view and :display-type keys to route the app to the Instagram view.
+                       (merge (:merge-this resp)))]
         {:db app-db
          :sync-to-local-storage [{:k "helodali.access-token" :v (:access-token resp)}
                                  {:k "helodali.access-token-exp" :v (str (to-long (:access-token-exp resp)))}
                                  {:k "helodali.id-token" :v (:id-token resp)}]
-         :route-client {:route-name helodali.routes/home :args {}}}))))
+         ;; Route the app to either the home page or a specific view if one has been assigned from the above db initialization.
+         :route-client (if (and (:view app-db) (:display-type app-db))
+                         {:route-name helodali.routes/view-display :args {:type (name (:view app-db)) :display (name (:display-type app-db))}}
+                         {:route-name helodali.routes/home :args {}})}))))
 
 (defn- handle-app-db-updates
   "Look in the provided response map for an :app-updates key and apply any top-level
@@ -901,17 +906,12 @@
                          (assoc new-items id (assoc item kw value)))]
       (assoc db type (reduce-kv apply-change (sorted-map) (get db type))))))
 
-;; Change view. If 'display' is :default, look up the default view for the item type. Take this opportunity
-;; to inspect the age of the aws credentials and force a refresh if necessary.
+;; Change view. If 'display' is :default, look up the default view for the item type.
 (reg-event-db
   :change-view
   (fn [db [_ type display]]
     (let [display-type (if (= display :default) (helodali.db/default-view-for-type type) display)]
-          ;refresh-access-token? (if (:aws-creds-created-time db)
-          ;                        (ct/after? (ct/now) (ct/plus (:aws-creds-created-time db) (ct/hours 1)))
-          ;                        false)]
       (-> db
-        ;(assoc :refresh-access-token? refresh-access-token?)
         (assoc :display-type display-type)
         (assoc :view type)))))
 

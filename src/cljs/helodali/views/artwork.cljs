@@ -694,8 +694,9 @@
         id (last @item-path)]
     (fn []
       (when (not (empty? @item-path))
-        [v-box :gap "10px" :margin "40px" ;:style {:flex-flow "row wrap"}
+        [v-box :gap "10px" :margin "40px"
            :children [[item-view id]]]))))
+                      ;; TODO: plug in the following as a debug mode view
                       ;[:pre [:code (with-out-str (pprint @item))]]]]))))
 
 (defn new-item-view
@@ -775,7 +776,7 @@
 
 (defn no-items-to-display
   "Return the display elements when there are no artwork items yet in the db"
-  [instagram-media]
+  [uuid instagram-media]
   [[:p "Create your first artwork with "]
    [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
     :on-click #(route-new-item :artwork)]
@@ -783,7 +784,7 @@
    [md-icon-button :md-icon-name "zmdi zmdi-instagram mdc-text-grey"
     :on-click #(if instagram-media
                  (route-instagram-refresh)
-                 (instagram-auth @uuid))]])
+                 (instagram-auth uuid))]])
 
 (defn table-view
   "Display list of items as a table"
@@ -792,7 +793,8 @@
         items (subscribe [:items-keys-sorted-by-key :artwork sort-by-key-then-created])
         instagram-media (subscribe [:items-keys :instagram-media])
         titles (subscribe [:items-vals :artwork :title])
-        mediums (subscribe [:items-vals :artwork :medium])]
+        mediums (subscribe [:items-vals :artwork :medium])
+        uuid (subscribe [:by-path [:profile :uuid]])]
     (fn []
       (if (not-empty @items)
         (let [widths (r/atom {:title (+ 4 (max-string-length @titles 40))
@@ -831,7 +833,7 @@
             header
             (into [:tbody] (mapv (fn [id] ^{:key (str "artwork-" id)} [item-row @widths id]) @items))])
         [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
-         :children (no-items-to-display @instagram-media)]))))
+         :children (no-items-to-display @uuid @instagram-media)]))))
 
 (defn artwork-summary-view
   "Display summary view of items"
@@ -839,7 +841,8 @@
   (let [items (subscribe [:items-keys-sorted-by-key :artwork sort-by-key-then-created])
         instagram-media (subscribe [:items-keys :instagram-media])
         summary-display-count (subscribe [:app-key :summary-display-count])
-        items-batch-size 10]
+        items-batch-size 10
+        uuid (subscribe [:by-path [:profile :uuid]])]
     (fn []
       (if-not (empty? @items)
         (let [display-items (into [] (map (fn [id] ^{:key id} [item-view id]) (take @summary-display-count @items)))
@@ -855,7 +858,7 @@
           [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
            :children (into display-items [less-more-options])])
         [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
-         :children (no-items-to-display @instagram-media)]))))
+         :children (no-items-to-display @uuid @instagram-media)]))))
 
 (defn artwork-contact-sheet
   "Display contact sheet of items"
@@ -863,7 +866,8 @@
   (let [items (subscribe [:items-keys-sorted-by-key :artwork sort-by-key-then-created])
         instagram-media (subscribe [:items-keys :instagram-media])
         contact-sheet-display-count (subscribe [:app-key :contact-sheet-display-count])
-        items-batch-size 100]
+        items-batch-size 100
+        uuid (subscribe [:by-path [:profile :uuid]])]
     (fn []
       (if-not (empty? @items)
         (let [display-items (into [] (map (fn [id] ^{:key id} [item-contact-view id]) (take @contact-sheet-display-count @items)))
@@ -879,7 +883,7 @@
           [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
              :children (into display-items [less-more-options])])
         [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
-         :children (no-items-to-display @instagram-media)]))))
+         :children (no-items-to-display @uuid @instagram-media)]))))
 
 (defn artwork-view
   "Display artwork"

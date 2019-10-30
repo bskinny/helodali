@@ -73,12 +73,12 @@
 
 (defn- login-response
   [req sub session uref]
-  (let [set-display-type (get-in req [:session :set-display-type])
+  (let [merge-this (get-in req [:session :merge-this])
         db (cond-> (db/initialize-db sub session)
                    true (merge (refresh-instagram uref nil))
-                   set-display-type (assoc :display-type set-display-type))]
-    (cond-> (response db)
-            set-display-type (assoc :session (vary-meta (dissoc (:session req) :set-display-type) assoc :recreate true)))))
+                   (not-empty merge-this) (merge {:merge-this merge-this}))]
+    (-> (response db)
+        (assoc :session (vary-meta (dissoc (:session req) :merge-this) assoc :recreate true)))))
 
 (defn document-response [filename content-type bytes]
   (with-open [in (java.io.ByteArrayInputStream. bytes)]
@@ -126,7 +126,7 @@
     (process-instagram-auth code state)
     (-> (redirect "/")
       ;; Stash instruction for the UI to display the Instagram view.
-      (assoc-in [:session :set-display-type] :instagram)))
+      (assoc-in [:session :merge-this] {:view :artwork :display-type :instagram})))
 
   (POST "/update-user-table" [uuid table path val access-token :as req]
     (pprint (str "update-profile uuid/table/path/val: " uuid "/" table "/" path "/" val))
