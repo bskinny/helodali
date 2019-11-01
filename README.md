@@ -12,7 +12,7 @@ Artwork images are uploaded directly or imported from an Instagram feed and anno
 Basic revenue and expense is tracked as well as artist CV information. See [REQUIREMENTS](docs/REQUIREMENTS.md) for more detail. 
 
 #### Users and Authentication
-Users of the application are stored in an AWS Cognito User Pool which is configured to allow native account creation along with  
+Users of the application are stored in an AWS Cognito User Pool which is configured to allow native account creation along with
 external identity provider authentication with Google or Facebook. The Oauth2 `authorization_code` grant type is used with the helodali
 server component performing the request for an access token on behalf of the user. The token is stored in a DynamoDB session table and also
 returned to the client for resubmission on future requests. Any authenticated request from a user must include the access token which
