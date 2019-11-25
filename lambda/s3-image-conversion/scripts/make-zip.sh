@@ -1,7 +1,7 @@
 #!/bin/sh
 
 rm -rf node_modules
-docker run -v "$PWD":/var/task lambci/lambda:build-nodejs8.10 npm install
+docker run -v "$PWD":/var/task lambci/lambda:build-nodejs12.x npm install
 
 # Create the zip with just index.js and node_modules at the top level.
 rm -f image-conversion.zip
