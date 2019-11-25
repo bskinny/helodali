@@ -129,7 +129,7 @@
 
 ;; Expenses
 (s/def ::expense-type #{:materials :advertising :packaging-shipping :other
-                        :miscellaneous :dues-subscriptions})
+                        :miscellaneous :dues-subscriptions :studio :receptions})
 (s/def ::expense (s/keys :req-un [::date ::price ::created]
                          :opt-un [::notes ::expense-type]))
 

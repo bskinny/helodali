@@ -14,6 +14,8 @@
                            {:id :materials :label "Materials"}
                            {:id :miscellaneous :label "Miscellaneous"}
                            {:id :packaging-shipping :label "Packaging and Shipping"}
+                           {:id :receptions :label "Receptions"}
+                           {:id :studio :label "Studio"}
                            {:id :other :label "Other"}])
 
 ;; A map of the above labels keyed by expense-type keyword. E.g {:materials "Materials"}
