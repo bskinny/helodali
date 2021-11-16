@@ -13,7 +13,7 @@
     "sharp": "^0.23.1"
   },
   "devDependencies": {
-    "aws-sdk": "^2.527.0",
+    "aws-sdk": "^2.814.0",
     "bespoken-tools": "^2.4.6"
   }
 }
