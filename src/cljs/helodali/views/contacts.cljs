@@ -208,7 +208,7 @@
             header
             (into [:tbody] (mapv (fn [id] ^{:key (str "contact-row-" id)} [item-row @widths id]) @items))])
         [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
-         :children [[:p "Create your first contact with "]
+         :children [[:p "Create your first contact entry with "]
                     [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
                                       :on-click #(route-new-item :contacts)]]]))))
 

@@ -252,7 +252,7 @@
             header
             (into [:tbody] (mapv (fn [id] ^{:key (str "exhibition-row-" id)} [table-row @widths id]) @ids))])
         [h-box :gap "10px" :margin "40px" :align :start :justify :start :style {:flex-flow "row wrap"}
-         :children [[:p "Create your first exhibition with "]
+         :children [[:p "Create your first exhibition entry with "]
                     [md-icon-button :md-icon-name "zmdi zmdi-collection-plus mdc-text-grey"
                      :on-click #(route-new-item :exhibitions)]]]))))
 

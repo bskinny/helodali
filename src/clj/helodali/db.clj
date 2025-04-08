@@ -117,6 +117,7 @@
     (delete-items :artwork (far/query co :artwork {:uref [:eq uref]} query-opts))
     (delete-items :documents (far/query co :documents {:uref [:eq uref]} query-opts))
     (delete-items :exhibitions (far/query co :exhibitions {:uref [:eq uref]} query-opts))
+    (delete-items :groupings (far/query co :groupings {:uref [:eq uref]} query-opts))
     (delete-items :contacts (far/query co :contacts {:uref [:eq uref]} query-opts))
     (delete-items :expenses (far/query co :expenses {:uref [:eq uref]} query-opts))
     (delete-items :press (far/query co :press {:uref [:eq uref]} query-opts))
@@ -141,6 +142,7 @@
       {:artwork (query-by-uref :artwork uref)
        :documents (query-by-uref :documents uref)
        :exhibitions (query-by-uref :exhibitions uref)
+       :groupings (query-by-uref :groupings uref)
        :contacts (query-by-uref :contacts uref)
        :expenses (query-by-uref :expenses uref)
        :press (query-by-uref :press uref)
@@ -508,7 +510,7 @@
   []
   (let [tables (far/list-tables co)]
     (doall (map #(far/delete-table co %) tables))
-    (doall (map #(create-table %) [:press :exhibitions :documents :artwork :contacts :expenses]))
+    (doall (map #(create-table %) [:press :exhibitions :groupings :documents :artwork :contacts :expenses]))
     (far/create-table co :profiles
       [:uuid :s]  ; Hash key of uuid-valued user reference, (:s => string type)
       {:throughput {:read 2 :write 2} ; Read & write capacity (units/sec)
@@ -627,7 +629,7 @@
 
 ;; The tables which have a user's uuid defined in a :uref indexed field
 (def tables-indexed-by-uref
-  [:sessions :press :openid :expenses :exhibitions :documents :contacts :artwork])
+  [:sessions :press :openid :expenses :exhibitions :groupings :documents :contacts :artwork])
 
 ;; The tables which have a user's uuid defined in a :uuid indexed field
 (def tables-indexed-by-uuid

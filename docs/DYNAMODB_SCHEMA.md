@@ -8,8 +8,6 @@ user's `uuid` being the key. Tables with multiple items per user, such as artwor
 and range key pair which tell DynamoDB how to group the items. In this scenario, the hash key is the user's uuid 
 stored in the `uref` attribute and the range key is the unique `uuid` attribute value representing the artwork/exhibition/etc. item.
 
-
-
 The __accounts__ table is keyed on the user's uuid value stored in the `uuid` attribute and is referenced mostly just
 at time of user login.
 ```json
@@ -301,6 +299,46 @@ stream definition.
             }
         ],
         "LatestStreamArn": "arn:aws:dynamodb:us-east-1:<account-number>:table/pages/stream/2018-06-22T21:31:07.588"
+    }
+}
+```
+
+The __groupings__ table is similar to the exhibitions table.
+```json
+{
+    "Table": {
+        "TableArn": "arn:aws:dynamodb:us-east-1:128225160927:table/groupings",
+        "AttributeDefinitions": [
+            {
+                "AttributeName": "uref",
+                "AttributeType": "S"
+            },
+            {
+                "AttributeName": "uuid",
+                "AttributeType": "S"
+            }
+        ],
+        "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "WriteCapacityUnits": 2,
+            "ReadCapacityUnits": 2
+        },
+        "TableSizeBytes": 0,
+        "TableName": "groupings",
+        "TableStatus": "ACTIVE",
+        "TableId": "30efb896-f6ef-4feb-9f84-915cbf1a5cb7",
+        "KeySchema": [
+            {
+                "KeyType": "HASH",
+                "AttributeName": "uref"
+            },
+            {
+                "KeyType": "RANGE",
+                "AttributeName": "uuid"
+            }
+        ],
+        "ItemCount": 0,
+        "CreationDateTime": 1583684938.057
     }
 }
 ```

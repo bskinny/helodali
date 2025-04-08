@@ -40,6 +40,7 @@
       (assoc :artwork (dissoc (:artwork db) 0))
       (assoc :contacts (dissoc (:contacts db) 0))
       (assoc :exhibitions (dissoc (:exhibitions db) 0))
+      (assoc :groupings (dissoc (:groupings db) 0))
       (assoc :documents (dissoc (:documents db) 0))
       (assoc :press (dissoc (:press db) 0))
       (assoc :expenses (dissoc (:expenses db) 0))))
@@ -274,6 +275,7 @@
                                            (apply-artwork-signed-urls local-store-signed-urls)
                                            (into-sorted-map)))
                        (assoc :exhibitions (into-sorted-map (map #(merge (helodali.db/default-exhibition) %) (:exhibitions resp))))
+                       (assoc :groupings (into-sorted-map (map #(merge (helodali.db/default-grouping) %) (:groupings resp))))
                        (assoc :documents (-> (map #(merge (helodali.db/default-document) %) (:documents resp))
                                              (apply-document-signed-urls local-store-signed-urls)
                                              (into-sorted-map)))
@@ -560,7 +562,7 @@
           ;; Use diffA as a basis for the changes made to the item. Since we assign nil values as opposed to removing
           ;; map keys/vals, diffA should contain all changes except for those made within collection-valued keys
           ;; (e.g. vector-valued :purchases of artwork or :degrees of profile). In this case, we look for any occurrence
-          ;; of the key (e.g. :purchases in artwork) in either diffA or diffB and overwite the entire value instead of
+          ;; of the key (e.g. :purchases in artwork) in either diffA or diffB and overwrite the entire value instead of
           ;; trying to pinpoint the exact change within the collection.
           ;; TODO: Improve this approach of explicitly naming the vector-of-colls by using (type)
           changes (cond-> diffA
@@ -575,6 +577,7 @@
                      (and (= type :profile) (or (:awards-and-grants diffA) (:awards-and-grants diffB))) (assoc :awards-and-grants (:awards-and-grants item))
                      (or (:associated-documents diffA) (:associated-documents diffB)) (assoc :associated-documents (:associated-documents item))
                      (or (:associated-press diffA) (:associated-press diffB)) (assoc :associated-press (:associated-press item))
+                     (or (:associated-artwork diffA) (:associated-artwork diffB)) (assoc :associated-artwork (:associated-artwork item))
                      (and (= type :artwork) (or (:style diffA) (:style diffB))) (assoc :style (:style item))
                      (and (= type :artwork) (or (:images diffA) (:images diffB))) (assoc :images (:images item))
                      (and (= type :artwork) (or (:purchases diffA) (:purchases diffB))) (assoc :purchases (:purchases item))
@@ -1005,6 +1008,8 @@
                    (str "The item cannot be removed since it is referenced in the following " (name type) ": "
                         (clojure.string/join ", " (map #(get % name-kw) items)) ". ")))]
     (condp = type
+      :artwork (let [groupings (filter #(contains? (get % :associated-artwork) uuid) (vals (:groupings db)))]
+                 (ret-fx groupings :groupings :name))
       :press (let [exhibitions (filter #(contains? (get % :associated-press) uuid) (vals (:exhibitions db)))]
                (ret-fx exhibitions :exhibitions :name))
       :documents (let [exhibitions (filter #(contains? (get % :associated-documents) uuid) (vals (:exhibitions db)))

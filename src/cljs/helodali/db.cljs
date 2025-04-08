@@ -27,6 +27,15 @@
    ; :associated-press #{uuid1 uuid2}
    :images []}) ;; One or more images
 
+(defn default-grouping
+  []
+  {:uuid (generate-uuid)
+   :associated-artwork #{}
+   :columns #{}
+   :created (now)
+   :name nil ;; Name or Title of grouping
+   :notes nil}) ;; A user provided paragraph
+
 (defn default-contact
   []
   {:uuid (generate-uuid)
@@ -179,6 +188,7 @@
    :contacts (sorted-map)
    :expenses (sorted-map)
    :press (sorted-map)
+   :groupings (sorted-map)
    :instagram-media nil ;; This should be nil-valued at time of login
    :ui-defaults ui-defaults
    :view :artwork
@@ -208,6 +218,7 @@
                :expenses [:date false]
                :referred-artwork [:year false]
                :exhibitions [:name true]
+               :groupings [:name true]
                :documents [:title true]
                :purchases [:date false]
                :press [:publication-date false]
@@ -219,6 +230,7 @@
                     :artwork (default-artwork)
                     :documents (default-document)
                     :exhibitions (default-exhibition)
+                    :groupings (default-grouping)
                     :contacts (default-contact)
                     :expenses (default-expense)
                     :press (default-press)

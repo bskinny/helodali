@@ -12,6 +12,7 @@
               [helodali.views.pages :refer [pages-view]]
               [helodali.views.purchases :refer [purchases-view]]
               [helodali.views.exhibitions :refer [exhibitions-view]]
+              [helodali.views.groupings :refer [groupings-view]]
               [helodali.views.search-results :refer [search-results-view]]
               [helodali.views.static-pages :refer [static-pages-view]]
               [cljs.pprint :refer [pprint]]
@@ -42,7 +43,8 @@
                            [label :label "Expenses" :on-click #(select-fn :expenses)]
                            [label :label "Documents" :on-click #(select-fn :documents)]
                            [label :label "Press" :on-click #(select-fn :press)]
-                           [label :label "Purchases" :on-click #(select-fn :purchases)]]]])))
+                           [label :label "Purchases" :on-click #(select-fn :purchases)]
+                           [label :label "Groupings" :on-click #(select-fn :groupings)]]]])))
 
 (defn account-popover-body
   []
@@ -287,6 +289,7 @@
                                     :purchases [purchases-view]
                                     :documents [documents-view]
                                     :exhibitions [exhibitions-view]
+                                    :groupings [groupings-view]
                                     :search-results [search-results-view]
                                     [box :width "50%" :align-self :center
                                        :child [re-com/alert-box :alert-type :warning :closeable? true :body (str "Unexpected value for :view of " @view)]])]]

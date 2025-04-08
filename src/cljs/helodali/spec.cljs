@@ -19,6 +19,8 @@
 (s/def ::ref (s/nilable ::uuid)) ;; Used to reference an item, certain situations require allowing nil
 (s/def ::associated-documents (s/nilable (s/coll-of ::uuid)))
 (s/def ::associated-press (s/nilable (s/coll-of ::uuid)))
+(s/def ::associated-artwork (s/nilable (s/coll-of ::uuid)))
+(s/def ::columns (s/nilable #{:title :year :status :medium :dimensions :list-price :type}))
 (s/def ::processing (s/nilable boolean?))
 (s/def ::name (s/and string? #(< 0 (count %))))
 
@@ -146,6 +148,10 @@
                             :opt-un [::kind ::location ::url ::end-date ::notes ::include-in-cv
                                      ::images ::associated-documents ::associated-press]))
 
+;; Groupings
+(s/def ::grouping (s/keys :req-un [::uuid ::name ::created]
+                          :opt-un [::columns ::notes ::associated-artwork]))
+
 ;; Document
 (s/def ::document (s/keys :req-un [::uuid ::created ::title]
                           :opt-un [::notes ::size ::processing ::filename ::last-modified
@@ -219,21 +225,22 @@
 (s/def ::csrf-token (s/nilable string?))
 (s/def ::single-item-uuid (s/nilable string?))
 (s/def ::search-pattern (s/nilable string?))
-(s/def ::view #{:show-login :artwork :contacts :exhibitions :documents :purchases :press :profile
+(s/def ::view #{:show-login :artwork :contacts :exhibitions :documents :purchases :press :profile :groupings
                 :search-results :account :pages :static-page :expenses :landing})
 (s/def ::static-page (s/nilable #{:privacy-policy}))
-(s/def ::display-type #{:summary-view :contact-sheet :single-item :new-item :list :row :instagram})
+(s/def ::display-type #{:summary-view :contact-sheet :single-item :new-item :list :row :instagram :pdf-generation})
 (s/def ::summary-display-count (s/nilable int?))
 (s/def ::contact-sheet-display-count (s/nilable int?))
 (s/def ::contacts (s/every-kv ::id ::contact))
 (s/def ::expenses (s/every-kv ::id ::expense))
 (s/def ::exhibitions (s/every-kv ::id ::exhibition))
+(s/def ::groupings (s/every-kv ::id ::grouping))
 (s/def ::documents (s/every-kv ::id ::document))
 (s/def ::press (s/every-kv ::id ::press-ref))
 (s/def ::instagram-media (s/nilable (s/every-kv ::id ::instagram-media-ref)))
 (s/def ::ui-defaults (s/nilable (s/keys :req-un [::artwork-defaults])))
 (s/def ::messages (s/keys))  ;; The keys for ::messages are mostly random
-(s/def ::db (s/keys :req-un [::view ::display-type ::single-item-uuid ::artwork ::contacts ::exhibitions ::ui-defaults
+(s/def ::db (s/keys :req-un [::view ::display-type ::single-item-uuid ::artwork ::contacts ::exhibitions ::ui-defaults ::groupings
                              ::press ::profile ::authenticated? ::initialized? ::access-token ::refresh-access-token? ::access-token-exp ::id-token
                              ::cognito-identity-id ::userinfo ::search-pattern ::documents ::aws-creds ::refresh-aws-creds? ::account]
                     :opt-un [::messages ::instagram-media ::do-cognito-logout? ::pages]))
@@ -244,6 +251,7 @@
   (condp = type
     :artwork ::artwork-item
     :exhibitions ::exhibition
+    :groupings ::grouping
     :contacts ::contact
     :expenses ::expense
     :documents ::document
